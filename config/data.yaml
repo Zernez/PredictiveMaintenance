@@ -1,0 +1,8 @@
+# Settings for data -------------------------------------------------
+#
+
+alarm_ats: "222718"
+dropout_threshold: 5
+min_home_care: 200
+window_len: 4
+lag: -3
