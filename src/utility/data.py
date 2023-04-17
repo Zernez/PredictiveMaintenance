@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from collections import defaultdict
 import config as cfg
-from utility.time import year_week_diff, get_later_week
+from ..utility.time import year_week_diff, get_later_week
 from dataclasses import dataclass
 
 class Data:

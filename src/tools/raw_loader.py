@@ -1,7 +1,7 @@
 from pathlib import Path
 import pandas as pd
 import numpy as np
-from utility.data import fix_hc_data_types
+from ..utility.data import fix_hc_data_types
 
 class RawLoader:
     """

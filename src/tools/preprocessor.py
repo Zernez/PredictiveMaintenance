@@ -1,8 +1,8 @@
 from xmlrpc.client import boolean
 import numpy as np
 from typing import Tuple, Union
-from utility.data import Citizen
-from utility.time import year_week_diff, get_later_week
+from ..utility.data import Citizen
+from ..utility.time import year_week_diff, get_later_week
 import config as cfg
 import pandas as pd
 from sklearn.preprocessing import StandardScaler

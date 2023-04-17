@@ -6,6 +6,15 @@ from sksurv.ensemble import GradientBoostingSurvivalAnalysis
 import config as cfg
 from lifelines import WeibullAFTFitter
 from lifelines.utils.sklearn_adapter import sklearn_adapter
+from sksurv.svm import FastSurvivalSVM
+import rpy2
+
+from sklearn.preprocessing import StandardScaler
+from sklearn_pandas import DataFrameMapper
+import torch
+import torchtuples as tt
+from pycox.models import CoxPH
+from pycox.evaluation import EvalSurv
 
 class BaseRegressor(ABC):
     """
@@ -202,3 +211,64 @@ class WeibullAFT(BaseRegressor):
         }
     def get_best_hyperparams(self):
         return {'alpha': 0.01}
+    
+class SVM(BaseRegressor):
+    def make_model(self, params=None):
+        model_params = {'alpha': 1, 'rank_ratio': 0.8, 'max_iter': 40, 'optimizer': 'avltree'}
+        if params:
+            model_params.update(params)
+        return FastSurvivalSVM(**model_params)
+    
+    def get_hyperparams(self):
+        return {
+            'alpha': [0, 1, 2, 3],
+            'rank_ratio': [0.4, 0.5, 0.6, 0.7, 0.8],
+            'max_iter': [40, 50, 60],
+            'optimizer': ['alvtree', 'direct-count', 'PRSVM', 'rbtree']
+        }
+    def get_best_hyperparams(self):
+        return  {'alpha': 1, 'rank_ratio': 0.8, 
+                 'max_iter': 40, 'optimizer': 'avltree'}
+    
+class Markov(BaseRegressor):
+    def make_model(self, params=None):
+        return sklearn_adapter(WeibullAFTFitter, event_col='Observed')
+    def get_hyperparams(self):
+        return {
+            'alpha': [0.01, 0.05, 0.1, 1]
+        }
+    def get_best_hyperparams(self):
+        return {'alpha': 0.01}
+    
+class DeepSurv(BaseRegressor):
+    def make_model(self, params=None):
+        model_params = {'in_features': 0, 'num_nodes': [32,32], 
+                        'out_features': 0, 'batch_norm' : True, 
+                        'dropout': 0.1, 'output_bias': False}
+        if params:
+            model_params.update(params)
+
+        net = tt.practical.MLPVanilla(**model_params)
+        
+        model = CoxPH(net, tt.optim.Adam)
+
+        return model
+    def get_hyperparams(self):
+        return {
+                'in_features': 0, 
+                'num_nodes': [32,32], 
+                'out_features': 0, 
+                'batch_norm' : True, 
+                'dropout': 0.1, 
+                'output_bias': False, 
+                'lr': [0.01, 0.02, 0.03]
+        }
+    def get_best_hyperparams(self):
+        return {                
+                'in_features': 0, 
+                'num_nodes': [32,32], 
+                'out_features': 0, 
+                'batch_norm' : True, 
+                'dropout': 0.1, 
+                'output_bias': False, 
+                'lr': 0.01}

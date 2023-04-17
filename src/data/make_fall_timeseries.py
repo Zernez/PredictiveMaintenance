@@ -2,9 +2,9 @@
 This file makes list both the list of citizens and the different dictionaries to be used in
 """
 
-from tools import alarm_labeler, file_writer, file_reader, alarm_inputter
-from utility import data
-from utility.config import load_config
+from ..tools import alarm_labeler, file_writer, file_reader, alarm_inputter
+from ..utility import data
+from ..utility.config import load_config
 import config as cfg
 from pathlib import Path
 import pandas as pd

@@ -26,7 +26,8 @@ def main():
     rsf_model = regressors.RSF.make_model(regressors.RSF().get_best_params())
     cb_model = regressors.CoxBoost.make_model(regressors.CoxBoost().get_best_params())
     xgb_model = regressors.XGBTree.make_model(regressors.XGBTree().get_best_params())
-    
+    ds_model = regressors.DeepSurv.make_model(regressors.DeepSurv().get_best_params())
+
     best_features = feature_selectors.SelectKBest10(X_train, y_train, xgb_model).get_features()
     X_train, X_test = X_train.loc[:,best_features], X_test.loc[:,best_features]
 
@@ -35,6 +36,7 @@ def main():
     cb_model.fit(X_train, y_train)
     y_train_xgb = [x[1] if x[0] else -x[1] for x in y_train]
     xgb_model.fit(X_train, y_train_xgb)
+    ds_model.fit(X_train, y_train)
 
     cph_surv_func = predict_survival_funciton(cph_model, X_test, y_test)
     rsf_surv_func = predict_survival_funciton(rsf_model, X_test, y_test)
