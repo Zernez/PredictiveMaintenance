@@ -29,3 +29,5 @@ fitter
 statsmodels
 pymsm
 distfit
+survival-datasets
+graphviz

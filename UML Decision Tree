@@ -1,0 +1,20 @@
+// UML Decision Tree
+digraph {
+	A [label="Raw data"]
+	B [label="Hilbert transform"]
+	C [label="FFT transform"]
+	G [label="Probability Distribution Function"]
+	H [label="Kullback-Leibler divergence test"]
+	I [label="Standard Deviation test"]
+	L [label="T-statistic test"]
+	M [label="Definition of failure in time"]
+	A -> B
+	B -> C
+	C -> G [label="Supervised/Statistical approach"]
+	G -> H
+	G -> I
+	G -> L
+	H -> M
+	I -> M
+	L -> M
+}
