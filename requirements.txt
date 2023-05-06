@@ -31,3 +31,5 @@ pymsm
 distfit
 survival-datasets
 graphviz
+config
+lifelines

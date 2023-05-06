@@ -3,27 +3,32 @@ import numpy as np
 import pandas as pd
 from tools import regressors
 from tools import file_writer
+from tools import file_reader
+from tools import data_ETL
 from pathlib import Path
 import config as cfg
-from tools.feature_selectors import NoneSelector, LowVar, SelectKBest10, SelectKBest20, \
-                                    RegMRMR10, RegMRMR20, RFE10, RFE20
+from tools.feature_selectors import NoneSelector, LowVar, SelectKBest10, \
+                                    RegMRMR10  #RFE10,RFE20, SelectKBest20, RegMRMR20
 from tools.regressors import Cph, CphRidge, CphLasso, CphElastic, CoxBoost, WeibullAFT, \
                              RSF, XGBLinear, XGBTree, XGBDart
 from sklearn.model_selection import train_test_split
-from utility.survival import paired_ttest_5x2cv
+from utility import survival 
 from tools import file_reader
 
-N_REPEATS = 5
-N_SPLITS = 5
+N_REPEATS = 3
+N_SPLITS = 3
 
 def main():
-    df = file_reader.read_csv(Path.joinpath(cfg.PROCESSED_DATA_DIR, 'home_care_ma.csv'))
-    X = df.drop(['Observed', 'Weeks'], axis=1)
-    y = np.array(list(tuple(x) for x in df[['Observed', 'Weeks']].to_numpy()),
-                 dtype=[('Observed', 'bool'), ('Weeks', '<f8')])
 
-    models = [Cph, CphRidge, CphLasso, CphElastic, RSF, CoxBoost, XGBLinear, XGBTree, XGBDart, WeibullAFT]
-    ft_selectors = [NoneSelector, LowVar, SelectKBest10, SelectKBest20, RFE10, RFE20, RegMRMR10, RegMRMR20]
+    df = file_reader.FileReader().read_data()
+    
+    df_surv = data_ETL.DataETL().make_covariates(df)
+    X, y = data_ETL.DataETL().make_surv_data(df_surv) 
+    # y = np.array(list(tuple(x) for x in df[['Observed', 'Weeks']].to_numpy()),
+    #              dtype=[('Observed', 'bool'), ('Weeks', '<f8')])
+
+    models = [Cph, CphRidge, CphLasso, CphElastic, WeibullAFT, RSF, CoxBoost, XGBLinear, XGBTree, XGBDart] #
+    ft_selectors = [NoneSelector, LowVar, SelectKBest10, RegMRMR10] #RFE10, RFE20, SelectKBest20, RegMRMR20
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0)
     T1, HOS = (X_train, y_train), (X_test, y_test)
@@ -81,7 +86,7 @@ def main():
                     current_model = model_builder().get_estimator(best_params)
 
                     # Find stats difference between best model and current model via CV
-                    t, p = paired_ttest_5x2cv(estimator1=best_model,
+                    t, p = survival.Survival().paired_ttest_5x2cv(estimator1=best_model,
                                               estimator2=current_model,
                                               estimator1_best_fts=best_model_features,
                                               estimator2_best_fts=current_model_features,
@@ -93,7 +98,7 @@ def main():
                                         index=["ModelName", "FtSelectorName", "NRepeat", "T", "P"])
                     model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
 
-        file_writer.write_csv(Path.joinpath(cfg.REPORTS_DIR, f"{model_name}_alarm_cv_results_ttest.csv"), model_results)
+#        file_writer.write_csv(Path.joinpath(cfg.REPORTS_DIR, f"{model_name}_alarm_cv_results_ttest.csv"), model_results)
 
 if __name__ == "__main__":
     main()

@@ -4,30 +4,36 @@ import pandas as pd
 from tools import file_writer
 from pathlib import Path
 import config as cfg
-from tools.feature_selectors import RFE10, RFE20, NoneSelector, LowVar, SelectKBest10, SelectKBest20, RegMRMR10, RegMRMR20
+from tools.feature_selectors import NoneSelector, LowVar, SelectKBest10, RegMRMR10 #RFE10,RFE20, SelectKBest20, RegMRMR20
 from tools.regressors import Cph, CphRidge, CphLasso, CphElastic, RSF, CoxBoost, WeibullAFT, XGBLinear, XGBTree, XGBDart
 from tools import file_reader
+from tools import data_ETL
 from sklearn.model_selection import train_test_split
 from xgbse.metrics import approx_brier_score
 from sklearn.model_selection import RandomizedSearchCV
 from lifelines.utils import concordance_index
 from sksurv.metrics import concordance_index_censored
 from time import time
+import math
 
-N_REPEATS = 5
-N_SPLITS = 5
-N_ITER = 10
+N_REPEATS = 3
+N_SPLITS = 3
+N_ITER = 3
 
 def main():
-    df = file_reader.read_csv(Path.joinpath(cfg.PROCESSED_DATA_DIR, 'home_care_ma.csv'))
-    X = df.drop(['Observed', 'Weeks'], axis=1)
-    y = np.array(list(tuple(x) for x in df[['Observed', 'Weeks']].to_numpy()),
-                 dtype=[('Observed', 'bool'), ('Weeks', '<f8')])
 
-    models = [Cph, CphRidge, CphLasso, CphElastic, RSF, CoxBoost, XGBLinear, XGBTree, XGBDart, WeibullAFT]
-    ft_selectors = [NoneSelector, LowVar, SelectKBest10, SelectKBest20, RFE10, RFE20, RegMRMR10, RegMRMR20]
+    df = file_reader.FileReader().read_data()
+    
+    df_surv = data_ETL.DataETL().make_covariates(df)
+    X, y = data_ETL.DataETL().make_surv_data_sklS(df_surv)
+    X_2, y_2 = data_ETL.DataETL().make_surv_data_pyS(df_surv)
+    # y = np.array(list(tuple(x) for x in df[['Event', 'Survival_time']].to_numpy()),
+    #              dtype=[('Event', '?'), ('Survival_time', '<f8')])
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0)
+    models = [Cph, CphRidge, CphLasso, CphElastic, WeibullAFT, RSF, CoxBoost, XGBLinear, XGBTree, XGBDart] #, WeibullAFT
+    ft_selectors = [NoneSelector, LowVar, SelectKBest10, RegMRMR10] #RFE10, RFE20, SelectKBest20, RegMRMR20
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=0)
     T1, HOS = (X_train, y_train), (X_test, y_test)
 
     print(f"Started evaluation of {len(models)} models/{len(ft_selectors)} ft selectors/{len(T1[0])} total samples")
@@ -36,6 +42,8 @@ def main():
         model_results = pd.DataFrame()
         for ft_selector_builder in ft_selectors:
             ft_selector_name = ft_selector_builder.__name__
+            print ("ft_selector name: ", ft_selector_name )
+            print ("model_builder name: ", model_name )
             for n_repeat in range(N_REPEATS):
                 kf = KFold(n_splits=N_SPLITS, shuffle=True, random_state=n_repeat)
                 for train, test in kf.split(T1[0], T1[1]):
@@ -55,6 +63,7 @@ def main():
                     get_best_features_start_time = time()
                     model = model_builder().get_estimator()
                     model_class_name = model.__class__.__name__
+
                     if ft_selector_name in ["RegMRMR10", "RegMRMR20"]:
                         y_ti_mrmr = np.array([x[0] for x in ti[1]], float)
                         ft_selector = ft_selector_builder(ti[0], y_ti_mrmr, estimator=model)
@@ -88,6 +97,11 @@ def main():
                     cvi_new = (cvi[0].loc[:, selected_fts], cvi[1])
                     get_best_features_time = time() - get_best_features_start_time
 
+                    print ("Selected features: ", selected_fts)
+
+                    lower, upper = np.percentile(ti_new[1][ti_new[1].dtype.names[1]], [10, 90])
+                    times = np.arange(math.ceil(lower), math.floor(upper+1))
+
                     # Find hyperparams via CV
                     get_best_params_start_time = time()
                     space = model_builder().get_tuneable_params()
@@ -95,15 +109,15 @@ def main():
                         wf = model()
                         search = RandomizedSearchCV(wf, space, n_iter=N_ITER, cv=N_SPLITS, random_state=0)
                         x_ti_wf = pd.concat([ti_new[0].reset_index(drop=True),
-                                            pd.DataFrame(ti_new[1]['Observed'], columns=['Observed'])], axis=1)
+                                            pd.DataFrame(ti_new[1]['Event'], columns=['Event'])], axis=1)
                         y_ti_wf = np.array([x[1] for x in ti_new[1]], float)
                         search.fit(x_ti_wf, y_ti_wf)
                     elif model_class_name == "XGBRegressor":
-                        search = RandomizedSearchCV(model, space, n_iter=N_ITER, n_jobs=N_ITER, random_state=0)
+                        search = RandomizedSearchCV(model, space, n_iter=N_ITER, cv= N_SPLITS, random_state=0)
                         y_ti_xgb = [x[1] if x[0] else -x[1] for x in ti_new[1]]
                         search.fit(ti_new[0], y_ti_xgb)
                     else:
-                        search = RandomizedSearchCV(model, space, n_iter=N_ITER, n_jobs=N_ITER, random_state=0)
+                        search = RandomizedSearchCV(model, space, n_iter=N_ITER, cv= N_SPLITS, random_state=0)
                         search.fit(ti_new[0], ti_new[1])
                     best_params = search.best_params_
                     get_best_params_time = time() - get_best_params_start_time
@@ -125,28 +139,28 @@ def main():
                     model_ci_inference_start_time = time()
                     if model_name == "WeibullAFT":
                         x_cvi_wf = pd.concat([cvi_new[0].reset_index(drop=True),
-                                              pd.DataFrame(cvi_new[1]['Observed'],
-                                                           columns=['Observed'])], axis=1)
+                                              pd.DataFrame(cvi_new[1]['Event'],
+                                                           columns=['Event'])], axis=1)
                         preds = model.predict(x_cvi_wf)
-                        c_index = concordance_index(cvi[1]['Weeks'], preds, cvi[1]['Observed'])
+                        c_index = concordance_index(cvi[1]['Survival_time'], preds, cvi[1]['Event'])
                     else:
                         preds = model.predict(cvi_new[0])
-                        c_index = concordance_index_censored(cvi[1]['Observed'], cvi[1]['Weeks'], preds)[0]
+                        c_index = concordance_index_censored(cvi[1]['Event'], cvi[1]['Survival_time'], preds)[0]
                     model_ci_inference_time = time() - model_ci_inference_start_time
 
                     # Get BS scores from current fold CVI
                     model_bs_inference_start_time = time()
                     if model_name == "WeibullAFT":
                         model_instance = model.lifelines_model
-                        lower, upper = np.percentile(cvi_new[1][cvi_new[1].dtype.names[1]], [10, 90])
-                        times = np.arange(lower, upper+1)
-                        surv_prob = model_instance.predict_survival_function(cvi_new[0], times).T
+                        # lower, upper = np.percentile(cvi_new[1][cvi_new[1].dtype.names[1]], [10, 90])
+                        # times = np.arange(lower, upper+1)
+                        surv_prob = model_instance.predict_survival_function(cvi_new[0]).T
                         brier_score = approx_brier_score(cvi_new[1], surv_prob)
                     elif model_class_name == "XGBRegressor":
                         brier_score = np.nan
                     else:
-                        lower, upper = np.percentile(cvi_new[1][cvi_new[1].dtype.names[1]], [10, 90])
-                        times = np.arange(lower, upper+1)
+                        # lower, upper = np.percentile(cvi_new[1][cvi_new[1].dtype.names[1]], [10, 90])
+                        # times = np.arange(lower, upper)
                         surv_probs = pd.DataFrame(np.row_stack([fn(times)
                                                                 for fn in model.predict_survival_function(cvi_new[0])]))
                         brier_score = approx_brier_score(cvi_new[1], surv_probs)
@@ -168,8 +182,8 @@ def main():
                     model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
 
         # Save model results
-        file_name = f"{model_name}_alarm_cv_results.csv"
-        file_writer.write_csv(Path.joinpath(cfg.REPORTS_DIR, file_name), model_results)
+        file_name = f"{model_name}_results.csv"
+        model_results.to_csv(".src/data/logs/" + file_name)
 
 if __name__ == "__main__":
     main()
