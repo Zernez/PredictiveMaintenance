@@ -7,7 +7,7 @@ class FileReader:
     def __init__(self):
         pass
 
-    def read_data(self):
+    def read_data_kaggle(self):
         set1 = pd.read_csv("src/dataset/set1_timefeatures.csv")
         set2 = pd.read_csv("src/dataset/set2_timefeatures.csv")
         set3 = pd.read_csv("src/dataset/set3_timefeatures.csv")
@@ -19,8 +19,21 @@ class FileReader:
         set3.set_index('time')
         
         return [set1, set2, set3]
+    
+    def read_data_xjtu(self):
+        dataset_path = "./data/XJTU-SY/csv/"
+        set_covariates= pd.read_csv(dataset_path + 'covariates.csv')
+        set_boot= pd.read_csv(dataset_path + 'boot.csv')
 
-    def read_pickle(path: Path):
+        event_kl= self.read_pickle("./data/XJTU-SY/csv/" + "event_kl")
+        event_sd= self.read_pickle("./data/XJTU-SY/csv/" + "event_sd")
+        info_pack= {'KL': event_kl, 'SD': event_sd}
+
+        return set_covariates, set_boot, info_pack
+
+
+
+    def read_pickle(self, path: Path):
         """
         Loads the pickled object at the location given.
 

@@ -205,7 +205,7 @@ class XGBTree(BaseRegressor):
 
 class WeibullAFT(BaseRegressor):
     def make_model(self, params=None):
-        return sklearn_adapter(WeibullAFTFitter, event_col='Observed')
+        return sklearn_adapter(WeibullAFTFitter, event_col='Event')
     def get_hyperparams(self):
         return {
             'alpha': [0.01, 0.05, 0.1, 1]
@@ -215,7 +215,7 @@ class WeibullAFT(BaseRegressor):
     
 class LogNormalAFTFitter(BaseRegressor):
     def make_model(self, params=None):
-        return sklearn_adapter(LogNormalAFTFitter, event_col='Observed')
+        return sklearn_adapter(LogNormalAFTFitter, event_col='Event')
     def get_hyperparams(self):
         return {
             'alpha': [0.01, 0.05, 0.1, 1]
@@ -225,7 +225,7 @@ class LogNormalAFTFitter(BaseRegressor):
     
 class LogLogisticAFTFitter(BaseRegressor):
     def make_model(self, params=None):
-        return sklearn_adapter(LogLogisticAFTFitter, event_col='Observed')
+        return sklearn_adapter(LogLogisticAFTFitter, event_col='Event')
     def get_hyperparams(self):
         return {
             'alpha': [0.01, 0.05, 0.1, 1]
@@ -235,7 +235,7 @@ class LogLogisticAFTFitter(BaseRegressor):
     
 class ExponentialRegressionFitter(BaseRegressor):
     def make_model(self, params=None):
-        return sklearn_adapter(GeneralizedGammaRegressionFitter, event_col='Observed', lambda_= 1, sigma_= 1)
+        return sklearn_adapter(GeneralizedGammaRegressionFitter, event_col='Event', lambda_= 1, sigma_= 1)
     def get_hyperparams(self):
         return {
             'alpha_': [0.01, 0.05, 0.1, 1]
@@ -263,7 +263,7 @@ class SVM(BaseRegressor):
     
 # class Markov(BaseRegressor):
 #     def make_model(self, params=None):
-#         return sklearn_adapter(WeibullAFTFitter, event_col='Observed')
+#         return sklearn_adapter(WeibullAFTFitter, event_col='Event')
 #     def get_hyperparams(self):
 #         return {
 #             'alpha': [0.01, 0.05, 0.1, 1]

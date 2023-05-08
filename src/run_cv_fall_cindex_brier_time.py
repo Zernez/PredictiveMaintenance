@@ -5,7 +5,7 @@ from tools import file_writer
 from pathlib import Path
 import config as cfg
 from tools.feature_selectors import NoneSelector, LowVar, SelectKBest10, RegMRMR10 #RFE10,RFE20, SelectKBest20, RegMRMR20
-from tools.regressors import Cph, CphRidge, CphLasso, CphElastic, RSF, CoxBoost, WeibullAFT, XGBLinear, XGBTree, XGBDart
+from tools.regressors import Cph, CphRidge, CphLasso, CphElastic, RSF, CoxBoost, WeibullAFT,  XGBTree # XGBDart, XGBLinear
 from tools import file_reader
 from tools import data_ETL
 from sklearn.model_selection import train_test_split
@@ -19,18 +19,17 @@ import math
 N_REPEATS = 3
 N_SPLITS = 3
 N_ITER = 3
+N_BOOT = 2
 
 def main():
 
-    df = file_reader.FileReader().read_data()
+    cov, boot, info_pack = file_reader.FileReader().read_data_xjtu()
     
-    df_surv = data_ETL.DataETL().make_covariates(df)
-    X, y = data_ETL.DataETL().make_surv_data_sklS(df_surv)
-    X_2, y_2 = data_ETL.DataETL().make_surv_data_pyS(df_surv)
-    # y = np.array(list(tuple(x) for x in df[['Event', 'Survival_time']].to_numpy()),
-    #              dtype=[('Event', '?'), ('Survival_time', '<f8')])
+#    df_surv = data_ETL.DataETL().make_covariates(df)
+    X, y = data_ETL.DataETL().make_surv_data_sklS(cov, boot, info_pack, N_BOOT)
+#    X_2, y_2 = data_ETL.DataETL().make_surv_data_pyS(df_surv)
 
-    models = [Cph, CphRidge, CphLasso, CphElastic, WeibullAFT, RSF, CoxBoost, XGBLinear, XGBTree, XGBDart] #, WeibullAFT
+    models = [Cph, CphRidge, CphLasso, CphElastic, WeibullAFT, RSF, CoxBoost, XGBTree] #, WeibullAFT , XGBDart, XGBLinear,
     ft_selectors = [NoneSelector, LowVar, SelectKBest10, RegMRMR10] #RFE10, RFE20, SelectKBest20, RegMRMR20
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=0)
@@ -183,7 +182,7 @@ def main():
 
         # Save model results
         file_name = f"{model_name}_results.csv"
-        model_results.to_csv(".src/data/logs/" + file_name)
+        model_results.to_csv("data/logs/" + file_name)
 
 if __name__ == "__main__":
     main()

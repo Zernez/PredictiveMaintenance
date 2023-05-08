@@ -116,12 +116,12 @@ class Survival:
             print ("y:", y)
 
 
-            def train_test_split (self, X, Y, test_size):
+            # def train_test_split (self, X, Y, test_size):
 
-                for y in Y:
+            #     for y in Y:
                     
 
-                return X_1, X_2, y_1 y_2
+            #     return X_1, X_2, y_1 y_2
                 
 
             X_1, X_2, y_1, y_2 = train_test_split(X, y, 0.5)
