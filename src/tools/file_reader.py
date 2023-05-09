@@ -24,9 +24,11 @@ class FileReader:
         dataset_path = "./data/XJTU-SY/csv/"
         set_covariates= pd.read_csv(dataset_path + 'covariates.csv')
         set_boot= pd.read_csv(dataset_path + 'boot.csv')
-
+        #
         event_kl= self.read_pickle("./data/XJTU-SY/csv/" + "event_kl")
         event_sd= self.read_pickle("./data/XJTU-SY/csv/" + "event_sd")
+
+        #use of event.py to insert
         info_pack= {'KL': event_kl, 'SD': event_sd}
 
         return set_covariates, set_boot, info_pack

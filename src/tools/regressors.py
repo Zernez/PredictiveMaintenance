@@ -4,7 +4,7 @@ from sksurv.ensemble import RandomSurvivalForest
 from sksurv.linear_model import CoxPHSurvivalAnalysis, CoxnetSurvivalAnalysis
 from sksurv.ensemble import GradientBoostingSurvivalAnalysis
 import config as cfg
-from lifelines import WeibullAFTFitter, LogNormalAFTFitter, LogLogisticAFTFitter, GeneralizedGammaRegressionFitter
+from lifelines import WeibullAFTFitter, LogNormalAFTFitter, LogLogisticAFTFitter, GeneralizedGammaFitter
 from lifelines.utils.sklearn_adapter import sklearn_adapter
 from sksurv.svm import FastSurvivalSVM
 import rpy2
@@ -129,21 +129,21 @@ class CoxBoost(BaseRegressor):
                 'min_samples_leaf': 100, 'max_depth': 3,
                 'learning_rate': 0.05}
 
-# class XGBLinear(BaseRegressor):
-#     def make_model(self, params=None):
-#         model_params = {'objective':'survival:cox', 'tree_method':'hist',
-#                         'booster':'gblinear', 'subsample':0.8, 'random_state':0}
-#         if params:
-#             model_params.update(params)
-#         return xgb.XGBRegressor(**model_params)
+class XGBLinear(BaseRegressor):
+    def make_model(self, params=None):
+        model_params = {'objective':'survival:cox', 'tree_method':'hist',
+                        'booster':'gblinear', 'subsample':0.8, 'random_state':0}
+        if params:
+            model_params.update(params)
+        return xgb.XGBRegressor(**model_params)
 
-#     def get_hyperparams(self):
-#         return {
-#             'n_estimators': [25, 50, 75, 100, 200],
-#             'learning_rate': [0.01, 0.05, 0.1],
-#         }
-#     def get_best_hyperparams(self):
-#         return {'n_estimators': 50, 'learning_rate': 0.01}
+    def get_hyperparams(self):
+        return {
+            'n_estimators': [25, 50, 75, 100, 200],
+            'learning_rate': [0.01, 0.05, 0.1],
+        }
+    def get_best_hyperparams(self):
+        return {'n_estimators': 50, 'learning_rate': 0.01}
 
 class RSF(BaseRegressor):
     def make_model(self, params=None):
@@ -183,25 +183,25 @@ class XGBTree(BaseRegressor):
                 'max_depth': 3, 'learning_rate': 0.05,
                 'colsample_bynode': 0.5}
 
-# class XGBDart(BaseRegressor):
-#     def make_model(self, params=None):
-#         model_params = {'objective':'survival:cox', 'tree_method':'hist',
-#                         'booster':'dart', 'subsample':0.8, 'random_state':0}
-#         if params:
-#             model_params.update(params)
-#         return xgb.XGBRegressor(**model_params)
-#     def get_hyperparams(self):
-#         return {
-#             'max_depth': [1, 2, 3],
-#             'n_estimators': [25, 50, 75, 100, 200],
-#             'learning_rate': [0.01, 0.05, 0.1],
-#             'min_child_weight': [1, 5, 10, 25, 50],
-#             'colsample_bynode': [0.1, 0.5, 0.9]
-#         }
-#     def get_best_hyperparams(self):
-#         return {'n_estimators': 75, 'min_child_weight': 1,
-#                 'max_depth': 3, 'learning_rate': 0.05,
-#                 'colsample_bynode': 0.5}
+class XGBDart(BaseRegressor):
+    def make_model(self, params=None):
+        model_params = {'objective':'survival:cox', 'tree_method':'hist',
+                        'booster':'dart', 'subsample':0.8, 'random_state':0}
+        if params:
+            model_params.update(params)
+        return xgb.XGBRegressor(**model_params)
+    def get_hyperparams(self):
+        return {
+            'max_depth': [1, 2, 3],
+            'n_estimators': [25, 50, 75, 100, 200],
+            'learning_rate': [0.01, 0.05, 0.1],
+            'min_child_weight': [1, 5, 10, 25, 50],
+            'colsample_bynode': [0.1, 0.5, 0.9]
+        }
+    def get_best_hyperparams(self):
+        return {'n_estimators': 75, 'min_child_weight': 1,
+                'max_depth': 3, 'learning_rate': 0.05,
+                'colsample_bynode': 0.5}
 
 class WeibullAFT(BaseRegressor):
     def make_model(self, params=None):
@@ -213,7 +213,7 @@ class WeibullAFT(BaseRegressor):
     def get_best_hyperparams(self):
         return {'alpha': 0.01}
     
-class LogNormalAFTFitter(BaseRegressor):
+class LogNormalAFT(BaseRegressor):
     def make_model(self, params=None):
         return sklearn_adapter(LogNormalAFTFitter, event_col='Event')
     def get_hyperparams(self):
@@ -223,7 +223,7 @@ class LogNormalAFTFitter(BaseRegressor):
     def get_best_hyperparams(self):
         return {'alpha': 0.01}
     
-class LogLogisticAFTFitter(BaseRegressor):
+class LogLogisticAFT(BaseRegressor):
     def make_model(self, params=None):
         return sklearn_adapter(LogLogisticAFTFitter, event_col='Event')
     def get_hyperparams(self):
@@ -233,15 +233,15 @@ class LogLogisticAFTFitter(BaseRegressor):
     def get_best_hyperparams(self):
         return {'alpha': 0.01}
     
-class ExponentialRegressionFitter(BaseRegressor):
+class ExponentialAFT(BaseRegressor):
     def make_model(self, params=None):
-        return sklearn_adapter(GeneralizedGammaRegressionFitter, event_col='Event', lambda_= 1, sigma_= 1)
+        return sklearn_adapter(GeneralizedGammaFitter, event_col='Event')
     def get_hyperparams(self):
         return {
-            'alpha_': [0.01, 0.05, 0.1, 1]
+            'alpha': [0.01, 0.05, 0.1, 1]
         }
     def get_best_hyperparams(self):
-        return {'alpha_': 0.01}
+        return {'alpha': 0.01}
     
 class SVM(BaseRegressor):
     def make_model(self, params=None):
@@ -303,3 +303,35 @@ class DeepSurv(BaseRegressor):
                 'dropout': 0.1, 
                 'output_bias': False, 
                 'lr': 0.01}
+
+class GradientBoosting(BaseRegressor):
+    def make_model(self, params=None):
+        model_params = {'learning_rate': 0.1, 'loss': 'coxph', 'dropout_rate': 0.0}
+        if params:
+            model_params.update(params)
+        return GradientBoostingSurvivalAnalysis(**model_params)
+    
+    def get_hyperparams(self):
+        return {
+            'learning_rate': [0.1, 0.05, 0.01],
+            'n_estimators': [100 ,110 , 120],
+            'max_depth': [3, 4, 5],
+        }
+    def get_best_hyperparams(self):
+        return  {'learning_rate': 0.1, 'loss': 'coxph', 'dropout_rate': 0.0}
+
+class GradientBoostingDART(BaseRegressor):
+    def make_model(self, params=None):
+        model_params = {'learning_rate': 0.1, 'loss': 'coxph', 'dropout_rate': 0.2}
+        if params:
+            model_params.update(params)
+        return GradientBoostingSurvivalAnalysis(**model_params)
+    
+    def get_hyperparams(self):
+        return {
+            'learning_rate': [0.1, 0.05, 0.01],
+            'n_estimators': [100 ,110 , 120],
+            'max_depth': [3, 4, 5],
+        }
+    def get_best_hyperparams(self):
+        return  {'learning_rate': 0.1, 'loss': 'coxph', 'dropout_rate': 0.2}        
