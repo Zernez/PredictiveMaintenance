@@ -12,7 +12,7 @@ class Survival:
     def __init__(self):
         pass    
 
-    def predict_survival_funciton(self, model, X_test, y_test, lower, upper) -> pd.DataFrame:
+    def predict_survival_function(self, model, X_test, y_test, lower, upper) -> pd.DataFrame:
 #        lower, upper = np.percentile(y_test[y_test.dtype.names[1]], [10, 90])
         times = np.arange(math.ceil(lower), math.floor(upper+1), dtype=int)
         surv_prob = np.row_stack([fn(times) for fn in model.predict_survival_function(X_test)])
