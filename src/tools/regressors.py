@@ -303,6 +303,16 @@ class DeepSurv(BaseRegressor):
                 'dropout': 0.1, 
                 'output_bias': False, 
                 'lr': 0.01}
+    
+    def fit(self):
+        return {                
+                'in_features': 0, 
+                'num_nodes': [32,32], 
+                'out_features': 0, 
+                'batch_norm' : True, 
+                'dropout': 0.1, 
+                'output_bias': False, 
+                'lr': 0.01}
 
 class GradientBoosting(BaseRegressor):
     def make_model(self, params=None):

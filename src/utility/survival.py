@@ -15,13 +15,19 @@ class Survival:
     def predict_survival_function(self, model, X_test, y_test, lower, upper) -> pd.DataFrame:
 #        lower, upper = np.percentile(y_test[y_test.dtype.names[1]], [10, 90])
         times = np.arange(math.ceil(lower), math.floor(upper+1), dtype=int)
-        surv_prob = np.row_stack([fn(times) for fn in model.predict_survival_function(X_test)])
+        if model.__class__.__name__ == 'DeepSurv':
+            surv_prob = np.row_stack([fn(times) for fn in model.predict_surv(X_test)])
+        else:
+            surv_prob = np.row_stack([fn(times) for fn in model.predict_survival_function(X_test)])
         return pd.DataFrame(surv_prob, columns=times)
 
     def predict_hazard_function(self, model, X_test, y_test, lower, upper) -> pd.DataFrame:
 #        lower, upper = np.percentile(y_test[y_test.dtype.names[1]], [10, 90])
         times = np.arange(math.ceil(lower), math.floor(upper+1), dtype=int)
-        surv_prob = np.row_stack([fn(times) for fn in model.predict_cumulative_hazard_function(X_test)])
+        if model.__class__.__name__ == 'DeepSurv':
+            surv_prob = np.row_stack([fn(times) for fn in model.predict_cumulative_hazards(X_test)])
+        else:
+            surv_prob = np.row_stack([fn(times) for fn in model.predict_cumulative_hazard_function(X_test)])
         return pd.DataFrame(surv_prob, columns=times)
 
     def predict_td_risk_scores(self, model, X_test, y_train, y_test, time_bins) -> pd.DataFrame:
@@ -112,24 +118,7 @@ class Survival:
 
             randint = rng.randint(low=0, high=32767)
 
-            print ("X: ", X)
-            print ("y:", y)
-
-
-            # def train_test_split (self, X, Y, test_size):
-
-            #     for y in Y:
-                    
-
-            #     return X_1, X_2, y_1 y_2
-                
-
-            X_1, X_2, y_1, y_2 = train_test_split(X, y, 0.5)
-
-            print ("X_1: ", X_1)
-            print ("X_2: ", X_2)
-            print ("y_1: ", y_1)
-            print ("y_2: ", y_2)
+            X_1, X_2, y_1, y_2 = train_test_split(X, y, 0.3)
 
             score_diff_1 = score_diff(X_1, X_2, y_1, y_2, estimator1_best_fts, estimator2_best_fts)
             score_diff_2 = score_diff(X_2, X_1, y_2, y_1, estimator1_best_fts, estimator2_best_fts)
