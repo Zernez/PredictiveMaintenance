@@ -8,6 +8,7 @@ from lifelines import WeibullAFTFitter, LogNormalAFTFitter, LogLogisticAFTFitter
 from lifelines.utils.sklearn_adapter import sklearn_adapter
 from sksurv.svm import FastSurvivalSVM
 import rpy2
+import numpy as np
 
 from sklearn.preprocessing import StandardScaler
 from sklearn_pandas import DataFrameMapper
@@ -273,46 +274,59 @@ class SVM(BaseRegressor):
     
 class DeepSurv(BaseRegressor):
     def make_model(self, params=None):
-        model_params = {'in_features': 0, 'num_nodes': [32,32], 
+        self.model_params = {'in_features': 0, 'num_nodes': [128,128], 
                         'out_features': 0, 'batch_norm' : True, 
-                        'dropout': 0.1, 'output_bias': False}
-        if params:
-            model_params.update(params)
-
-        net = tt.practical.MLPVanilla(**model_params)
+                        'dropout': 0.2, 'output_bias': False}
         
-        model = CoxPH(net, tt.optim.Adam)
+        
+        self.fit_params = {'batch_size': 128, 'epochs': 256, 'verbose': True,
+                           'val_batch_size': 128}
+        if params:
+            self.model_params.update(params)
 
-        return model
+        net = tt.practical.MLPVanilla(**self.model_params)
+        self.model = CoxPH(net, tt.optim.Adam)
+        return self.model
+    
     def get_hyperparams(self):
         return {
                 'in_features': 0, 
-                'num_nodes': [32,32], 
+                'num_nodes': [[64,64],[128,128],[256,256]], 
                 'out_features': 0, 
                 'batch_norm' : True, 
-                'dropout': 0.1, 
+                'dropout': [0.1, 0.2], 
                 'output_bias': False, 
-                'lr': [0.01, 0.005, 0.001]
+                'lr': [0.001, 0.005, 0.0005]
         }
     def get_best_hyperparams(self):
         return {                
                 'in_features': 0, 
-                'num_nodes': [32,32], 
+                'num_nodes': [128,128], 
                 'out_features': 0, 
                 'batch_norm' : True, 
-                'dropout': 0.1, 
+                'dropout': 0.2, 
                 'output_bias': False, 
                 'lr': 0.01}
     
-    def fit(self):
-        return {                
-                'in_features': 0, 
-                'num_nodes': [32,32], 
-                'out_features': 0, 
-                'batch_norm' : True, 
-                'dropout': 0.1, 
-                'output_bias': False, 
-                'lr': 0.01}
+    def fit(self, x_train, y_train, val):
+        callbacks = [tt.callbacks.EarlyStopping()]
+        log = self.model.fit(x_train, y_train, val = val , callbacks= callbacks, **self.fit_params)
+        return log, self.model
+    
+    def approx_brier_score(self, x_test, durations_test, events_test):
+        surv = self.model.predict_surv_df(x_test)
+        ev = EvalSurv(surv, durations_test, events_test, censor_surv='km')
+        time_grid = np.linspace(durations_test.min(), durations_test.max(), 100)
+        score= ev.integrated_brier_score(time_grid)
+        return score
+    
+        #durations_test, events_test = get_target(df_test)
+
+    def concordance_index_censored(self, x_test, durations_test, events_test):
+        surv = self.model.predict_surv_df(x_test)
+        ev = EvalSurv(surv, durations_test, events_test, censor_surv='km')
+        score= ev.concordance_td()
+        return score
 
 class GradientBoosting(BaseRegressor):
     def make_model(self, params=None):

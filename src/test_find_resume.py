@@ -15,11 +15,14 @@ from lifelines.utils import concordance_index
 from sksurv.metrics import concordance_index_censored
 from time import time
 import math
+import pickle
 
 N_REPEATS = 3
 N_SPLITS = 3
 N_ITER = 3
 N_BOOT = 2
+PLOT = True
+RESUME = True
 
 def main():
 
@@ -27,13 +30,22 @@ def main():
     
 #    df_surv = data_ETL.DataETL().make_covariates(df)
     X, y = DataETL().make_surv_data_sklS(cov, boot, info_pack, N_BOOT)
-    X_2, y_2 = DataETL().make_surv_data_pyS(cov, boot, info_pack, N_BOOT)
 
     models = [GradientBoostingDART] #  XGBLinear, ExponentialAFT      WeibullAFT, LogNormalAFT, LogLogisticAFT, Cph, CphRidge, CphLasso, CphElastic,  RSF, CoxBoost, XGBTree, XGBDart, SVM
     ft_selectors = [NoneSelector, UMAP8, LowVar, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8, SFS4, SFS8, RFE4, RFE8] #NoneSelector, UMAP6, LowVar, SelectKBest4, SelectKBest8, SFS4, SFS8, RegMRMR4, RegMRMR8
-    #ft_selectors = [NoneSelector, LowVar,RFE4]       
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-    T1, _ = (X_train, y_train), (X_test, y_test)
+    #ft_selectors = [NoneSelector, LowVar,RFE4]
+  
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=0)
+    T1, T2 = (X_train, y_train), (X_test, y_test)
+
+    # X_trainSD = X_train[['Event', 'Survival_time']].copy()
+    # X_train.drop(["Event", "Survival_time"], axis=1)
+    # X_testSD = X_train[['Event', 'Survival_time']].copy()
+    # X_test.drop(["Event", "Survival_time"], axis=1)     
+    # y_trainSD = X_train[['Event', 'Survival_time']].copy()
+    # y_train.drop(["Event", "Survival_time"], axis=1)
+    # y_testSD = X_train[['Event', 'Survival_time']].copy()
+    # y_test.drop(["Event", "Survival_time"], axis=1)             
 
     print(f"Started evaluation of {len(models)} models/{len(ft_selectors)} ft selectors/{len(T1[0])} total samples")
     for model_builder in models:
@@ -54,9 +66,12 @@ def main():
                 kf = KFold(n_splits=N_SPLITS, shuffle=True, random_state=n_repeat)
                 for train, test in kf.split(T1[0], T1[1]):
                     split_start_time = time()
-                    # Split data
-                    ti = (T1[0].iloc[train], T1[1][train])
-                    cvi = (T1[0].iloc[test], T1[1][test])
+
+                    # # Split data
+                    # ti = (T1[0].iloc[train], T1[1][train])
+                    # cvi = (T1[0].iloc[test], T1[1][test])
+
+                    ti, cvi, ti_NN, y_ti_NN, cvi_NN, y_cvi_NN, val_NN = DataETL().centering_and_NNcloning(T1, T2, train, test)
 
                     # Get current model and ft selector
                     if ft_selector_name == "NoneSelector":
@@ -104,6 +119,8 @@ def main():
                     elif model_class_name == "XGBRegressor" and ft_selector_name in ["RFE4", "RFE8"]:
                         y_ti_xgb = [x[1] if x[0] else -x[1] for x in ti[1]]
                         ft_selector = ft_selector_builder(ti[0], y_ti_xgb, estimator=model)
+                    elif model_class_name == "DeepSurv":
+                        ft_selector = ft_selector_builder(ti_NN, y_ti_NN, estimator=model)
                     else:
                         ft_selector = ft_selector_builder(ti[0], ti[1], estimator=model)
 
@@ -111,6 +128,8 @@ def main():
                         selected_fts = ft_selector.get_features()
                         ti_new =  (ti[0].loc[:, selected_fts], ti[1])
                         cvi_new = (cvi[0].loc[:, selected_fts], cvi[1])
+                        ti_new_NN =  (ti_NN.loc[:, selected_fts], y_ti_NN)
+                        cvi_new_NN = (cvi_NN.loc[:, selected_fts], y_cvi_NN)
                         get_best_features_time = time() - get_best_features_start_time
                         print ("Selected features: ", selected_fts)
                     else:
@@ -134,6 +153,9 @@ def main():
                         search = RandomizedSearchCV(model, space, n_iter=N_ITER, cv= N_SPLITS, random_state=0)
                         y_ti_xgb = [x[1] if x[0] else -x[1] for x in ti_new[1]]
                         search.fit(ti_new[0], y_ti_xgb)
+                    elif model_class_name == "DeepSurv":
+                        search = RandomizedSearchCV(model, space, n_iter=N_ITER, cv= N_SPLITS, random_state=0)
+                        search.fit(ti_new_NN[0], ti_new_NN[1])                        
                     else:
                         search = RandomizedSearchCV(model, space, n_iter=N_ITER, cv= N_SPLITS, random_state=0)
                         search.fit(ti_new[0], ti_new[1])
@@ -148,6 +170,9 @@ def main():
                     elif model_class_name == "XGBRegressor":
                         model = search.best_estimator_
                         model.fit(ti_new[0], y_ti_xgb)
+                    elif model_class_name == "DeepSurv":
+                        model = search.best_estimator_
+                        model.fit(ti_new_NN[0], ti_new_NN[1], val_NN)
                     else:
                         model = search.best_estimator_
                         model.fit(ti_new[0], ti_new[1])

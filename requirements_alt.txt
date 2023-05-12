@@ -1,11 +1,12 @@
 matplotlib
-numpy
+numpy== 1.24.3
 pandas
 scikit-learn
+sklearn-pandas
+scikit-survival
 notebook
 seaborn
 pyyaml
-scikit-survival
 eli5
 shap
 xgboost
@@ -23,7 +24,9 @@ keras
 tensorflow
 rpy2
 pycox
-torch
+torch== 1.13.1
+torchvision==0.14.1 
+torchaudio==0.13.1
 sklearn_pandas
 fitter
 statsmodels
@@ -32,4 +35,3 @@ distfit
 survival-datasets
 graphviz
 config
-lifelines

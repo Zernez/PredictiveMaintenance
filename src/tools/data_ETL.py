@@ -5,6 +5,8 @@ import random
 import re
 from sksurv.util import Surv
 from tools.featuring import Featuring
+from sklearn.preprocessing import StandardScaler
+from sklearn_pandas import DataFrameMapper
 
 class DataETL:
 
@@ -71,9 +73,10 @@ class DataETL:
 
         data_sa = Surv.from_dataframe("Event", "Survival_time", data_cov)
 
-
-        return data_cov.drop(["Event", "Survival_time"], axis=1), data_sa
-
+        # if data_NN == False:
+        #     return data_cov.drop(["Event", "Survival_time"], axis=1), data_sa
+        return data_cov, data_sa
+            
     def ev_manager (self, num, bootstrap, tot):
 
         checker= True
@@ -188,3 +191,56 @@ class DataETL:
 
             dataname= "./data/XJTU-SY/csv/Bearing1_" + str(bearing) + "_bootstrap.csv"
             bootstrap_val.to_csv(dataname, index= False)
+
+    def centering_and_NNcloning (self, T1, T2, train, test):
+
+        # Make data split 
+        ti_X = T1[0].iloc[train, :-2]
+        ti_y = T1[1][train]
+        cvi_X = T1[0].iloc[test, :-2]
+        cvi_y = T1[1][test]
+        features = ti_X.columns
+
+        # Apply scaling
+        scaler = StandardScaler()
+        scaler.fit(ti_X)
+        ti_X = pd.DataFrame(scaler.transform(ti_X), columns=features)
+        cvi_X = pd.DataFrame(scaler.transform(cvi_X), columns=features)
+
+        # Collect splits
+        ti = (ti_X, ti_y)
+        cvi = (cvi_X, cvi_y)
+
+        #End ETL normal data and start ETL for NN
+
+        #Scaling NN
+        # yti_X_NN= T1[0].iloc[train, -2:]
+        # ycvi_X_NN = T1[0].iloc[test, -2:]
+        # yti_X_NN.reset_index(inplace= True, drop=True)
+        # ycvi_X_NN.reset_index(inplace= True, drop=True)
+
+        ti_X_NN = T1[0].iloc[train]
+        cvi_X_NN = T1[0].iloc[test]
+        ti_X_val_NN= T2[0]
+
+        cols_standardize = list(features)
+        cols_leave = []
+
+        standardize = [([col], StandardScaler()) for col in cols_standardize]
+        leave = [(col, None) for col in cols_leave]
+        x_mapper = DataFrameMapper(standardize + leave)
+
+        x_train_ti = x_mapper.fit_transform(ti_X_NN).astype('float32')
+        x_train_cvi = x_mapper.fit_transform(cvi_X_NN).astype('float32')       
+        x_val = x_mapper.transform(ti_X_val_NN).astype('float32')
+
+        get_target = lambda df: (df['Survival_time'].values, df['Event'].values)
+        y_ti_NN = get_target(ti_X_NN)
+        y_cvi_NN = get_target(cvi_X_NN)       
+        y_val = get_target(ti_X_val_NN)
+
+        ti_NN = x_train_ti
+        cvi_NN = x_train_cvi
+        val_NN= x_val, y_val
+
+        return ti, cvi ,ti_NN , y_ti_NN, cvi_NN, y_cvi_NN, val_NN
