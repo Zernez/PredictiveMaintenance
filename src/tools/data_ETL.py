@@ -202,6 +202,9 @@ class DataETL:
         ti_y_df.rename(columns = {'Event':'event', 'Survival_time':'time'}, inplace = True)
         cvi_y_df.rename(columns = {'Event':'event', 'Survival_time':'time'}, inplace = True)
 
+        ti_y_df.event = ti_y_df.event.replace({True: 1, False: 0})
+        cvi_y_df.event = cvi_y_df.event.replace({True: 1, False: 0})
+
         ti_X = T1[0].iloc[train, :-2]
         ti_y = T1[1][train]
         cvi_X = T1[0].iloc[test, :-2]

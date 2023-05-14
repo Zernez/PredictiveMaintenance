@@ -289,9 +289,9 @@ class DeepSurv(BaseRegressor):
     #     self.log= None
 
     def make_model(self, params=None):
-        model_params = {'bs' : [10],
+        model_params = {'batch_size' : [3],
                         'learning_rate' : [ 1e-4, 1e-3],
-                        'layers' : [ [100], [100, 100] ]
+#                        'layers' : [ [100], [100, 100] ]
                         }
         if params:
             model_params.update(params)
@@ -299,14 +299,14 @@ class DeepSurv(BaseRegressor):
         return DeepSurv()
     
     def get_hyperparams(self):
-        return {'bs' : [5, 10, 20],
+        return {'batch_size' : [2, 3, 6],
                         'learning_rate' : [ 1e-4, 1e-3],
-                        'layers' : [ [100], [100, 100] ]
+#                        'layers' : [ [100], [100, 100] ]
                 }
     def get_best_hyperparams(self):
-        return {'bs' : [5],
+        return {'batch_size' : [5],
                 'learning_rate' : [ 1e-3],
-                'layers' : [[100, 100]]
+#                'layers' : [[100, 100]]
                 }
 
 

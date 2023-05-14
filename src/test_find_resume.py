@@ -20,8 +20,9 @@ from auton_survival.estimators import SurvivalModel
 from auton_survival.metrics import survival_regression_metric
 from sklearn.model_selection import ParameterGrid
 from auton_survival.experiments import SurvivalRegressionCV
+from auton_survival import DeepCoxPH
 
-N_REPEATS = 1
+N_REPEATS = 3
 N_SPLITS = 3
 N_ITER = 3
 N_BOOT = 2
@@ -36,10 +37,10 @@ def main():
     X, y = DataETL().make_surv_data_sklS(cov, boot, info_pack, N_BOOT)
 
     models = [DeepSurv] #  XGBLinear, ExponentialAFT      WeibullAFT, LogNormalAFT, LogLogisticAFT, Cph, CphRidge, CphLasso, CphElastic,  RSF, CoxBoost, XGBTree, XGBDart, SVM
-    ft_selectors = [SelectKBest8] #NoneSelector, UMAP6, LowVar, SelectKBest4, SelectKBest8, SFS4, SFS8, RegMRMR4, RegMRMR8
+    ft_selectors = [UMAP8] #NoneSelector, UMAP6, LowVar, SelectKBest4, SelectKBest8, SFS4, SFS8, RegMRMR4, RegMRMR8
     #ft_selectors = [NoneSelector, LowVar,RFE4] , UMAP8,    LowVar       , SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8, SFS4, SFS8, RFE4, RFE8
   
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=0)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)# , random_state=0
     T1, T2 = (X_train, y_train), (X_test, y_test)          
 
     print(f"Started evaluation of {len(models)} models/{len(ft_selectors)} ft selectors/{len(T1[0])} total samples")
@@ -58,7 +59,7 @@ def main():
             print ("ft_selector name: ", ft_selector_name )
             print ("model_builder name: ", model_name )
             for n_repeat in range(N_REPEATS):
-                kf = KFold(n_splits=N_SPLITS, shuffle=True, random_state=n_repeat)
+                kf = KFold(n_splits=N_SPLITS) #shuffle= False, random_state= 0
                 for train, test in kf.split(T1[0], T1[1]):
                     split_start_time = time()
 
@@ -89,10 +90,16 @@ def main():
                             ft_selector = ft_selector_builder(ti[0], ti[1], estimator=model)
                             selected_fts = ft_selector.get_features()
                             ti_new = (selected_fts, ti[1])
+                            ft_selector_NN = ft_selector_builder(ti_NN[0], ti_NN[1], estimator=model)
+                            selected_fts = ft_selector_NN.get_features()
+                            ti_new_NN = (selected_fts, ti_NN[1])
                             ft_selector = ft_selector_builder(cvi[0], cvi[1], estimator=model)
                             selected_fts = ft_selector.get_features()
                             cvi_new = (selected_fts, cvi[1])
-                            selected_fts= list(selected_fts.columns)                     
+                            ft_selector_NN = ft_selector_builder(cvi_NN[0], cvi_NN[1], estimator=model)
+                            selected_fts = ft_selector_NN.get_features()
+                            cvi_new_NN = (selected_fts, cvi_NN[1])
+                            selected_fts= list(selected_fts.columns)                 
                     elif (parametric == True and ft_selector_name in ["NoneSelector", "RFE4", "RFE8", "SFS4", "SFS8", "SelectKBest8", "RegMRMR8"]):
                         # No support for parametric and some selectors, so skip runs
                         c_index, brier_score = np.nan, np.nan
@@ -134,7 +141,7 @@ def main():
                         print ("Created brand new features from UMAP")
 
                     lower, upper = np.percentile(ti_new[1][ti_new[1].dtype.names[1]], [10, 90])
-                    times = np.arange(math.ceil(lower), math.floor(upper +1))            
+                    times = np.arange(math.ceil(lower), math.floor(upper + 1))            
 
                     # Find hyperparams via CV
                     get_best_params_start_time = time()
@@ -146,19 +153,20 @@ def main():
                                             pd.DataFrame(ti_new[1]['Event'], columns=['Event'])], axis=1)
                         y_ti_wf = np.array([x[1] for x in ti_new[1]], float)
                         search.fit(x_ti_wf, y_ti_wf)
+                        best_params = search.best_params_
                     elif model_name == "XGBRegressor":
                         search = RandomizedSearchCV(model, space, n_iter=N_ITER, cv= N_SPLITS, random_state=0)
                         y_ti_xgb = [x[1] if x[0] else -x[1] for x in ti_new[1]]
                         search.fit(ti_new[0], y_ti_xgb)
+                        best_params = search.best_params_
                     elif model_name == "DeepSurv":
-                        experiment = SurvivalRegressionCV(model='dcph', num_folds=N_SPLITS, hyperparam_grid= space, random_seed=0)
+                        experiment = SurvivalRegressionCV(model='dcph', num_folds=N_SPLITS, hyperparam_grid= space)
                         model,best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='brs')              
                     else:
-                        search = RandomizedSearchCV(model, space, n_iter=N_ITER, cv= N_SPLITS, random_state=0)
+                        search = RandomizedSearchCV(model, space, n_iter=N_ITER, cv= N_SPLITS, random_state= 0)
                         search.fit(ti_new[0], ti_new[1])
-
-                    if not model_name == "DeepSurv":
                         best_params = search.best_params_
+
                     get_best_params_time = time() - get_best_params_start_time
 
                     # Train on train set TI with new params
@@ -170,9 +178,21 @@ def main():
                         model = search.best_estimator_
                         model.fit(ti_new[0], y_ti_xgb)
                     elif model_name == "DeepSurv":
-                        lower, upper = np.percentile(cvi_new[1][cvi_new[1].dtype.names[1]], [10, 90])
-                        times = np.arange(math.ceil(lower), math.floor(upper +1))
-                        out_survival = model.predict_survival(cvi_new_NN[0], times)
+                        model = DeepCoxPH(layers= [100, 100])
+                        # val= ti_new_NN[1].loc[:, "time"][ti_new_NN[1].loc[:,"event"]==1]
+                        # val= ti_new_NN[1].loc[:,"time"][ti_new_NN[1].loc[:,"event"]==0].index
+                        # # val3= ti_new_NN[1].loc[:,"event"][ti_new_NN[1].loc[:,"event"]==1]
+                        # # val4= ti_new_NN[1].loc[:,"event"][ti_new_NN[1].loc[:,"event"]==0].index
+                        # ti_new_NN[0].drop(val, axis=0, inplace=True)
+                        # ti_new_NN[0].reset_index(inplace= True, drop=True)
+                        # ti_new_NN[1].drop(val, axis=0, inplace=True)
+                        # ti_new_NN[1].reset_index(inplace= True, drop=True)
+                        x= ti_new_NN[0].to_numpy()
+                        t= ti_new_NN[1].loc[:,"time"].to_numpy()
+                        e= ti_new_NN[1].loc[:,"event"].to_numpy()
+                        # print ("Non censored value: ", val)
+                        # print ("Censored value: ", val2)
+                        model = model.fit(x, t, e, vsize=0.2, iters= 80, **best_params)
                     else:
                         model = search.best_estimator_
                         model.fit(ti_new[0], ti_new[1])
@@ -188,12 +208,23 @@ def main():
                         preds = model.predict(x_cvi_wf)
                         c_index = concordance_index(cvi[1]['Survival_time'], preds, cvi[1]['Event'])
                     elif model_name == "DeepSurv":
+                        x= cvi_new_NN[0].to_numpy()
+                        # times = np.quantile(ti_new_NN[1].loc[:,"time"][ti_new_NN[1].loc[:,"time"]==1], np.linspace(0.1, 1, len(x))).tolist()
+                        lower, upper = np.percentile(cvi_new[1][cvi_new[1].dtype.names[1]], [10, 90])
+                        times = np.arange(math.ceil(lower), math.floor(upper)).tolist()
+                        out_survival = model.predict_survival(x, times)
                         if cvi_new_NN[1].isnull().values.any():
                             c_index= np.nan
-                        else:  
+                            print ("Nan happened, skipped evalutation")
+                        else:
+                            # print("Test array for NaN...",np.isnan(out_survival))
+                            # out_survival = np.nan_to_num(out_survival, nan= 0) 
                             c_index= np.mean(survival_regression_metric('ctd', cvi_new_NN[1], 
-                                                                         out_survival, 
-                                                                         times=times))
+                                                                        out_survival, 
+                                                                        times=times))
+                            # else:
+                            #     print ("All censored values, skipped evalutation")
+                            #     c_index= np.nan
                     else :
                         preds = model.predict(cvi_new[0])
                         c_index = concordance_index_censored(cvi[1]['Event'], cvi[1]['Survival_time'], preds)[0]
@@ -210,10 +241,13 @@ def main():
                     elif model_name == "DeepSurv":
                         if cvi_new_NN[1].isnull().values.any():
                             brier_score= np.nan
-                        else:  
+                            print ("Nan happened, skipped evalutation")
+                        else:
+                            # print("Test array for NaN...",np.isnan(out_survival))
+                            # out_survival = np.nan_to_num(out_survival, nan= 0) 
                             brier_score= np.mean(survival_regression_metric('brs', cvi_new_NN[1], 
-                                                                            out_survival, 
-                                                                            times=times))                     
+                                                                        out_survival, 
+                                                                        times=times))
                     elif model_name == "XGBRegressor" or model_name == "FastSurvivalSVM":
                         brier_score = np.nan
                     else:
