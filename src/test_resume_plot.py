@@ -31,8 +31,10 @@ def main():
     xgb_model = regressors.XGBTree.make_model(regressors.XGBTree().get_best_params())
     boost_model = regressors.GradientBoosting.make_model(regressors.GradientBoosting().get_best_params())
     boostD_model = regressors.GradientBoostingDART.make_model(regressors.GradientBoostingDART().get_best_params())     
-    SVM_model = regressors.SVM.make_model(regressors.SVM().get_best_params())    
-    NN_model = regressors.DeepSurv.make_model(regressors.DeepSurv().get_best_params())
+    SVM_model = regressors.SVM.make_model(regressors.SVM().get_best_params())
+
+    n_feature= 4    
+    NN_model = regressors.DeepSurv().make_model(n_feature)
 
     best_features = feature_selectors.SelectKBest4(X_train, y_train, xgb_model).get_features()
     X_train, X_test = X_train.loc[:,best_features], X_test.loc[:,best_features]

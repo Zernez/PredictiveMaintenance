@@ -106,7 +106,7 @@ class UMAP8(BaseFeatureSelector):
         self.components= 8
         return umap.UMAP(n_components= self.components)
     
-    def fit(self, ft_selector, X, y=None):
+    def fit(self, ft_selector, X, y= None):
         X = ft_selector.fit_transform(X)
 
         labels= []

@@ -192,41 +192,94 @@ class DataETL:
             dataname= "./data/XJTU-SY/csv/Bearing1_" + str(bearing) + "_bootstrap.csv"
             bootstrap_val.to_csv(dataname, index= False)
 
-    def centering_and_NNcloning (self, T1, T2, train, test):
+    def format_main_data (self, T1, train, test):
 
-        # Make data split 
+        # Make data split
+
+        ti_y_df= T1[0].iloc[train, -2:]
+        cvi_y_df= T1[0].iloc[test, -2:]
+
+        ti_y_df.rename(columns = {'Event':'event', 'Survival_time':'time'}, inplace = True)
+        cvi_y_df.rename(columns = {'Event':'event', 'Survival_time':'time'}, inplace = True)
+
         ti_X = T1[0].iloc[train, :-2]
         ti_y = T1[1][train]
         cvi_X = T1[0].iloc[test, :-2]
         cvi_y = T1[1][test]
-        features = ti_X.columns
+#        features = ti_X.columns
 
         # Apply scaling
-        scaler = StandardScaler()
-        scaler.fit(ti_X)
-        ti_X = pd.DataFrame(scaler.transform(ti_X), columns=features)
-        cvi_X = pd.DataFrame(scaler.transform(cvi_X), columns=features)
+        # scaler = StandardScaler()
+        # scaler.fit(ti_X)
+        # ti_X = pd.DataFrame(scaler.transform(ti_X), columns=features)
+        # cvi_X = pd.DataFrame(scaler.transform(cvi_X), columns=features)
+
+
+        #End ETL normal data and start ETL for NN
+
+        ti_X.reset_index(inplace= True, drop=True)
+        cvi_X.reset_index(inplace= True, drop=True)
+        ti_y_df.reset_index(inplace= True, drop=True)
+        cvi_y_df.reset_index(inplace= True, drop=True)
 
         # Collect splits
         ti = (ti_X, ti_y)
         cvi = (cvi_X, cvi_y)
+        ti_NN = (ti_X, ti_y_df)
+        cvi_NN = (cvi_X, cvi_y_df)
 
-        #End ETL normal data and start ETL for NN
+        return ti, cvi, ti_NN, cvi_NN
+    
+    def centering_main_data (self, ti, cvi, ti_NN, cvi_NN):
 
-        #Scaling NN
-        # yti_X_NN= T1[0].iloc[train, -2:]
-        # ycvi_X_NN = T1[0].iloc[test, -2:]
-        # yti_X_NN.reset_index(inplace= True, drop=True)
-        # ycvi_X_NN.reset_index(inplace= True, drop=True)
+        # Make data split 
+        ti_X = ti[0]
+        ti_y = ti[1]
+        cvi_X = cvi[0]
+        cvi_y = cvi[1]
+        ti_X_NN = ti_NN[0]
+        ti_y_NN = ti_NN[1]
+        cvi_X_NN = cvi_NN[0]
+        cvi_y_NN = cvi_NN[1]
+        features = list(ti_X.columns)
 
-        ti_X_NN = T1[0].iloc[train]
-        cvi_X_NN = T1[0].iloc[test]
-        ti_X_val_NN= T2[0]
+        # Apply scaling
+        scaler = StandardScaler()
+
+        scaler.fit(ti_X)
+        ti_X = pd.DataFrame(scaler.transform(ti_X), columns=features)
+        cvi_X = pd.DataFrame(scaler.transform(cvi_X), columns=features)
+        ti_X_NN = pd.DataFrame(scaler.transform(ti_X_NN), columns=features)
+        cvi_X_NN = pd.DataFrame(scaler.transform(cvi_X_NN), columns=features)
+
+        ti_X.reset_index(inplace= True, drop=True)
+        cvi_X.reset_index(inplace= True, drop=True)
+        ti_X_NN.reset_index(inplace= True, drop=True)
+        cvi_X_NN.reset_index(inplace= True, drop=True)
+
+        # Collect splits
+        ti = (ti_X, ti_y)
+        cvi = (cvi_X, cvi_y)
+        ti_NN = (ti_X_NN, ti_y_NN)
+        cvi_NN = (cvi_X_NN, cvi_y_NN)
+
+        return ti, cvi, ti_NN, cvi_NN
+    
+    def format_centering_NN_data (self, T1NN, T2NN, ti_y_df, cvi_y_df, TvalNN):
+
+        ti_X_NN = pd.concat([T1NN[0], ti_y_df], axis=1)
+        cvi_X_NN = pd.concat([T2NN[0], cvi_y_df], axis=1)
+        ti_X_val_NN= TvalNN[0]
+
+
+        features = T1NN[0].columns
 
         cols_standardize = list(features)
         cols_leave = []
 
-        standardize = [([col], StandardScaler()) for col in cols_standardize]
+        scaler= StandardScaler()
+
+        standardize = [([col], scaler) for col in cols_standardize]
         leave = [(col, None) for col in cols_leave]
         x_mapper = DataFrameMapper(standardize + leave)
 
@@ -236,11 +289,12 @@ class DataETL:
 
         get_target = lambda df: (df['Survival_time'].values, df['Event'].values)
         y_ti_NN = get_target(ti_X_NN)
-        y_cvi_NN = get_target(cvi_X_NN)       
         y_val = get_target(ti_X_val_NN)
+
+        durations_test, events_test = get_target(cvi_X_NN)       
 
         ti_NN = x_train_ti
         cvi_NN = x_train_cvi
         val_NN= x_val, y_val
 
-        return ti, cvi ,ti_NN , y_ti_NN, cvi_NN, y_cvi_NN, val_NN
+        return ti_NN , y_ti_NN, cvi_NN, durations_test, events_test, val_NN
