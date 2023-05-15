@@ -23,7 +23,7 @@ from auton_survival.experiments import SurvivalRegressionCV
 from auton_survival import DeepCoxPH
 
 N_REPEATS = 3
-N_SPLITS = 3
+N_SPLITS = 2
 N_ITER = 3
 N_BOOT = 2
 PLOT = True
@@ -36,11 +36,10 @@ def main():
 #    df_surv = data_ETL.DataETL().make_covariates(df)
     X, y = DataETL().make_surv_data_sklS(cov, boot, info_pack, N_BOOT)
 
-    models = [DeepSurv] #  XGBLinear, ExponentialAFT      WeibullAFT, LogNormalAFT, LogLogisticAFT, Cph, CphRidge, CphLasso, CphElastic,  RSF, CoxBoost, XGBTree, XGBDart, SVM
-    ft_selectors = [UMAP8] #NoneSelector, UMAP6, LowVar, SelectKBest4, SelectKBest8, SFS4, SFS8, RegMRMR4, RegMRMR8
-    #ft_selectors = [NoneSelector, LowVar,RFE4] , UMAP8,    LowVar       , SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8, SFS4, SFS8, RFE4, RFE8
+    models = [DeepSurv, WeibullAFT, LogNormalAFT, LogLogisticAFT, Cph, CphRidge, CphLasso, CphElastic, RSF, GradientBoosting, GradientBoostingDART, SVM] #   ----------------------------- DeepSurv, WeibullAFT, LogNormalAFT, LogLogisticAFT, Cph, CphRidge, CphLasso, CphElastic, RSF, GradientBoosting, GradientBoostingDART, SVM
+    ft_selectors = [NoneSelector, UMAP8, LowVar, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8] #SFS4, SFS8, RFE4, RFE8-------------------------NoneSelector, UMAP8, LowVar, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8
   
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)# , random_state=0
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=0)
     T1, T2 = (X_train, y_train), (X_test, y_test)          
 
     print(f"Started evaluation of {len(models)} models/{len(ft_selectors)} ft selectors/{len(T1[0])} total samples")
@@ -59,7 +58,7 @@ def main():
             print ("ft_selector name: ", ft_selector_name )
             print ("model_builder name: ", model_name )
             for n_repeat in range(N_REPEATS):
-                kf = KFold(n_splits=N_SPLITS) #shuffle= False, random_state= 0
+                kf = KFold(n_splits=N_SPLITS, random_state= 0, shuffle= True)
                 for train, test in kf.split(T1[0], T1[1]):
                     split_start_time = time()
 
@@ -67,8 +66,7 @@ def main():
                     # ti = (T1[0].iloc[train], T1[1][train])
                     # cvi = (T1[0].iloc[test], T1[1][test])
 
-                    ti, cvi, ti_NN, cvi_NN = DataETL().format_main_data(T1, train, test)
-
+                    ti, cvi, ti_NN, cvi_NN = DataETL().format_main_data_Kfold(T1, train, test)
                     ti, cvi, ti_NN , cvi_NN = DataETL().centering_main_data(ti, cvi, ti_NN, cvi_NN)       
 
                     # Get current model and ft selector
@@ -100,7 +98,7 @@ def main():
                             selected_fts = ft_selector_NN.get_features()
                             cvi_new_NN = (selected_fts, cvi_NN[1])
                             selected_fts= list(selected_fts.columns)                 
-                    elif (parametric == True and ft_selector_name in ["NoneSelector", "RFE4", "RFE8", "SFS4", "SFS8", "SelectKBest8", "RegMRMR8"]):
+                    elif (parametric == True and ft_selector_name in ["NoneSelector", "RFE4", "RFE8", "SFS4", "SFS8", "SelectKBest8", "RegMRMR8", "LowVar"]):
                         # No support for parametric and some selectors, so skip runs
                         c_index, brier_score = np.nan, np.nan
                         get_best_features_time, get_best_params_time, model_train_time = np.nan, np.nan, np.nan
@@ -131,9 +129,13 @@ def main():
                     if ft_selector_name != "UMAP8":     
                         selected_fts = ft_selector.get_features()
                         ti_new =  (ti[0].loc[:, selected_fts], ti[1])
+                        ti_new[0].reset_index(inplace= True, drop=True)
                         cvi_new = (cvi[0].loc[:, selected_fts], cvi[1])
+                        cvi_new[0].reset_index(inplace= True, drop=True)
                         ti_new_NN =  (ti_NN[0].loc[:, selected_fts], ti_NN[1])
-                        cvi_new_NN = (cvi_NN[0].loc[:, selected_fts], cvi_NN[1])                            
+                        ti_new_NN[0].reset_index(inplace= True, drop=True)
+                        cvi_new_NN = (cvi_NN[0].loc[:, selected_fts], cvi_NN[1])     
+                        cvi_new_NN[0].reset_index(inplace= True, drop=True)                       
                         get_best_features_time = time() - get_best_features_start_time
                         print ("Selected features: ", selected_fts)
                     else:
@@ -192,7 +194,7 @@ def main():
                         e= ti_new_NN[1].loc[:,"event"].to_numpy()
                         # print ("Non censored value: ", val)
                         # print ("Censored value: ", val2)
-                        model = model.fit(x, t, e, vsize=0.2, iters= 80, **best_params)
+                        model = model.fit(x, t, e, vsize=0.2, iters= 200, **best_params)
                     else:
                         model = search.best_estimator_
                         model.fit(ti_new[0], ti_new[1])
@@ -213,7 +215,7 @@ def main():
                         lower, upper = np.percentile(cvi_new[1][cvi_new[1].dtype.names[1]], [10, 90])
                         times = np.arange(math.ceil(lower), math.floor(upper)).tolist()
                         out_survival = model.predict_survival(x, times)
-                        if cvi_new_NN[1].isnull().values.any():
+                        if cvi_new_NN[1].isnull().values.any() or np.isnan(out_survival.any()):
                             c_index= np.nan
                             print ("Nan happened, skipped evalutation")
                         else:
@@ -248,7 +250,7 @@ def main():
                             brier_score= np.mean(survival_regression_metric('brs', cvi_new_NN[1], 
                                                                         out_survival, 
                                                                         times=times))
-                    elif model_name == "XGBRegressor" or model_name == "FastSurvivalSVM":
+                    elif model_name == "XGBRegressor" or model_name == "SVM":
                         brier_score = np.nan
                     else:
                         surv_probs = pd.DataFrame(np.row_stack([fn(times)

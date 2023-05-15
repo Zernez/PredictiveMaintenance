@@ -192,7 +192,7 @@ class DataETL:
             dataname= "./data/XJTU-SY/csv/Bearing1_" + str(bearing) + "_bootstrap.csv"
             bootstrap_val.to_csv(dataname, index= False)
 
-    def format_main_data (self, T1, train, test):
+    def format_main_data_Kfold (self, T1, train, test):
 
         # Make data split
 
@@ -232,6 +232,47 @@ class DataETL:
         cvi_NN = (cvi_X, cvi_y_df)
 
         return ti, cvi, ti_NN, cvi_NN
+
+    def format_main_data (self, T1, T2):
+
+        # Make data split
+
+        y_train_NN = T1[0].iloc[:, -2:]
+        y_test_NN = T2[0].iloc[:, -2:]
+
+        y_train_NN.rename(columns = {'Event':'event', 'Survival_time':'time'}, inplace = True)
+        y_test_NN.rename(columns = {'Event':'event', 'Survival_time':'time'}, inplace = True)
+
+        y_train_NN.event = y_train_NN.event.replace({True: 1, False: 0})
+        y_test_NN.event = y_test_NN.event.replace({True: 1, False: 0})
+
+        X_train = T1[0].iloc[:, :-2]
+        y_train = T1[1]
+        X_test = T2[0].iloc[:, :-2]
+        y_test = T2[1]
+#        features = ti_X.columns
+
+        # Apply scaling
+        # scaler = StandardScaler()
+        # scaler.fit(ti_X)
+        # ti_X = pd.DataFrame(scaler.transform(ti_X), columns=features)
+        # cvi_X = pd.DataFrame(scaler.transform(cvi_X), columns=features)
+
+
+        #End ETL normal data and start ETL for NN
+
+        y_train_NN.reset_index(inplace= True, drop=True)
+        y_test_NN.reset_index(inplace= True, drop=True)
+        X_train.reset_index(inplace= True, drop=True)
+        X_test.reset_index(inplace= True, drop=True)
+
+        # Collect splits
+        X_tr = (X_train, y_train)
+        X_te = (X_test, y_test)
+        y_tr_NN = (X_train, y_train_NN)
+        y_te_NN = (X_test, y_test_NN)
+
+        return X_tr, X_te, y_tr_NN, y_te_NN
     
     def centering_main_data (self, ti, cvi, ti_NN, cvi_NN):
 
