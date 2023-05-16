@@ -20,14 +20,17 @@ N_BOOT = 2
 
 def main():
 
-    cov, boot, info_pack = FileReader().read_data_xjtu()
-    X, y = DataETL().make_surv_data_sklS(cov, boot, info_pack, N_BOOT)
+    data_util = DataETL()
+    survival= Survival()
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0)
+    cov, boot, info_pack = FileReader().read_data_xjtu()
+    X, y = data_util.make_surv_data_sklS(cov, boot, info_pack, N_BOOT)
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size= 0.3, random_state=0)
     S1, S2 = (X_train, y_train), (X_test, y_test)
 
-    set_tr, set_te, set_tr_NN, set_te_NN = DataETL().format_main_data(S1, S2)
-    set_tr, set_te, set_tr_NN, set_te_NN = DataETL().centering_main_data(set_tr, set_te, set_tr_NN, set_te_NN)
+    set_tr, set_te, set_tr_NN, set_te_NN = data_util.format_main_data(S1, S2)
+    set_tr, set_te, set_tr_NN, set_te_NN = data_util.centering_main_data(set_tr, set_te, set_tr_NN, set_te_NN)
 
     X_train = set_tr [0]
     y_train = set_tr [1]
@@ -39,11 +42,12 @@ def main():
     y_test_NN = set_te_NN [1]
 
 
+    X_test_NN, y_test_NN = data_util.control_censored_data(X_test_NN, y_test_NN, percentage= 10)
+ 
     lower, upper = np.percentile(y['Survival_time'], [10, 90])
-    time_bins = np.arange(int(lower), int(upper+1))
-    # lower, upper = np.percentile(y_test_NN [y_test_NN.dtype.names[1]], [10, 90])
-    lower_NN, upper_NN = np.percentile(y_test_NN, [10, 90])
-    times = np.arange(math.ceil(lower_NN), math.floor(upper_NN+1)).tolist()
+    time_bins = np.arange(int(lower), int(upper))
+    lower_NN, upper_NN = np.percentile(y_test[y_test.dtype.names[1]], [10, 90])
+    times = np.arange(np.ceil(lower_NN), np.floor(upper_NN)).tolist()
 
     cph_model = regressors.Cph.make_model(regressors.Cph().get_best_params())
     cb_model = regressors.CoxBoost.make_model(regressors.CoxBoost().get_best_params())
@@ -71,23 +75,22 @@ def main():
     boost_model.fit(X_train, y_train)
     boostD_model.fit(X_train, y_train)
     SVM_model.fit(X_train, y_train)
-    NN_model.fit(x, t, e, vsize=0.2, iters= 20, **NN_params)
+    NN_model.fit(x, t, e, vsize=0.2, iters= 40, **NN_params)
 
-    cph_surv_func = Survival().predict_survival_function(cph_model, X_test, y_test, lower, upper)
-    rsf_surv_func = Survival().predict_survival_function(rsf_model, X_test, y_test, lower, upper)
-    cb_surv_func = Survival().predict_survival_function(cb_model, X_test, y_test, lower, upper)
-    boost_surv_func = Survival().predict_survival_function(boost_model, X_test, y_test, lower, upper)
-    boostD_surv_func = Survival().predict_survival_function(boostD_model, X_test, y_test, lower, upper)
+    cph_surv_func = survival.predict_survival_function(cph_model, X_test, y_test, lower, upper)
+    rsf_surv_func = survival.predict_survival_function(rsf_model, X_test, y_test, lower, upper)
+    cb_surv_func = survival.predict_survival_function(cb_model, X_test, y_test, lower, upper)
+    boost_surv_func = survival.predict_survival_function(boost_model, X_test, y_test, lower, upper)
+    boostD_surv_func = survival.predict_survival_function(boostD_model, X_test, y_test, lower, upper)
+    x= X_test_NN.to_numpy()
+    NN_surv_func = NN_model.predict_survival(x, times)
 
-    NN_surv_func = NN_model.predict_survival(X_test_NN, times)
-
-    cph_hazard_func = Survival().predict_hazard_function(cph_model, X_test, y_test, lower, upper)
-    rsf_hazard_func = Survival().predict_hazard_function(rsf_model, X_test, y_test, lower, upper)
-    cb_hazard_func = Survival().predict_hazard_function(cb_model, X_test, y_test, lower, upper)
-    boost_hazard_func = Survival().predict_hazard_function(boost_model, X_test, y_test, lower, upper)
-    boostD_hzazard_func = Survival().predict_hazard_function(boostD_model, X_test, y_test, lower, upper)
-
-    NN_hazard_func = NN_model.predict_risk(X_test_NN, times)
+    cph_hazard_func = survival.predict_hazard_function(cph_model, X_test, y_test, lower, upper)
+    rsf_hazard_func = survival.predict_hazard_function(rsf_model, X_test, y_test, lower, upper)
+    cb_hazard_func = survival.predict_hazard_function(cb_model, X_test, y_test, lower, upper)
+    boost_hazard_func = survival.predict_hazard_function(boost_model, X_test, y_test, lower, upper)
+    boostD_hzazard_func = survival.predict_hazard_function(boostD_model, X_test, y_test, lower, upper)
+    NN_hazard_func = NN_model.predict_risk(x, times)
 
     km_mean, km_high, km_low = calculate_kaplan_vectorized(y_test['Event'].reshape(1,-1),
                                                            y_test['Survival_time'].reshape(1,-1),
@@ -169,7 +172,7 @@ def main():
     explainer_BD = shap.Explainer(boostD_model.predict, X_test)
     shap_values_BD = explainer_BD(X_test)
 
-    explainer_NN = shap.Explainer(NN_surv_func, X_test)
+    explainer_NN = shap.Explainer(NN_model.predict_survival, X_test)
     shap_values_NN = explainer_NN(X_test)
 
     shap.plots.waterfall(shap_values_CB[0])

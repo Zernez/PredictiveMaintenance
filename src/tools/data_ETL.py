@@ -342,3 +342,23 @@ class DataETL:
         val_NN= x_val, y_val
 
         return ti_NN , y_ti_NN, cvi_NN, durations_test, events_test, val_NN
+
+    def control_censored_data (self, X_test, y_test, percentage):
+
+        #Drop censored data in percentage to avoid error in some models that is required 
+
+        censored_indexes = y_test.loc[:,"time"][y_test.loc[:,"event"]== 0].index
+        if len(censored_indexes) > 0:
+            if np.floor(len(y_test)/100*percentage) == 0:
+                num_censored= 1
+            else:
+                num_censored= int(np.floor(len(y_test)/100*percentage))
+            censored_indexes = np.random.choice(censored_indexes, size= num_censored, replace=False)
+        X_test.drop(censored_indexes, axis=0, inplace=True)
+        X_test.reset_index(inplace= True, drop=True)
+        y_test.drop(censored_indexes, axis=0, inplace=True)
+        y_test.reset_index(inplace= True, drop=True)   
+
+        return X_test, y_test
+
+
