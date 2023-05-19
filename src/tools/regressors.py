@@ -48,7 +48,12 @@ class BaseRegressor(ABC):
 
 class Cph(BaseRegressor):
     def make_model(self, params=None):
-        model_params = cfg.PARAMS_CPH
+        model_params = {
+    'alpha': 0.1,
+    'ties': 'breslow',
+    'n_iter': 100,
+    'tol': 1e-9
+}
         if params:
             model_params.update(params)
         return CoxPHSurvivalAnalysis(**model_params)

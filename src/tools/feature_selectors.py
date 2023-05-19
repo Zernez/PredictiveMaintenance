@@ -118,3 +118,21 @@ class UMAP8(BaseFeatureSelector):
 
     def get_feature_names_out(self):
         return self.features
+
+class UMAP12(BaseFeatureSelector):
+    def make_model(self):
+        self.components= 8
+        return umap.UMAP(n_components= self.components)
+    
+    def fit(self, ft_selector, X, y= None):
+        X = ft_selector.fit_transform(X)
+
+        labels= []
+        for element in range (1, self.components + 1 ,1):
+            labels.append("UMAP_Feature_"+ str(element))
+
+        self.features = pd.DataFrame(X, columns = labels)      
+        return self
+
+    def get_feature_names_out(self):
+        return self.features
