@@ -33,4 +33,9 @@ fitter
 graphviz
 config
 C:\Users\User\Desktop\UNI\MasterThesis\maintenance prediction\auton-survival-master
-#auton_survival
+datashader
+bokeh
+holoviews
+scikit-image
+colorcet
+dcor
