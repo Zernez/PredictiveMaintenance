@@ -8,7 +8,7 @@ from sklearn.feature_selection import SequentialFeatureSelector
 from lifelines import WeibullAFTFitter
 from mrmr import mrmr_regression
 import umap
-from utility.rfe_pi import RFE_PI
+#from utility.rfe_pi import RFE_PI
 
 class SelectAllFeatures():
     def fit(self, X, y=None):
@@ -69,13 +69,13 @@ class SelectKBest8(BaseFeatureSelector):
     def make_model(self):
         return SelectKBest(fit_and_score_features, k= 8)
 
-class RFE4(BaseFeatureSelector):
-    def make_model(self):
-        return RFE_PI(self.estimator, n_features_to_select= 4, step=0.5)
+# class RFE4(BaseFeatureSelector):
+#     def make_model(self):
+#         return RFE_PI(self.estimator, n_features_to_select= 4, step=0.5)
 
-class RFE8(BaseFeatureSelector):
-     def make_model(self):
-         return RFE_PI(self.estimator, n_features_to_select= 8, step=0.5)
+# class RFE8(BaseFeatureSelector):
+#      def make_model(self):
+#          return RFE_PI(self.estimator, n_features_to_select= 8, step=0.5)
 
 class SFS4(BaseFeatureSelector):
     def make_model(self):
@@ -106,7 +106,25 @@ class UMAP8(BaseFeatureSelector):
         self.components= 8
         return umap.UMAP(n_components= self.components)
     
-    def fit(self, ft_selector, X, y=None):
+    def fit(self, ft_selector, X, y= None):
+        X = ft_selector.fit_transform(X)
+
+        labels= []
+        for element in range (1, self.components + 1 ,1):
+            labels.append("UMAP_Feature_"+ str(element))
+
+        self.features = pd.DataFrame(X, columns = labels)      
+        return self
+
+    def get_feature_names_out(self):
+        return self.features
+
+class UMAP12(BaseFeatureSelector):
+    def make_model(self):
+        self.components= 8
+        return umap.UMAP(n_components= self.components)
+    
+    def fit(self, ft_selector, X, y= None):
         X = ft_selector.fit_transform(X)
 
         labels= []

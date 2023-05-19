@@ -4,17 +4,15 @@ from sksurv.ensemble import RandomSurvivalForest
 from sksurv.linear_model import CoxPHSurvivalAnalysis, CoxnetSurvivalAnalysis
 from sksurv.ensemble import GradientBoostingSurvivalAnalysis
 import config as cfg
-from lifelines import WeibullAFTFitter, LogNormalAFTFitter, LogLogisticAFTFitter, GeneralizedGammaFitter
+from lifelines import WeibullAFTFitter, LogNormalAFTFitter, LogLogisticAFTFitter, ExponentialFitter
 from lifelines.utils.sklearn_adapter import sklearn_adapter
 from sksurv.svm import FastSurvivalSVM
-import rpy2
-
+import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn_pandas import DataFrameMapper
 import torch
 import torchtuples as tt
-from pycox.models import CoxPH
-from pycox.evaluation import EvalSurv
+from auton_survival import DeepCoxPH
 
 class BaseRegressor(ABC):
     """
@@ -50,7 +48,12 @@ class BaseRegressor(ABC):
 
 class Cph(BaseRegressor):
     def make_model(self, params=None):
-        model_params = cfg.PARAMS_CPH
+        model_params = {
+    'alpha': 0.1,
+    'ties': 'breslow',
+    'n_iter': 100,
+    'tol': 1e-9
+}
         if params:
             model_params.update(params)
         return CoxPHSurvivalAnalysis(**model_params)
@@ -203,6 +206,16 @@ class XGBDart(BaseRegressor):
                 'max_depth': 3, 'learning_rate': 0.05,
                 'colsample_bynode': 0.5}
 
+class ExponentialAFT(BaseRegressor):
+    def make_model(self, params=None):
+        return sklearn_adapter(ExponentialFitter, event_col='Event')
+    def get_hyperparams(self):
+        return {
+            'alpha': [0.01, 0.05, 0.1, 1]
+        }
+    def get_best_hyperparams(self):
+        return {'alpha': 0.01}
+
 class WeibullAFT(BaseRegressor):
     def make_model(self, params=None):
         return sklearn_adapter(WeibullAFTFitter, event_col='Event')
@@ -233,15 +246,15 @@ class LogLogisticAFT(BaseRegressor):
     def get_best_hyperparams(self):
         return {'alpha': 0.01}
     
-class ExponentialAFT(BaseRegressor):
-    def make_model(self, params=None):
-        return sklearn_adapter(GeneralizedGammaFitter, event_col='Event')
-    def get_hyperparams(self):
-        return {
-            'alpha': [0.01, 0.05, 0.1, 1]
-        }
-    def get_best_hyperparams(self):
-        return {'alpha': 0.01}
+# class ExponentialAFT(BaseRegressor):
+#     def make_model(self, params=None):
+#         return sklearn_adapter(GeneralizedGammaFitter, event_col='Event')
+#     def get_hyperparams(self):
+#         return {
+#             'alpha': [0.01, 0.05, 0.1, 1]
+#         }
+#     def get_best_hyperparams(self):
+#         return {'alpha': 0.01}
     
 class SVM(BaseRegressor):
     def make_model(self, params=None):
@@ -273,46 +286,24 @@ class SVM(BaseRegressor):
     
 class DeepSurv(BaseRegressor):
     def make_model(self, params=None):
-        model_params = {'in_features': 0, 'num_nodes': [32,32], 
-                        'out_features': 0, 'batch_norm' : True, 
-                        'dropout': 0.1, 'output_bias': False}
+        model_params = {'batch_size' : 10,
+                        'learning_rate' : 1e-3
+                        }
         if params:
             model_params.update(params)
 
-        net = tt.practical.MLPVanilla(**model_params)
-        
-        model = CoxPH(net, tt.optim.Adam)
-
-        return model
-    def get_hyperparams(self):
-        return {
-                'in_features': 0, 
-                'num_nodes': [32,32], 
-                'out_features': 0, 
-                'batch_norm' : True, 
-                'dropout': 0.1, 
-                'output_bias': False, 
-                'lr': [0.01, 0.005, 0.001]
-        }
-    def get_best_hyperparams(self):
-        return {                
-                'in_features': 0, 
-                'num_nodes': [32,32], 
-                'out_features': 0, 
-                'batch_norm' : True, 
-                'dropout': 0.1, 
-                'output_bias': False, 
-                'lr': 0.01}
+        return DeepCoxPH(layers= [100, 100])
     
-    def fit(self):
-        return {                
-                'in_features': 0, 
-                'num_nodes': [32,32], 
-                'out_features': 0, 
-                'batch_norm' : True, 
-                'dropout': 0.1, 
-                'output_bias': False, 
-                'lr': 0.01}
+    def get_hyperparams(self):
+        return {'batch_size' : [10, 20],
+                'learning_rate' : [ 1e-4, 1e-3]
+#                'layers' : [ [100], [100, 100] ]
+                }
+    def get_best_hyperparams(self):
+        return {'batch_size' : 10,
+                'learning_rate' : 1e-3
+                }
+
 
 class GradientBoosting(BaseRegressor):
     def make_model(self, params=None):

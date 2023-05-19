@@ -1,6 +1,7 @@
 import pickle
 from pathlib import Path
 import pandas as pd
+from utility.event import Event
 
 class FileReader:
 
@@ -24,11 +25,13 @@ class FileReader:
         dataset_path = "./data/XJTU-SY/csv/"
         set_covariates= pd.read_csv(dataset_path + 'covariates.csv')
         set_boot= pd.read_csv(dataset_path + 'boot.csv')
-        #
-        event_kl= self.read_pickle("./data/XJTU-SY/csv/" + "event_kl")
-        event_sd= self.read_pickle("./data/XJTU-SY/csv/" + "event_sd")
+        set_analytic= pd.read_csv(dataset_path + 'analytic.csv')
 
-        #use of event.py to insert
+        # # or calulate with functions
+        # event_kl= self.read_pickle("./data/XJTU-SY/csv/" + "event_kl")
+        # event_sd= self.read_pickle("./data/XJTU-SY/csv/" + "event_sd")
+
+        event_kl, event_sd, event_t = Event().make_events(set_analytic) 
         info_pack= {'KL': event_kl, 'SD': event_sd}
 
         return set_covariates, set_boot, info_pack
@@ -36,12 +39,6 @@ class FileReader:
 
 
     def read_pickle(self, path: Path):
-        """
-        Loads the pickled object at the location given.
-
-        :param path: Path (including the file itself)
-        :return: obj
-        """
         file_handler = open(path, 'rb')
         obj = pickle.load(file_handler)
         file_handler.close()

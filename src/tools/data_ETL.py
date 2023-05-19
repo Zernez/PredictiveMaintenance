@@ -5,6 +5,8 @@ import random
 import re
 from sksurv.util import Surv
 from tools.featuring import Featuring
+from sklearn.preprocessing import StandardScaler
+from sklearn_pandas import DataFrameMapper
 
 class DataETL:
 
@@ -71,9 +73,10 @@ class DataETL:
 
         data_sa = Surv.from_dataframe("Event", "Survival_time", data_cov)
 
-
-        return data_cov.drop(["Event", "Survival_time"], axis=1), data_sa
-
+        # if data_NN == False:
+        #     return data_cov.drop(["Event", "Survival_time"], axis=1), data_sa
+        return data_cov, data_sa
+            
     def ev_manager (self, num, bootstrap, tot):
 
         checker= True
@@ -188,3 +191,174 @@ class DataETL:
 
             dataname= "./data/XJTU-SY/csv/Bearing1_" + str(bearing) + "_bootstrap.csv"
             bootstrap_val.to_csv(dataname, index= False)
+
+    def format_main_data_Kfold (self, T1, train, test):
+
+        # Make data split
+
+        ti_y_df= T1[0].iloc[train, -2:]
+        cvi_y_df= T1[0].iloc[test, -2:]
+
+        ti_y_df.rename(columns = {'Event':'event', 'Survival_time':'time'}, inplace = True)
+        cvi_y_df.rename(columns = {'Event':'event', 'Survival_time':'time'}, inplace = True)
+
+        ti_y_df.event = ti_y_df.event.replace({True: 1, False: 0})
+        cvi_y_df.event = cvi_y_df.event.replace({True: 1, False: 0})
+
+        ti_X = T1[0].iloc[train, :-2]
+        ti_y = T1[1][train]
+        cvi_X = T1[0].iloc[test, :-2]
+        cvi_y = T1[1][test]
+#        features = ti_X.columns
+
+        # Apply scaling
+        # scaler = StandardScaler()
+        # scaler.fit(ti_X)
+        # ti_X = pd.DataFrame(scaler.transform(ti_X), columns=features)
+        # cvi_X = pd.DataFrame(scaler.transform(cvi_X), columns=features)
+
+
+        #End ETL normal data and start ETL for NN
+
+        ti_X.reset_index(inplace= True, drop=True)
+        cvi_X.reset_index(inplace= True, drop=True)
+        ti_y_df.reset_index(inplace= True, drop=True)
+        cvi_y_df.reset_index(inplace= True, drop=True)
+
+        # Collect splits
+        ti = (ti_X, ti_y)
+        cvi = (cvi_X, cvi_y)
+        ti_NN = (ti_X, ti_y_df)
+        cvi_NN = (cvi_X, cvi_y_df)
+
+        return ti, cvi, ti_NN, cvi_NN
+
+    def format_main_data (self, T1, T2):
+
+        # Make data split
+
+        y_train_NN = T1[0].iloc[:, -2:]
+        y_test_NN = T2[0].iloc[:, -2:]
+
+        y_train_NN.rename(columns = {'Event':'event', 'Survival_time':'time'}, inplace = True)
+        y_test_NN.rename(columns = {'Event':'event', 'Survival_time':'time'}, inplace = True)
+
+        y_train_NN.event = y_train_NN.event.replace({True: 1, False: 0})
+        y_test_NN.event = y_test_NN.event.replace({True: 1, False: 0})
+
+        X_train = T1[0].iloc[:, :-2]
+        y_train = T1[1]
+        X_test = T2[0].iloc[:, :-2]
+        y_test = T2[1]
+#        features = ti_X.columns
+
+        # Apply scaling
+        # scaler = StandardScaler()
+        # scaler.fit(ti_X)
+        # ti_X = pd.DataFrame(scaler.transform(ti_X), columns=features)
+        # cvi_X = pd.DataFrame(scaler.transform(cvi_X), columns=features)
+
+
+        #End ETL normal data and start ETL for NN
+
+        y_train_NN.reset_index(inplace= True, drop=True)
+        y_test_NN.reset_index(inplace= True, drop=True)
+        X_train.reset_index(inplace= True, drop=True)
+        X_test.reset_index(inplace= True, drop=True)
+
+        # Collect splits
+        X_tr = (X_train, y_train)
+        X_te = (X_test, y_test)
+        y_tr_NN = (X_train, y_train_NN)
+        y_te_NN = (X_test, y_test_NN)
+
+        return X_tr, X_te, y_tr_NN, y_te_NN
+    
+    def centering_main_data (self, ti, cvi, ti_NN, cvi_NN):
+
+        # Make data split 
+        ti_X = ti[0]
+        ti_y = ti[1]
+        cvi_X = cvi[0]
+        cvi_y = cvi[1]
+        ti_X_NN = ti_NN[0]
+        ti_y_NN = ti_NN[1]
+        cvi_X_NN = cvi_NN[0]
+        cvi_y_NN = cvi_NN[1]
+        features = list(ti_X.columns)
+
+        # Apply scaling
+        scaler = StandardScaler()
+
+        scaler.fit(ti_X)
+        ti_X = pd.DataFrame(scaler.transform(ti_X), columns=features)
+        cvi_X = pd.DataFrame(scaler.transform(cvi_X), columns=features)
+        ti_X_NN = pd.DataFrame(scaler.transform(ti_X_NN), columns=features)
+        cvi_X_NN = pd.DataFrame(scaler.transform(cvi_X_NN), columns=features)
+
+        ti_X.reset_index(inplace= True, drop=True)
+        cvi_X.reset_index(inplace= True, drop=True)
+        ti_X_NN.reset_index(inplace= True, drop=True)
+        cvi_X_NN.reset_index(inplace= True, drop=True)
+
+        # Collect splits
+        ti = (ti_X, ti_y)
+        cvi = (cvi_X, cvi_y)
+        ti_NN = (ti_X_NN, ti_y_NN)
+        cvi_NN = (cvi_X_NN, cvi_y_NN)
+
+        return ti, cvi, ti_NN, cvi_NN
+    
+    def format_centering_NN_data (self, T1NN, T2NN, ti_y_df, cvi_y_df, TvalNN):
+
+        ti_X_NN = pd.concat([T1NN[0], ti_y_df], axis=1)
+        cvi_X_NN = pd.concat([T2NN[0], cvi_y_df], axis=1)
+        ti_X_val_NN= TvalNN[0]
+
+
+        features = T1NN[0].columns
+
+        cols_standardize = list(features)
+        cols_leave = []
+
+        scaler= StandardScaler()
+
+        standardize = [([col], scaler) for col in cols_standardize]
+        leave = [(col, None) for col in cols_leave]
+        x_mapper = DataFrameMapper(standardize + leave)
+
+        x_train_ti = x_mapper.fit_transform(ti_X_NN).astype('float32')
+        x_train_cvi = x_mapper.fit_transform(cvi_X_NN).astype('float32')       
+        x_val = x_mapper.transform(ti_X_val_NN).astype('float32')
+
+        get_target = lambda df: (df['Survival_time'].values, df['Event'].values)
+        y_ti_NN = get_target(ti_X_NN)
+        y_val = get_target(ti_X_val_NN)
+
+        durations_test, events_test = get_target(cvi_X_NN)       
+
+        ti_NN = x_train_ti
+        cvi_NN = x_train_cvi
+        val_NN= x_val, y_val
+
+        return ti_NN , y_ti_NN, cvi_NN, durations_test, events_test, val_NN
+
+    def control_censored_data (self, X_test, y_test, percentage):
+
+        #Drop censored data in percentage to avoid error in some models that is required 
+
+        censored_indexes = y_test.loc[:,"time"][y_test.loc[:,"event"]== 0].index
+        if len(censored_indexes) > 0:
+            if np.floor(len(y_test)/100*percentage) == 0:
+                num_censored= 1
+            else:
+                num_censored= int(np.floor(len(y_test)/100*percentage))
+            censored_indexes = np.random.choice(censored_indexes, size= num_censored, replace=False)
+        X_test.drop(censored_indexes, axis=0, inplace=True)
+        X_test.reset_index(inplace= True, drop=True)
+        y_test.drop(censored_indexes, axis=0, inplace=True)
+        y_test.reset_index(inplace= True, drop=True)   
+
+        return X_test, y_test
+
+
