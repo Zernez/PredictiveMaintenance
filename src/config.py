@@ -1,6 +1,9 @@
 """
 This file has all configurations for doing the data preprocessing and all the relevant locations to read / write from.
 """
+N_BEARING_TOT= 50
+N_REAL_BEARING= 5
+N_BOOT_FOLD= 10
 
 PARAMS_CPH = {
     'alpha': 0.1,
@@ -52,18 +55,35 @@ PARAMS_RSF = {
     'random_state': 0
 }
 
-PARAMS_COXBOOST = {
-    'n_estimators': 100,
-    'learning_rate': 0.1,
-    'max_depth': 3,
-    'loss': 'coxph',
-    'min_samples_split': 2,
-    'min_samples_leaf': 1,
-    'max_features': None,
-    'dropout_rate': 0.0,
-    'subsample': 1.0,
-    'random_state': 0
-}
+PARAMS_GRADBOOST = {'n_estimators': 100,
+                    'learning_rate': 0.1,
+                    'max_depth': 3,
+                    'loss': 'coxph',
+                    'min_samples_split': 2,
+                    'min_samples_leaf': 1,
+                    'max_features': None,
+                    'dropout_rate': 0.0,
+                    'subsample': 1.0,
+                    'random_state': 0}
+
+PARAMS_GRADBOOST_DART = {'n_estimators': 100,
+                        'learning_rate': 0.1,
+                        'max_depth': 3,
+                        'loss': 'coxph',
+                        'min_samples_split': 2,
+                        'min_samples_leaf': 1,
+                        'max_features': None,
+                        'dropout_rate': 0.2,
+                        'subsample': 1.0,
+                        'random_state': 0}
+
+PARAMS_SVM = {'alpha': 1, 
+              'rank_ratio': 0.8,
+              'max_iter': 40, 
+              'optimizer': 'avltree'}
+
+PARAMS_DEEPSURV = {'batch_size' : 10,
+                    'learning_rate' : 1e-3}
 
 PARAMS_XGB_LINEAR = {
     'n_estimators': 100,

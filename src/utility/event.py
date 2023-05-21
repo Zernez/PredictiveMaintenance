@@ -6,12 +6,14 @@ from scipy.stats import entropy
 
 class Event:
         
-    def __init__(self):
-        self.total_bearings= 40
+    def __init__ (self):
+        self.total_bearings= 50
         self.window= 10
+        self.percentage_error = 10
+        self.break_in_percentage= 40
+        self.t_threshold= - 1e-20
 
-    def evaluator_KL(self, x, window):
-
+    def evaluator_KL (self, x, window):
         lenght= int((len(x) - x.iloc[:,0:1].isna().sum().values[0]) /window)
         len_col= len(x.columns)
         res = np.zeros((len_col,lenght - 1), dtype= float) #2156/36
@@ -33,8 +35,7 @@ class Event:
 
         return res
 
-    def evaluator_Ttest(self, x, window):
-    
+    def evaluator_Ttest (self, x, window):
         lenght= int((len(x) - x.iloc[:,0:1].isna().sum().values[0]) /window)
         len_col= len(x.columns)
         res = np.zeros((len_col,lenght - 1), dtype= float) #2156/36
@@ -57,8 +58,7 @@ class Event:
 
         return res
 
-    def evaluator_SD(self, x, window):
-
+    def evaluator_SD (self, x, window):
         lenght= int((len(x) - x.iloc[:,0:1].isna().sum().values[0]) /window)
         len_col= len(x.columns)
         res = np.zeros((len_col,lenght - 1), dtype= float) #2156/36
@@ -79,8 +79,7 @@ class Event:
 
         return res
 
-    def evaluator_Chi(self, x, window):
-
+    def evaluator_Chi (self, x, window):
         lenght= int((len(x) - x.iloc[:,0:1].isna().sum().values[0]) /window)
         len_col= len(x.columns)
         res = np.zeros((len_col,lenght - 1), dtype= float) #2156/36
@@ -102,7 +101,7 @@ class Event:
 
         return res
     
-    def evaluator_breakpoint(self, kl, sd, t, chi):
+    def evaluator_breakpoint (self, kl, sd, t, chi):
         i= 0
         j= 0
         w= 0
@@ -110,18 +109,16 @@ class Event:
         q= 0
         bins = 5
         data= 3 + 1
-        percentage_error= 20
+        percentage_error= self.percentage_error
+        break_in_percentage= self.break_in_percentage
         thresholds_kl = np.zeros((bins, data), dtype= float)
         thresholds_sd = np.zeros((bins, data), dtype= float)
         thresholds_t = np.zeros((bins, data), dtype= float)
         thresholds_chi = np.zeros((bins, data), dtype= float)
 
-
         for bin in kl:
-
-            break_in= int(len(bin)* 40 /100)
+            break_in= int(len(bin)* break_in_percentage /100)
             for step in bin:
-
                 if i <= break_in:
                     if bin[i]> thresholds_kl [j][0] or i== 0:
                         thresholds_kl [j][0]= bin[i]
@@ -136,7 +133,6 @@ class Event:
                         if step_2 > thresholds_kl [j][1]:
                             m= bin[w]-bin[w-1]
                             q= bin[w-1]
-                            # thresholds_kl [j][2], =  np.where(np.isclose(bin, step_2))
                             thresholds_kl [j][2] =  (thresholds_kl [j][1]/m) - (q/m) + (w -1)
                             break
                         w += 1
@@ -151,10 +147,8 @@ class Event:
         j= 0
 
         for bin in sd:
-
-            break_in= int(len(bin)* 40 /100)
+            break_in= int(len(bin)* break_in_percentage /100)
             for step in bin:
-
                 if  i <= break_in:
                     if bin[i]> thresholds_sd [j][0] or i== 0:
                         thresholds_sd [j][0]= bin[i]
@@ -169,7 +163,6 @@ class Event:
                         if step_2 > thresholds_sd [j][1]:
                             m= bin[w]-bin[w-1]
                             q= bin[w-1]
-                            # thresholds_kl [j][2], =  np.where(np.isclose(bin, step_2))
                             thresholds_sd [j][2] =  (thresholds_sd [j][1]/m) - (q/m) + (w -1)
                             break
                         w += 1
@@ -183,12 +176,12 @@ class Event:
         i= 0
         j= 0
         count= 0
-        t_threshold= - 1e-20 
+        t_threshold= self.t_threshold
         ground_level= 0
         max_count = 3
 
         for bin in t:
-
+            break_in= int(len(bin)* break_in_percentage /100)
             thresholds_t [j][max_count]= len (bin)        
             for step in bin:
                 if i == 0:
@@ -219,11 +212,11 @@ class Event:
         i= 0
         j= 0
         count= 0
-        t_threshold= - 1e-20 
+        c_threshold= self.t_threshold 
         ground_level= 0
 
         for bin in chi:
-            
+            break_in= int(len(bin)* break_in_percentage /100)
             thresholds_chi [j][max_count]= len (bin)
             for step in bin:
                 if i == 0:
@@ -241,7 +234,7 @@ class Event:
 
                 w= 1
                 for val in dydx:
-                    if val < t_threshold and bin[i] < ground_level and count< max_count and w> 1:
+                    if val < c_threshold and bin[i] < ground_level and count< max_count and w> 1:
                         thresholds_chi [j][count]= w
                         count+= 1
                     w += 1

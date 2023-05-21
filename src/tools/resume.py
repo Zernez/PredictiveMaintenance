@@ -9,20 +9,19 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from lifelines.utils import survival_table_from_events
-from lifelines import CoxPHFitter
-from lifelines.statistics import proportional_hazard_test
+from lifelines import KaplanMeierFitter
 
 
 class Resume:
 
-    def __init__(self, x, y):
+    def __init__ (self, x, y):
         self.x= x
         self.y= y
         self.event_table= survival_table_from_events(x['Survival_time'].astype('int'),x['Event'])
         self.result_path= "./data/XJTU-SY/results/"
+        self.sample_path= "./data/XJTU-SY/csv/"
         self.dpi= 200
         self.format= "png"
-         
 
     def presentation (self, bearings, boot_no):
         x = self.x.iloc[:,:-2]
@@ -49,7 +48,7 @@ class Resume:
         plt.close()
 
         #Plot UMAP
-        mapper = umap.UMAP(n_neighbors=10, min_dist=0.2).fit(x) 
+        mapper = umap.UMAP(n_neighbors= 12, min_dist=0.3).fit(x) 
         umap.plot.connectivity(mapper, show_points=True)
         plt.savefig(self.result_path + 'UMAP_conn.png', dpi= self.dpi, format= self.format, bbox_inches='tight')
         plt.close()
@@ -89,7 +88,7 @@ class Resume:
         mask = np.triu(np.ones_like(correlation_matrix, dtype=bool))
         plt.figure(figsize=(10,7))
         sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', mask=mask, vmin=-1, vmax=1,
-                    xticklabels=x2.columns, yticklabels=x2.columns)
+                    xticklabels=x.columns, yticklabels=x.columns)
         # plt.show()
         plt.savefig(self.result_path + 'nonlin_multicorr_x.png', dpi= self.dpi, format= self.format, bbox_inches='tight')
         plt.close()
@@ -112,19 +111,29 @@ class Resume:
         plt.savefig(self.result_path + 'nonlin_multicorr_xy.png', dpi= self.dpi, format= self.format, bbox_inches='tight')
         plt.close()
 
-        #Check PH assumption
+        #Check PH assumption is made outside this routine once
         # cph = CoxPHFitter()
         # cph.fit(self.x, duration_col= "Survival_time", event_col= "Event")
         # cph.check_assumptions(self.x, p_value_threshold=0.05, show_plots=True)
         # results = proportional_hazard_test(cph, self.x, time_transform='rank')
         # results.print_summary(decimals=3, model="untransformed variables")
 
+        km_sc= KaplanMeierFitter()
+        km_sc.fit(durations= self.x["Survival_time"], event_observed= self.x["Survival_time"])
+        km_sc.predict(11)
+        km_sc.plot(figsize=(20, 20), linewidth=2)
+        plt.xlabel("Time (10 min)")
+        plt.ylabel("Survival probability")
+        plt.title("Kaplan Meier")
+        plt.savefig(self.result_path + 'KM_line.png', dpi= self.dpi, format= self.format, bbox_inches='tight')
+        plt.close()
+
     def plot_simple_sl (self, y_test, surv_probs, model):
         surv_label= []
         for i in range (0, len (y_test) +1):
             surv_label.append('Bearing ' + str(i) + ' test')
 
-        surv_probs.T.plot(figsize=(20, 20))
+        surv_probs.T.plot(figsize=(20, 20), linewidth= 2)            
         plt.xlabel("Time (10 min)")
         plt.ylabel("Survival probability")
         plt.grid()
@@ -135,8 +144,12 @@ class Resume:
 
     def plot_sl_ci (self, y_test, surv_probs, model):
         event_table= self.event_table
-        ref_prob_high = surv_probs.T.index[-1]
-        ref_prob_low = surv_probs.T.index[0]
+        if model.__class__.__name__ == 'DeepCoxPH':
+            ref_prob_high = surv_probs.index[-1]
+            ref_prob_low = surv_probs.index[0]
+        else:
+            ref_prob_high = surv_probs.T.index[-1]
+            ref_prob_low = surv_probs.T.index[0]
         filter_idx_high= self.find_largest_below_threshold(event_table.index, ref_prob_high)
         filter_idx_low= self.find_smallest_over_threshold(event_table.index, ref_prob_low)
         event_table_idx= event_table.index
@@ -149,9 +162,10 @@ class Resume:
         survival_functions= []
 
         for i in range (0, len (y_test)):
-
-            survival_function = surv_probs.T[i][new_event_table]
-
+            if model.__class__.__name__ == 'DeepCoxPH':
+                survival_function = surv_probs[i][new_event_table]
+            else:
+                survival_function = surv_probs.T[i][new_event_table]                
             # Calculate the Greenwood formula
             n_events = event_table.iloc[:, 0]
             variance_estimate = np.cumsum(event_table['observed'] / (event_table['at_risk'] * (event_table['at_risk'] - event_table['observed'])))
@@ -173,7 +187,7 @@ class Resume:
 
         i= 0
         for sf in survival_functions:
-            sf.plot(figsize=(20, 20))
+            sf.plot(figsize=(20, 20), linewidth= 2)
             plt.fill_between(result[i].index, (result[i]["Lower Bound"].values), (result[i]["Upper Bound"].values), alpha=.1)
             i += 1
         plt.xlabel("Time (10 min)")
@@ -194,12 +208,17 @@ class Resume:
             plt.savefig(self.result_path + 'beeswarm_{}.png'.format(model) , dpi= self.dpi, format= self.format, bbox_inches='tight')
             plt.close()           
         else:
-            print ("Shap for NN not available at the moment")
-            # shap.waterfall_plot(explainer.base_values[0], shap_values[0], X_test)
-            # shap.plots.beeswarm(shap_values[0][0])
+            idx = 3
+            exp = shap.Explanation(shap_values.values, shap_values.base_values[0], shap_values.data)
+            print (exp[idx])
+            shap.plots.waterfall(exp[idx])
+            plt.savefig(self.result_path + 'waterfall_{}.png'.format(model) , dpi= self.dpi, format= self.format, bbox_inches='tight')
+            plt.close()                  
+            shap.plots.beeswarm(shap_values)
+            plt.savefig(self.result_path + 'beeswarm_{}.png'.format(model) , dpi= self.dpi, format= self.format, bbox_inches='tight')
+            plt.close() 
 
     def plot_performance (self, last, df_CI, df_B, model_name= None, CI_score= None, brier_score= None):
-
         if last == True:
             _, ax = plt.subplots(figsize=(11, 6))
             sns.boxplot(x= "Model", y="CI score", data=df_CI, ax=ax)
@@ -236,8 +255,9 @@ class Resume:
 
             return df_CI, df_B
 
-    def compute_vif(self, considered_features):
+    def compute_vif (self, considered_features):
         x = self.x[considered_features]
+        
         #The calculation of variance inflation requires a constant
         x['intercept'] = 1
         
@@ -245,18 +265,21 @@ class Resume:
         vif["Variable"] = x.columns
         vif["VIF"] = [variance_inflation_factor(x.values, i) for i in range(x.shape[1])]
         vif = vif[vif['Variable']!='intercept']
+
         return vif
     
-    def find_largest_below_threshold(self, array, threshold):
+    def find_largest_below_threshold (self, array, threshold):
         largest_number = 0
         for num in array:
             if num <= threshold and num >= largest_number:
                 largest_number = num
+
         return largest_number
     
-    def find_smallest_over_threshold(self, array, threshold):
+    def find_smallest_over_threshold (self, array, threshold):
         smallest_number = float('inf')
         for num in array:
             if num >= threshold and num <= smallest_number:
                 smallest_number = num
+
         return smallest_number

@@ -4,17 +4,17 @@ import statistics
 import random
 import re
 from sksurv.util import Surv
-from tools.featuring import Featuring
 from sklearn.preprocessing import StandardScaler
 from sklearn_pandas import DataFrameMapper
+import config as cfg
 
 class DataETL:
 
-    def __init__(self):
-        self.total_bearings= 40
+    def __init__ (self):
+        self.total_bearings= cfg.N_BEARING_TOT
+        self.real_bearings= cfg.N_REAL_BEARING
 
     def make_surv_data_sklS (self, covariates, set_boot, info_pack, bootstrap):
-
         row = pd.DataFrame()
         data_cov= pd.DataFrame()
         ref_value= {}
@@ -73,16 +73,14 @@ class DataETL:
 
         data_sa = Surv.from_dataframe("Event", "Survival_time", data_cov)
 
-        # if data_NN == False:
-        #     return data_cov.drop(["Event", "Survival_time"], axis=1), data_sa
         return data_cov, data_sa
             
     def ev_manager (self, num, bootstrap, tot):
-
         checker= True
 
-        for check in range(7, tot + 1, (bootstrap * 2) + 4):
-        
+        #Only the two last bootstrapped bearings will be censored        
+        censor_level= int((self.total_bearings / self.real_bearings) - 1)  
+        for check in range(censor_level, tot + 1, (bootstrap * 2) + 4):
             if check == num or check == num - 1: 
                 checker= False
                 break
@@ -95,31 +93,37 @@ class DataETL:
             return True
 
     def sur_time_manager (self, num, bootref, ref):
-
         for key, value in ref.items():
             if key == num or key + 1 == num:
                 return value + random.randint(-2, 2)    
         
         bootstrap= len (bootref) - 1
         tot= ((bootstrap * 2) + 4) * 5
-        num_ref= 3
+        #Value fixed depending on the number of the signals (i.e x,y -> num_ref = 3)
+        num_ref= 3 
         i= 0
         
         #Bootstrapping + addtitional randomizator
-        for check in range(9, tot + (bootstrap * 2) + 5, (bootstrap * 2) + 4):    
+        boot_pack_level=  int((self.total_bearings / self.real_bearings) + 1) 
+
+        for check in range(boot_pack_level, tot + (bootstrap * 2) + 5, (bootstrap * 2) + 4):    
             if not num >= check:
                 if num== num_ref:
-                    return bootref.iat[0,i] + ref[check - 8] + random.randint(-2, -1)               
+                    return bootref.iat[0,i] + ref[check - 10] + random.randint(-2, -1)               
                 elif num== num_ref + 1:
-                    return bootref.iat[0,i] + ref[check - 8] + random.randint(1, 2)     
+                    return bootref.iat[0,i] + ref[check - 10] + random.randint(1, 2)     
                 elif num== num_ref + 2:
-                    return bootref.iat[1,i] + ref[check - 8] + random.randint(-2, -1)               
+                    return bootref.iat[1,i] + ref[check - 10] + random.randint(-2, -1)               
                 elif num== num_ref + 3:
-                    return bootref.iat[1,i] + ref[check - 8] + random.randint(1, 2)   
+                    return bootref.iat[1,i] + ref[check - 10] + random.randint(1, 2)   
                 elif num== num_ref + 4:
-                    return bootref.iat[2,i] + ref[check - 8] + random.randint(-2, -1)              
+                    return bootref.iat[2,i] + ref[check - 10] + random.randint(-2, -1)              
                 elif num== num_ref + 5:
-                    return bootref.iat[2,i] + ref[check - 8] + random.randint(1, 2)   
+                    return bootref.iat[2,i] + ref[check - 10] + random.randint(1, 2)
+                elif num== num_ref + 6:
+                    return bootref.iat[3,i] + ref[check - 10] + random.randint(-2, -1)              
+                elif num== num_ref + 7:
+                    return bootref.iat[3,i] + ref[check - 10] + random.randint(1, 2)    
                 
             num_ref+= (bootstrap * 2) + 4
             i+= 1
@@ -127,7 +131,6 @@ class DataETL:
         return -1
 
     def event_analyzer (self, bear_num, info_pack):
-    
         lifetime_guarantee= 30
         data_kl= []
         data_sd= []
@@ -160,42 +163,7 @@ class DataETL:
 
         return res
 
-    def make_surv_data_pyS (self, covariates, set_boot, info_pack, bootstrap):
-        return 0, 0
-    
-    def from_raw_to_csv (self, bearings):
-
-        bootno = 2
-        bearings = self.total_bearings / 5 
-        j = 1
-
-        for bearing in range (1, bearings + 1 , 1):
-
-            dataset_path = "./data/XJTU-SY/35Hz12kN/Bearing1_" + str(bearing)
-            datasets, bootstrap_val = Featuring.time_features(dataset_path, bootstrap= bootno)
-            i = 1
-            for dataset in datasets:
-                dataset.columns= ['B' + str(j) + '_mean' , 'B' + str(j) + '_std', 'B' + str(j) + '_skew', 'B' + str(j) + '_kurtosis', 'B' + str(j) + '_entropy', 
-                                'B' + str(j) + '_rms','B' + str(j) + '_max', 'B' + str(j) + '_p2p', 'B' + str(j) + '_crest', 'B' + str(j) + '_clearence', 
-                                'B' + str(j) + '_shape', 'B' + str(j) + '_impulse', 'B' + str(j) + '_freq_band_1', 'B' + str(j) + '_freq_band_2', 'B' + str(j) + '_freq_band_3', 
-                                'B' + str(j) + '_freq_band_4', 'B' + str(j) + '_freq_band_5', 'B' + str(j) + '_Event', 'B' + str(j) + '_Survival_time',
-                                'B' + str(j + 1) + '_mean', 'B' + str(j + 1) + '_std', 'B' + str(j + 1) + '_skew', 'B' + str(j + 1) + '_kurtosis', 'B' + str(j + 1) + '_entropy', 
-                                'B' + str(j + 1) +'_rms', 'B' + str(j + 1) + '_max', 'B' + str(j + 1) + '_p2p', 'B' + str(j + 1) + '_crest' , 'B' + str(j + 1) + '_clearence', 
-                                'B' + str(j + 1) + '_shape','B' + str(j + 1) + '_impulse', 'B' + str(j + 1) + '_freq_band_1' , 'B' + str(j + 1) + '_freq_band_2', 'B' + str(j + 1) + '_freq_band_3', 
-                                'B' + str(j + 1) + '_freq_band_4' , 'B' + str(j + 1) + '_freq_band_5', 'B' + str(j + 1) + '_Event', 'B' + str(j + 1) + '_Survival_time']
-                    
-                dataname= "./data/XJTU-SY/csv/Bearing1_" + str(bearing) + "_" + str(i) + "_timefeature.csv"
-                dataset.to_csv(dataname, index= False)
-                i += 1
-                j += 2
-
-            dataname= "./data/XJTU-SY/csv/Bearing1_" + str(bearing) + "_bootstrap.csv"
-            bootstrap_val.to_csv(dataname, index= False)
-
     def format_main_data_Kfold (self, T1, train, test):
-
-        # Make data split
-
         ti_y_df= T1[0].iloc[train, -2:]
         cvi_y_df= T1[0].iloc[test, -2:]
 
@@ -209,16 +177,6 @@ class DataETL:
         ti_y = T1[1][train]
         cvi_X = T1[0].iloc[test, :-2]
         cvi_y = T1[1][test]
-#        features = ti_X.columns
-
-        # Apply scaling
-        # scaler = StandardScaler()
-        # scaler.fit(ti_X)
-        # ti_X = pd.DataFrame(scaler.transform(ti_X), columns=features)
-        # cvi_X = pd.DataFrame(scaler.transform(cvi_X), columns=features)
-
-
-        #End ETL normal data and start ETL for NN
 
         ti_X.reset_index(inplace= True, drop=True)
         cvi_X.reset_index(inplace= True, drop=True)
@@ -234,9 +192,6 @@ class DataETL:
         return ti, cvi, ti_NN, cvi_NN
 
     def format_main_data (self, T1, T2):
-
-        # Make data split
-
         y_train_NN = T1[0].iloc[:, -2:]
         y_test_NN = T2[0].iloc[:, -2:]
 
@@ -250,16 +205,6 @@ class DataETL:
         y_train = T1[1]
         X_test = T2[0].iloc[:, :-2]
         y_test = T2[1]
-#        features = ti_X.columns
-
-        # Apply scaling
-        # scaler = StandardScaler()
-        # scaler.fit(ti_X)
-        # ti_X = pd.DataFrame(scaler.transform(ti_X), columns=features)
-        # cvi_X = pd.DataFrame(scaler.transform(cvi_X), columns=features)
-
-
-        #End ETL normal data and start ETL for NN
 
         y_train_NN.reset_index(inplace= True, drop=True)
         y_test_NN.reset_index(inplace= True, drop=True)
@@ -275,8 +220,6 @@ class DataETL:
         return X_tr, X_te, y_tr_NN, y_te_NN
     
     def centering_main_data (self, ti, cvi, ti_NN, cvi_NN):
-
-        # Make data split 
         ti_X = ti[0]
         ti_y = ti[1]
         cvi_X = cvi[0]
@@ -310,14 +253,11 @@ class DataETL:
         return ti, cvi, ti_NN, cvi_NN
     
     def format_centering_NN_data (self, T1NN, T2NN, ti_y_df, cvi_y_df, TvalNN):
-
         ti_X_NN = pd.concat([T1NN[0], ti_y_df], axis=1)
         cvi_X_NN = pd.concat([T2NN[0], cvi_y_df], axis=1)
         ti_X_val_NN= TvalNN[0]
 
-
         features = T1NN[0].columns
-
         cols_standardize = list(features)
         cols_leave = []
 
@@ -344,10 +284,9 @@ class DataETL:
         return ti_NN , y_ti_NN, cvi_NN, durations_test, events_test, val_NN
 
     def control_censored_data (self, X_test, y_test, percentage):
+        censored_indexes = y_test.loc[:,"time"][y_test.loc[:,"event"]== 0].index
 
         #Drop censored data in percentage to avoid error in some models that is required 
-
-        censored_indexes = y_test.loc[:,"time"][y_test.loc[:,"event"]== 0].index
         if len(censored_indexes) > 0:
             if np.floor(len(y_test)/100*percentage) == 0:
                 num_censored= 1

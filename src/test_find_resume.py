@@ -1,13 +1,13 @@
 from sklearn.model_selection import KFold
 import numpy as np
 import pandas as pd
-from tools import file_writer
 from pathlib import Path
 import config as cfg
-from tools.feature_selectors import NoneSelector, LowVar, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8, UMAP8, RFE4 ,RFE8 , SFS4, SFS8
-from tools.regressors import Cph, CphRidge, CphLasso, CphElastic, RSF, CoxBoost, WeibullAFT, LogNormalAFT, LogLogisticAFT, ExponentialAFT, XGBTree, XGBDart, SVM, GradientBoosting, GradientBoostingDART, DeepSurv # XGBLinear
+from tools.feature_selectors import NoneSelector, LowVar, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8, UMAP8, VIF4, VIF8
+from tools.regressors import Cph, CphRidge, CphLASSO, CphElastic, RSF, GradientBoosting, GradientBoostingDART, SVM, WeibullAFT, LogNormalAFT, LogLogisticAFT, DeepSurv # XGBLinear
 from tools.file_reader import FileReader
 from tools.data_ETL import DataETL
+from utility.builder import Builder
 from sklearn.model_selection import train_test_split
 from xgbse.metrics import approx_brier_score
 from sklearn.model_selection import RandomizedSearchCV
@@ -25,19 +25,23 @@ from auton_survival import DeepCoxPH
 N_REPEATS = 3
 N_SPLITS = 2
 N_ITER = 3
-N_BOOT = 2
+N_BOOT = 3
 PLOT = True
 RESUME = True
+NEW_DATASET = False
 
 def main():
+
+    if NEW_DATASET== True:
+        Builder().build_new_dataset(bootstrap= N_BOOT)
 
     cov, boot, info_pack = FileReader().read_data_xjtu()
     
 #    df_surv = data_ETL.DataETL().make_covariates(df)
     X, y = DataETL().make_surv_data_sklS(cov, boot, info_pack, N_BOOT)
 
-    models = [DeepSurv, WeibullAFT, LogNormalAFT, LogLogisticAFT, Cph, CphRidge, CphLasso, CphElastic, RSF, GradientBoosting, GradientBoostingDART, SVM] #   ----------------------------- DeepSurv, WeibullAFT, LogNormalAFT, LogLogisticAFT, Cph, CphRidge, CphLasso, CphElastic, RSF, GradientBoosting, GradientBoostingDART, SVM
-    ft_selectors = [NoneSelector, UMAP8, LowVar, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8] #SFS4, SFS8, RFE4, RFE8-------------------------NoneSelector, UMAP8, LowVar, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8
+    models = [DeepSurv] #   ----------------------------- DeepSurv, WeibullAFT, LogNormalAFT, LogLogisticAFT, Cph, CphRidge, CphLASSO, CphElastic, RSF, GradientBoosting, GradientBoostingDART, SVM
+    ft_selectors = [VIF4] #SFS4, SFS8, RFE4, RFE8-------------------------NoneSelector, UMAP8, LowVar, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8
   
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=0)
     T1, T2 = (X_train, y_train), (X_test, y_test)          
@@ -62,10 +66,6 @@ def main():
                 for train, test in kf.split(T1[0], T1[1]):
                     split_start_time = time()
 
-                    # # Split data
-                    # ti = (T1[0].iloc[train], T1[1][train])
-                    # cvi = (T1[0].iloc[test], T1[1][test])
-
                     ti, cvi, ti_NN, cvi_NN = DataETL().format_main_data_Kfold(T1, train, test)
                     ti, cvi, ti_NN , cvi_NN = DataETL().centering_main_data(ti, cvi, ti_NN, cvi_NN)       
 
@@ -79,7 +79,7 @@ def main():
                     # Create model instance and find best features
                     get_best_features_start_time = time()
                     model = model_builder().get_estimator()
-                    model_class_name = model.__class__.__name__
+#                    model_class_name = model.__class__.__name__
 
                     if parametric == False and ft_selector_name in ["RegMRMR4", "RegMRMR8"]:
                         y_ti_mrmr = np.array([x[0] for x in ti[1]], float)
@@ -98,8 +98,7 @@ def main():
                             selected_fts = ft_selector_NN.get_features()
                             cvi_new_NN = (selected_fts, cvi_NN[1])
                             selected_fts= list(selected_fts.columns)                 
-                    elif (parametric == True and ft_selector_name in ["NoneSelector", "RFE4", "RFE8", "SFS4", "SFS8", "SelectKBest8", "RegMRMR8", "LowVar"]):
-                        # No support for parametric and some selectors, so skip runs
+                    elif (parametric == True and ft_selector_name in ["NoneSelector", "SelectKBest8", "RegMRMR8", "LowVar"]):
                         c_index, brier_score = np.nan, np.nan
                         get_best_features_time, get_best_params_time, model_train_time = np.nan, np.nan, np.nan
                         model_ci_inference_time, model_bs_inference_time = np.nan, np.nan
