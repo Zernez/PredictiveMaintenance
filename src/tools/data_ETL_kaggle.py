@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import re
 
-class DataETL:
+class DataETL_K:
 
     def __init__ (self):
         pass

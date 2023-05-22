@@ -1,6 +1,5 @@
 import os
 import pandas as pd
-import numpy as np
 import re
 from tools.featuring import Featuring
 import config as cfg
@@ -11,8 +10,8 @@ class Builder:
     def __init__ (self):
         self.total_bearings= cfg.N_BEARING_TOT
         self.bootstrapped_fold= cfg.N_BOOT_FOLD
-        self.raw_main_path= "./data/XJTU-SY/35Hz12kN/"
-        self.aggregate_main_path= "./data/XJTU-SY/csv/"
+        self.raw_main_path= cfg.RAW_DATA_PATH
+        self.aggregate_main_path= cfg.DATASET_PATH
 
     def build_new_dataset (self,bootstrap= 0):            
         self.from_raw_to_csv(bootstrap)

@@ -13,6 +13,7 @@ class DataETL:
     def __init__ (self):
         self.total_bearings= cfg.N_BEARING_TOT
         self.real_bearings= cfg.N_REAL_BEARING
+        self.total_signals= cfg.N_SIGNALS
 
     def make_surv_data_sklS (self, covariates, set_boot, info_pack, bootstrap):
         row = pd.DataFrame()
@@ -99,31 +100,50 @@ class DataETL:
         
         bootstrap= len (bootref) - 1
         tot= ((bootstrap * 2) + 4) * 5
-        #Value fixed depending on the number of the signals (i.e x,y -> num_ref = 3)
-        num_ref= 3 
-        i= 0
-        
+        boot_pack_level=  int((self.total_bearings / self.real_bearings) + 1)
+        boot_pack_max= int (self.total_bearings / self.real_bearings)
+        num_ref= self.total_signals
+       
         #Bootstrapping + addtitional randomizator
-        boot_pack_level=  int((self.total_bearings / self.real_bearings) + 1) 
-
+        i= 0
         for check in range(boot_pack_level, tot + (bootstrap * 2) + 5, (bootstrap * 2) + 4):    
             if not num >= check:
                 if num== num_ref:
-                    return bootref.iat[0,i] + ref[check - 10] + random.randint(-2, -1)               
+                    return bootref.iat[0,i] + ref[check - boot_pack_max] + random.randint(-2, -1)               
                 elif num== num_ref + 1:
-                    return bootref.iat[0,i] + ref[check - 10] + random.randint(1, 2)     
+                    return bootref.iat[0,i] + ref[check - boot_pack_max] + random.randint(1, 2)     
                 elif num== num_ref + 2:
-                    return bootref.iat[1,i] + ref[check - 10] + random.randint(-2, -1)               
+                    return bootref.iat[1,i] + ref[check - boot_pack_max] + random.randint(-2, -1)               
                 elif num== num_ref + 3:
-                    return bootref.iat[1,i] + ref[check - 10] + random.randint(1, 2)   
+                    return bootref.iat[1,i] + ref[check - boot_pack_max] + random.randint(1, 2)   
                 elif num== num_ref + 4:
-                    return bootref.iat[2,i] + ref[check - 10] + random.randint(-2, -1)              
+                    return bootref.iat[2,i] + ref[check - boot_pack_max] + random.randint(-2, -1)              
                 elif num== num_ref + 5:
-                    return bootref.iat[2,i] + ref[check - 10] + random.randint(1, 2)
+                    return bootref.iat[2,i] + ref[check - boot_pack_max] + random.randint(1, 2)
                 elif num== num_ref + 6:
-                    return bootref.iat[3,i] + ref[check - 10] + random.randint(-2, -1)              
+                    return bootref.iat[3,i] + ref[check - boot_pack_max] + random.randint(-2, -1)              
                 elif num== num_ref + 7:
-                    return bootref.iat[3,i] + ref[check - 10] + random.randint(1, 2)    
+                    return bootref.iat[3,i] + ref[check - boot_pack_max] + random.randint(1, 2)
+                elif num== num_ref + 8:
+                    return bootref.iat[4,i] + ref[check - boot_pack_max] + random.randint(-2, -1)              
+                elif num== num_ref + 9:
+                    return bootref.iat[4,i] + ref[check - boot_pack_max] + random.randint(1, 2)      #4
+                elif num== num_ref + 10:
+                    return bootref.iat[5,i] + ref[check - boot_pack_max] + random.randint(-2, -1)              
+                elif num== num_ref + 11:
+                    return bootref.iat[5,i] + ref[check - boot_pack_max] + random.randint(1, 2)      #5
+                elif num== num_ref + 12:
+                    return bootref.iat[6,i] + ref[check - boot_pack_max] + random.randint(-2, -1)              
+                elif num== num_ref + 13:
+                    return bootref.iat[6,i] + ref[check - boot_pack_max] + random.randint(1, 2)      #6
+                elif num== num_ref + 14:
+                    return bootref.iat[7,i] + ref[check - boot_pack_max] + random.randint(-2, -1)              
+                elif num== num_ref + 15:
+                    return bootref.iat[7,i] + ref[check - boot_pack_max] + random.randint(1, 2)      #7
+                elif num== num_ref + 16:
+                    return bootref.iat[8,i] + ref[check - boot_pack_max] + random.randint(-2, -1)              
+                elif num== num_ref + 17:
+                    return bootref.iat[8,i] + ref[check - boot_pack_max] + random.randint(1, 2)      #max bootstrap 8
                 
             num_ref+= (bootstrap * 2) + 4
             i+= 1

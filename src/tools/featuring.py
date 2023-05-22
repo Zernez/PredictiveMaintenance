@@ -1,10 +1,8 @@
 import os
 import numpy as np 
 import pandas as pd 
-import scipy
 import random
 import re
-import statistics
 from scipy.signal import hilbert
 from scipy.stats import entropy
 
@@ -149,8 +147,6 @@ class Featuring:
         for boot_num in range (0, bootstrap + 2 , 1):
             
             if boot_num == 0:
-                # data.iat[-1, 17]= False
-                # data.iat[-1, -2]= False
                 data_boot.reset_index(inplace= True, drop=True)             
                 data_total.append(data_boot)
             elif boot_num > 0 and boot_num < bootstrap + 1:
@@ -162,7 +158,6 @@ class Featuring:
                     data_aux = pd.DataFrame(data_boot[-1:].values, columns= data.columns)          
                     for boot_adder in range (0, rng_bootstrap[boot_num - 1], 1):
                         data_boot = pd.concat([data_boot, data_aux], ignore_index=True)
-                        # data_boot = data_boot.append(data_aux)
                 data_boot.reset_index(inplace= True, drop=True)          
                 data_total.append(data_boot)
             elif boot_num == bootstrap + 1:

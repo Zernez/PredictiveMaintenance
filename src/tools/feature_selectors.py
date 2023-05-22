@@ -4,8 +4,6 @@ from typing import List
 import numpy as np
 from sksurv.linear_model import CoxPHSurvivalAnalysis
 from sklearn.feature_selection import VarianceThreshold, SelectKBest
-from sklearn.feature_selection import SequentialFeatureSelector
-from lifelines import WeibullAFTFitter
 from mrmr import mrmr_regression
 from tools.vif import VIF
 import umap
@@ -113,24 +111,6 @@ class RegMRMR8 (BaseFeatureSelector):
 class UMAP8 (BaseFeatureSelector):
     def make_model (self):
         self.components= 8
-        return umap.UMAP(n_components= self.components)
-    
-    def fit (self, ft_selector, X, y= None):
-        X = ft_selector.fit_transform(X)
-
-        labels= []
-        for element in range (1, self.components + 1 ,1):
-            labels.append("UMAP_Feature_"+ str(element))
-
-        self.features = pd.DataFrame(X, columns = labels)      
-        return self
-
-    def get_feature_names_out (self):
-        return self.features
-
-class UMAP12 (BaseFeatureSelector):
-    def make_model (self):
-        self.components= 12
         return umap.UMAP(n_components= self.components)
     
     def fit (self, ft_selector, X, y= None):

@@ -2,11 +2,12 @@ import pickle
 from pathlib import Path
 import pandas as pd
 from utility.event import Event
+import config as cfg
 
 class FileReader:
 
     def __init__ (self):
-        self.dataset_path = "./data/XJTU-SY/csv/"
+        self.dataset_path = cfg.DATASET_PATH
 
     def read_data_kaggle (self):
         set1 = pd.read_csv("src/dataset/set1_timefeatures.csv")

@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-import math
+import random
 import shap
 from pathlib import Path
 import config as cfg
@@ -16,7 +16,7 @@ from tools.file_reader import FileReader
 from tools.data_ETL import DataETL
 from auton_survival.metrics import survival_regression_metric
 from lifelines import WeibullAFTFitter
-import random
+
 
 N_BOOT = 3
 BEARINGS= 5
@@ -115,7 +115,6 @@ def main():
         rsf_hazard_func = survival.predict_hazard_function(rsf_model, X_test, y_test, lower, upper)
         boost_hazard_func = survival.predict_hazard_function(boost_model, X_test, y_test, lower, upper)
         boostDART_hzazard_func = survival.predict_hazard_function(boostDART_model, X_test, y_test, lower, upper)
-        NN_hazard_func = NN_model.predict_risk(x, times)
 
         km_mean, km_high, km_low = calculate_kaplan_vectorized(y_test['Event'].reshape(1,-1),
                                                             y_test['Survival_time'].reshape(1,-1),
@@ -200,7 +199,6 @@ def main():
         df_CI, df_B = Resumer.plot_performance(False, df_CI, df_B, "Neural Network", NN_c_index, NN_bs)
 
         # Make SHAP values
-
         if (n_repeat== N_REPEATS - 1):
 
             explainer_CPH = shap.Explainer(cph_model.predict, X_test)
