@@ -1,20 +1,17 @@
 import os
 import numpy as np 
 import pandas as pd 
-import scipy
 import random
 import re
-
-import statistics
 from scipy.signal import hilbert
 from scipy.stats import entropy
 
 class Featuring:
 
-    def __init__(self):
+    def __init__ (self):
         pass
 
-    def calculate_rms(self, df):
+    def calculate_rms (self, df):
         result = []
         for col in df:
             r = np.sqrt((df[col]**2).sum() / len(df[col]))
@@ -82,8 +79,8 @@ class Featuring:
             fft[0]= fft[0] / 2
 
             # Excluding continuous representation
-            start_freq_interested = [9, 26, 230, 272, 291]
-            end_freq_interested = [21, 40, 242, 284, 305]
+            start_freq_interested = [9, 31, 68, 104, 168]
+            end_freq_interested = [18, 39, 76, 112, 176]
             fft_n = [None] * 5
             i = 0
             for index_s in start_freq_interested:
@@ -150,9 +147,7 @@ class Featuring:
         for boot_num in range (0, bootstrap + 2 , 1):
             
             if boot_num == 0:
-                # data.iat[-1, 17]= False
-                # data.iat[-1, -2]= False
-                data_boot.reset_index(inplace= True, drop=True)
+                data_boot.reset_index(inplace= True, drop=True)             
                 data_total.append(data_boot)
             elif boot_num > 0 and boot_num < bootstrap + 1:
                 if (rng_bootstrap [boot_num - 1] < 0):
@@ -162,14 +157,14 @@ class Featuring:
                     data_boot= data
                     data_aux = pd.DataFrame(data_boot[-1:].values, columns= data.columns)          
                     for boot_adder in range (0, rng_bootstrap[boot_num - 1], 1):
-                        data_boot = data_boot.append(data_aux)
-                data_boot.reset_index(inplace= True, drop=True)
+                        data_boot = pd.concat([data_boot, data_aux], ignore_index=True)
+                data_boot.reset_index(inplace= True, drop=True)          
                 data_total.append(data_boot)
             elif boot_num == bootstrap + 1:
                 data_boot= data
                 rng_bootstrap= np.append(rng_bootstrap, random.randint(-4, -1))
                 data_boot= data_boot.iloc[-(rng_bootstrap[boot_num - 1]) : , :]
-                data_boot.reset_index(inplace= True, drop=True)            
+                data_boot.reset_index(inplace= True, drop=True)           
                 data_total.append(data_boot)
 
         rng_bootstrap = pd.DataFrame(rng_bootstrap, columns= ["Bootstrap values"])  

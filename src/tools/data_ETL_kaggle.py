@@ -2,18 +2,16 @@ import pandas as pd
 import numpy as np
 import re
 
-class DataETL:
+class DataETL_K:
 
-    def __init__(self):
+    def __init__ (self):
         pass
 
-    def make_covariates(self, dataframes):
-
+    def make_covariates (self, dataframes):
         df_covariates= []
         i= 0
         
         for dataframe in dataframes:
-        
             if i== 0:
                 df_covariates.append(dataframe.drop(['B1_x_freq_band_1', 'B1_x_freq_band_2', 'B1_x_freq_band_3', 'B1_x_freq_band_4', 'B1_x_freq_band_5',
                                                     'B2_x_freq_band_1', 'B2_x_freq_band_2', 'B2_x_freq_band_3', 'B2_x_freq_band_4', 'B2_x_freq_band_5',
@@ -38,15 +36,10 @@ class DataETL:
 
         return df_covariates
     
-    def make_surv_data_sklS(self, sets):
-
+    def make_surv_data_sklS (self, sets):
         row = pd.DataFrame()
         data_cov= pd.DataFrame()
 
-        # df_sa = pd.DataFrame([[False, 101.],[False, 102.], [False, 101.], [False, 102.], 
-        #                    [True, 60.], [True, 75.], [True, 64.], [True, 62.],
-        #                    [True, 57.], [False, 102.], [False, 103.], [False, 101.], 
-        #                    [False, 101.], [False, 104.], [True, 91.], [False, 102.]], columns=['Event', 'Survival_time'])
         df_sa = pd.DataFrame([[False, 90.],[False, 92.], [True, 101.], [False, 102.], 
                     [True, 60.], [True, 75.], [True, 64.], [True, 62.],
                     [True, 57.], [True, 102.], [False, 100.], [False, 95.], 
@@ -65,8 +58,6 @@ class DataETL:
                     continue
                 
                 columnSeriesObj = set[column]
-        #       temp_label_bno = re.findall("^B+\d", column)
-        #        temp_label_bno= "B" + str(j) + "_"
                 temp_label_cov= ""
 
                 if re.findall(r"mean\b", column):
@@ -95,7 +86,6 @@ class DataETL:
                     temp_label_cov = re.findall(r"impulse\b", column)[0]
                 
                 label= temp_label_cov
-                
                 row [label]= pd.Series(np.mean(columnSeriesObj.values)).T
 
                 if i> 11:
@@ -110,24 +100,13 @@ class DataETL:
 
         return data_cov, data_sa
 
-    def make_surv_data_pyS(self, sets):
-
+    def make_surv_data_pyS (self, sets):
         row = pd.DataFrame()
         data_sa = pd.DataFrame()
         data_cov= pd.DataFrame()
 
-        # df_sa = pd.DataFrame([[False, 101.],[False, 102.], [False, 101.], [False, 102.], 
-        #                    [True, 60.], [True, 75.], [True, 64.], [True, 62.],
-        #                    [True, 57.], [False, 102.], [False, 103.], [False, 101.], 
-        #                    [False, 101.], [False, 104.], [True, 91.], [False, 102.]], columns=['Event', 'Survival_time'])
-        # df_sa = pd.DataFrame([[False, 90.],[False, 92.], [True, 101.], [False, 102.], 
-        #             [True, 60.], [True, 75.], [True, 64.], [True, 62.],
-        #             [True, 57.], [True, 102.], [False, 100.], [False, 95.], 
-        #             [True, 96.], [False, 98.], [True, 91.], [True, 102.]], columns=['Event', 'Survival_time'])
-
         event= [False, False, True, False, True, True, True, True, True, True, False, False, True, False, True, True]
         time_to_event= [90,92, 101, 102, 60, 75, 64, 62, 57, 102, 100, 95, 96, 98, 91, 102]
-
 
         data_sa ['Event']= pd.Series(event).T
         data_sa ['Survival_time']= pd.Series(time_to_event).T
