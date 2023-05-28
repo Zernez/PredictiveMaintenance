@@ -13,6 +13,8 @@ xgboost==1.6.1
 lifelines==0.27.1
 xgbse==0.2.3
 mrmr-selection==0.2.5
+umap-learn
+umap
 catboost
 lightgbm
 plotly
@@ -24,10 +26,11 @@ rpy2
 pycox
 torch
 sklearn_pandas
-umap
 fitter
 statsmodels
 pymsm
 distfit
 survival-datasets
 graphviz
+config
+lifelines

@@ -1,41 +1,46 @@
 import pickle
-from typing import Any, List
 from pathlib import Path
 import pandas as pd
-import joblib
+from utility.event import Event
+import config as cfg
 
 class FileReader:
 
-    def __init__(self):
-        pass
+    def __init__ (self):
+        self.dataset_path = cfg.DATASET_PATH
 
-    def read_km_surv_preds(path: Path):
-        df = pd.read_csv(path)
-        mean = pd.DataFrame(df.iloc[0]).T
-        high = pd.DataFrame(df.iloc[1]).T
-        low = pd.DataFrame(df.iloc[2]).T
-        return mean, high, low
+    def read_data_kaggle (self):
+        set1 = pd.read_csv("src/dataset/set1_timefeatures.csv")
+        set2 = pd.read_csv("src/dataset/set2_timefeatures.csv")
+        set3 = pd.read_csv("src/dataset/set3_timefeatures.csv")
+        set1 = set1.rename(columns={'Unnamed: 0':'time'})
+        set1.set_index('time')
+        set2 = set2.rename(columns={'Unnamed: 0':'time'})
+        set2.set_index('time')
+        set3 = set3.rename(columns={'Unnamed: 0':'time'})
+        set3.set_index('time')
+        
+        return [set1, set2, set3]
+    
+    def read_data_xjtu (self, from_pickle= False):
+        set_covariates= pd.read_csv(self.dataset_path + 'covariates.csv')
+        set_boot= pd.read_csv(self.dataset_path + 'boot.csv')
+        set_analytic= pd.read_csv(self.dataset_path + 'analytic.csv')
 
-    def read_joblib(path: Path):
-        return joblib.load(path)
+        if from_pickle== True:
+            event_kl= self.read_pickle(self.dataset_path + "event_kl")
+            event_sd= self.read_pickle(self.dataset_path + "event_sd")
+        else:
+            event_kl, event_sd, event_t = Event().make_events(set_analytic) 
+        
+        info_pack= {'KL': event_kl, 'SD': event_sd}
 
-    def read_csv(path: Path,header: str='infer',
-                sep: str=',', usecols: List[int]=None,
-                names: List[str]=None, converters: dict=None,
-                encoding=None, skiprows=None, parse_dates=None) -> pd.DataFrame:
-        return pd.read_csv(path, header=header, sep=sep, usecols=usecols,
-                        names=names, converters=converters,
-                        encoding=encoding, skiprows=skiprows,
-                        parse_dates=parse_dates)
+        return set_covariates, set_boot, info_pack 
 
-    def read_pickle(path: Path) -> Any:
-        """
-        Loads the pickled object at the location given.
-
-        :param path: Path (including the file itself)
-        :return: obj
-        """
+    def read_pickle (self, path: Path):
         file_handler = open(path, 'rb')
         obj = pickle.load(file_handler)
         file_handler.close()
+        
         return obj
+    
