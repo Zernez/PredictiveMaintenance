@@ -1,5 +1,3 @@
-# Fall Risk Assessment and Ranking using Survival Analysis
+# Predictive maintenance for rolling bearings
 
-## About
-
-Code repository for paper "Fall Risk Assessment and Ranking using Survival Analysis".
+The source code is in \src
