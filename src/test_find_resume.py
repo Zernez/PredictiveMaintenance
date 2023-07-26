@@ -4,10 +4,11 @@ import pandas as pd
 from pathlib import Path
 import config as cfg
 from tools.feature_selectors import NoneSelector, LowVar, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8, UMAP8, VIF4, VIF8
-from tools.regressors import Cph, CphRidge, CphLASSO, CphElastic, RSF, GradientBoosting, GradientBoostingDART, SVM, WeibullAFT, LogNormalAFT, LogLogisticAFT, DeepSurv # XGBLinear
+from tools.regressors import CoxPH, CphRidge, CphLASSO, CphElastic, RSF, CoxBoost, GradientBoostingDART, WeibullAFT, LogNormalAFT, LogLogisticAFT, DeepSurv # XGBLinear, SVM
 from tools.file_reader import FileReader
 from tools.data_ETL import DataETL
 from utility.builder import Builder
+from tools.experiments import SurvivalRegressionCV
 from sklearn.model_selection import train_test_split
 from xgbse.metrics import approx_brier_score
 from sklearn.model_selection import RandomizedSearchCV
@@ -19,27 +20,31 @@ from auton_survival.metrics import survival_regression_metric
 from auton_survival.experiments import SurvivalRegressionCV
 from auton_survival import DeepCoxPH
 
-N_REPEATS = 3
+import warnings
+warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
+
+N_REPEATS = 15
 N_SPLITS = 2
-N_ITER = 3
+N_ITER = 5
 N_BOOT = 3
 PLOT = True
 RESUME = True
 NEW_DATASET = False
+DATASET = "xjtu"
 
 def main():
 
     if NEW_DATASET== True:
-        Builder().build_new_dataset(bootstrap= N_BOOT)
+        Builder(DATASET).build_new_dataset(bootstrap= N_BOOT)
 
-    cov, boot, info_pack = FileReader().read_data_xjtu()
+    cov, boot, info_pack = FileReader(DATASET).read_data()
     
-    X, y = DataETL().make_surv_data_sklS(cov, boot, info_pack, N_BOOT)
+    X, y = DataETL(DATASET).make_surv_data_sklS(cov, boot, info_pack, N_BOOT)
 
-    models = [RSF] #   ----------------------------- DeepSurv, WeibullAFT, LogNormalAFT, LogLogisticAFT, Cph, CphRidge, CphLASSO, CphElastic, RSF, GradientBoosting, GradientBoostingDART, SVM
-    ft_selectors = [NoneSelector, UMAP8, LowVar, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8, VIF4, VIF8] #SFS4, SFS8, RFE4, RFE8-------------------------NoneSelector, UMAP8, LowVar, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8, VIF4, VIF8
+    models = [CoxPH, RSF, CoxBoost, DeepSurv, WeibullAFT] #[WeibullAFT, LogNormalAFT, LogLogisticAFT, Cph, CphRidge, CphLASSO, CphElastic, RSF, GradientBoosting, GradientBoostingDART] #   ----------------------------- DeepSurv, WeibullAFT, LogNormalAFT, LogLogisticAFT, Cph, CphRidge, CphLASSO, CphElastic, RSF, GradientBoosting, GradientBoostingDART, SVM
+    ft_selectors = [NoneSelector, UMAP8, LowVar, SelectKBest4, SelectKBest8] #SFS4, SFS8, RFE4, RFE8-------------------------NoneSelector, UMAP8, LowVar, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8, VIF4, VIF8
   
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=0)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size= 0.3, random_state= 0)
     T1, T2 = (X_train, y_train), (X_test, y_test)          
 
     print(f"Started evaluation of {len(models)} models/{len(ft_selectors)} ft selectors/{len(T1[0])} total samples")
@@ -59,12 +64,12 @@ def main():
             print ("model_builder name: ", model_name )
 
             for n_repeat in range(N_REPEATS):
-                kf = KFold(n_splits=N_SPLITS, random_state= 0, shuffle= True)
+                kf = KFold(n_splits=N_SPLITS, random_state= n_repeat, shuffle= True)
                 for train, test in kf.split(T1[0], T1[1]):
                     split_start_time = time()
 
-                    ti, cvi, ti_NN, cvi_NN = DataETL().format_main_data_Kfold(T1, train, test)
-                    ti, cvi, ti_NN , cvi_NN = DataETL().centering_main_data(ti, cvi, ti_NN, cvi_NN)       
+                    ti, cvi, ti_NN, cvi_NN = DataETL(DATASET).format_main_data_Kfold(T1, train, test)
+                    ti, cvi, ti_NN , cvi_NN = DataETL(DATASET).centering_main_data(ti, cvi, ti_NN, cvi_NN)       
 
                     # Get current model and ft selector
                     if ft_selector_name == "NoneSelector":
@@ -136,7 +141,7 @@ def main():
                         print ("Selected features: ", selected_fts)
 
                     lower, upper = np.percentile(ti_new[1][ti_new[1].dtype.names[1]], [10, 90])
-                    times = np.arange(math.ceil(lower), math.floor(upper + 1))            
+                    times = np.arange(math.ceil(lower), math.floor(upper))            
 
                     #Find hyperparams via CV
                     get_best_params_start_time = time()
@@ -151,7 +156,7 @@ def main():
                         best_params = search.best_params_
                     elif model_name == "DeepSurv":
                         experiment = SurvivalRegressionCV(model='dcph', num_folds=N_SPLITS, hyperparam_grid= space)
-                        model,best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='brs')              
+                        model,best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='ctd')              
                     else:
                         search = RandomizedSearchCV(model, space, n_iter=N_ITER, cv= N_SPLITS, random_state= 0)
                         search.fit(ti_new[0], ti_new[1])
@@ -169,7 +174,7 @@ def main():
                         x= ti_new_NN[0].to_numpy()
                         t= ti_new_NN[1].loc[:,"time"].to_numpy()
                         e= ti_new_NN[1].loc[:,"event"].to_numpy()
-                        model = model.fit(x, t, e, vsize=0.2, iters= 200, **best_params)
+                        model = model.fit(x, t, e, vsize=0.2, **best_params)
                     else:
                         model = search.best_estimator_
                         model.fit(ti_new[0], ti_new[1])
@@ -207,6 +212,8 @@ def main():
                         surv_prob = model_instance.predict_survival_function(cvi_new[0]).T
                         brier_score = approx_brier_score(cvi_new[1], surv_prob)
                     elif model_name == "DeepSurv":
+                        lower, upper = np.percentile(cvi_new[1][cvi_new[1].dtype.names[1]], [10, 90])
+                        times = np.arange(math.ceil(lower), math.floor(upper)).tolist()
                         if cvi_new_NN[1].isnull().values.any():
                             brier_score= np.nan
                             print ("Nan happened, skipped evalutation")

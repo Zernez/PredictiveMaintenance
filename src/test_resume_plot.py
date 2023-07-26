@@ -17,25 +17,40 @@ from tools.data_ETL import DataETL
 from auton_survival.metrics import survival_regression_metric
 from lifelines import WeibullAFTFitter
 
+import warnings
+warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
+
+# N_BOOT = 3
+# BEARINGS= 2
+# BOOT_NO= 200
+# N_REPEATS = 5
+# NEW_DATASET = False
+# DATASET = "pronostia"
+# TEST_SIZE= 0.3
 
 N_BOOT = 3
 BEARINGS= 5
-BOOT_NO= 10
+BOOT_NO= 200
 N_REPEATS = 5
 NEW_DATASET = False
+DATASET = "xjtu"
+TEST_SIZE= 0.3
 
 def main():
 
     if NEW_DATASET== True:
-        Builder().build_new_dataset(bootstrap= N_BOOT) 
+        Builder(DATASET).build_new_dataset(bootstrap= N_BOOT)     
 
-    data_util = DataETL()
+    data_util = DataETL(DATASET)
     survival= Survival()
 
-    cov, boot, info_pack = FileReader().read_data_xjtu()
+    cov, boot, info_pack = FileReader(DATASET).read_data()
     X, y = data_util.make_surv_data_sklS(cov, boot, info_pack, N_BOOT)
 
-    Resumer = Resume(X,y)
+    Resumer = Resume(X, y, DATASET)
+
+    Resumer.table_result_hyper()
+
     Resumer.presentation(BEARINGS, BOOT_NO)
     df_CI = pd.DataFrame(columns= ["Model", "CI score"])
     df_B = pd.DataFrame(columns= ["Model", "Brier score"])
@@ -43,7 +58,7 @@ def main():
     for n_repeat in range(N_REPEATS):
 
         seed= random.randint(0,30)
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size= 0.3, random_state= seed)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size= TEST_SIZE, random_state= seed)
         S1, S2 = (X_train, y_train), (X_test, y_test)
 
         set_tr, set_te, set_tr_NN, set_te_NN = data_util.format_main_data(S1, S2)
@@ -59,14 +74,14 @@ def main():
         y_test_NN = set_te_NN [1]
 
 
-        X_test_NN, y_test_NN = data_util.control_censored_data(X_test_NN, y_test_NN, percentage= 10)
+#        X_test_NN, y_test_NN = data_util.control_censored_data(X_test_NN, y_test_NN, percentage= 10)
     
-        lower, upper = np.percentile(y['Survival_time'], [10, 90])
-        time_bins = np.arange(int(lower + 1), int(upper - 1))
-        lower_NN, upper_NN = np.percentile(y_test[y_test.dtype.names[1]], [10, 90])
-        times = np.arange(np.ceil(lower_NN), np.floor(upper_NN)).tolist()
+        # lower, upper = np.percentile(y['Survival_time'], [10, 90])
+        # time_bins = np.arange(int(lower + 1), int(upper - 1))
+        # lower_NN, upper_NN = np.percentile(y_test[y_test.dtype.names[1]], [10, 90])
+        # times = np.arange(np.ceil(lower_NN), np.floor(upper_NN)).tolist()
 
-        weibull_model = WeibullAFTFitter(alpha= 0.1)
+        weibull_model = WeibullAFTFitter(alpha= 0.2, penalizer= 0.02)
         cph_model = regressors.Cph.make_model(regressors.Cph().get_best_params())
         cphLASSO_model = regressors.CphLASSO.make_model(regressors.CphLASSO().get_best_params())
         rsf_model = regressors.RSF.make_model(regressors.RSF().get_best_params())
@@ -78,6 +93,11 @@ def main():
 
         best_features = feature_selectors.SelectKBest4(X_train, y_train, cph_model).get_features()
         X_train, X_test, X_train_NN, X_test_NN = X_train.loc[:,best_features], X_test.loc[:,best_features], X_train_NN.loc[:,best_features], X_test_NN.loc[:,best_features]
+
+        lower_NN, upper_NN = np.percentile(y_test[y_test.dtype.names[1]], [10, 90])
+        times = np.arange(np.ceil(lower_NN + 2), np.floor(upper_NN - 1)).tolist()
+        lower, upper = np.percentile(y_train[y_test.dtype.names[1]], [10, 90])
+        time_bins = np.arange(np.ceil(lower + 2), np.floor(upper - 1)).tolist()
 
         x= X_train_NN.to_numpy()
         t= y_train_NN.loc[:,"time"].to_numpy()
@@ -99,15 +119,15 @@ def main():
         boost_model.fit(X_train, y_train)
         boostDART_model.fit(X_train, y_train)
         SVM_model.fit(X_train, y_train)
-        NN_model.fit(x, t, e, vsize=0.2, iters= 40, **NN_params)
+        NN_model.fit(x, t, e, vsize=0.3, iters= 80, **NN_params)
 
         weibull_surv_func = survival.predict_survival_function(weibull_model, X_test_WB, y_test, lower, upper)
         cph_surv_func = survival.predict_survival_function(cph_model, X_test, y_test, lower, upper)
-        cphLASSO_surv_func = survival.predict_survival_function(cphLASSO_model, X_test, y_test, lower, upper)    
-        rsf_surv_func = survival.predict_survival_function(rsf_model, X_test, y_test, lower, upper)
-        boost_surv_func = survival.predict_survival_function(boost_model, X_test, y_test, lower, upper)
+        cphLASSO_surv_func = survival.predict_survival_function(cphLASSO_model, X_test, y_test, lower, upper)
+        boost_surv_func = survival.predict_survival_function(boost_model, X_test, y_test, lower, upper)    
         boostDART_surv_func = survival.predict_survival_function(boostDART_model, X_test, y_test, lower, upper)
         NN_surv_func = survival.predict_survival_function(NN_model, X_test_NN, y_test, times, times)
+        rsf_surv_func = survival.predict_survival_function(rsf_model, X_test, y_test, lower, upper)
 
         weibull_hazard_func = survival.predict_hazard_function(weibull_model, X_test_WB, y_test, lower, upper)
         cph_hazard_func = survival.predict_hazard_function(cph_model, X_test, y_test, lower, upper)

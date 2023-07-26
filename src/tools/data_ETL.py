@@ -10,10 +10,15 @@ import config as cfg
 
 class DataETL:
 
-    def __init__ (self):
-        self.total_bearings= cfg.N_BEARING_TOT
-        self.real_bearings= cfg.N_REAL_BEARING
-        self.total_signals= cfg.N_SIGNALS
+    def __init__ (self, dataset):
+        if dataset == "xjtu":
+            self.total_bearings= cfg.N_BEARING_TOT_XJTU
+            self.real_bearings= cfg.N_REAL_BEARING_XJTU
+            self.total_signals= cfg.N_SIGNALS_XJTU
+        elif dataset == "pronostia":
+            self.total_bearings= cfg.N_BEARING_TOT_PRONOSTIA
+            self.real_bearings= cfg.N_REAL_BEARING_PRONOSTIA
+            self.total_signals= cfg.N_SIGNALS_PRONOSTIA
 
     def make_surv_data_sklS (self, covariates, set_boot, info_pack, bootstrap):
         row = pd.DataFrame()
@@ -24,53 +29,78 @@ class DataETL:
             val= self.event_analyzer (bear_num, info_pack)
             ref_value.update({bear_num : val})
         
-        for column in covariates:
+        moving_window= 0
+        time_split= 20
 
-            columnSeriesObj = covariates[column]
-            bear_num = int(re.findall("\d?\d?\d", column)[0])
-            temp_label_cov= ""
-            columnSeriesObj= columnSeriesObj.dropna()
-            
-            if re.findall(r"mean\b", column):
-                temp_label_cov = "mean"
-            elif re.findall(r"std\b", column):
-                temp_label_cov = "std"
-            elif re.findall(r"skew\b", column):
-                temp_label_cov = "skew"
-            elif re.findall(r"kurtosis\b", column):
-                temp_label_cov = "kurtosis"
-            elif re.findall(r"entropy\b", column):
-                temp_label_cov = "entropy"
-            elif re.findall(r"rms\b", column):
-                temp_label_cov = "rms"
-            elif re.findall(r"max\b", column):
-                temp_label_cov = "max"
-            elif re.findall(r"p2p\b", column):
-                temp_label_cov = "p2p"
-            elif re.findall(r"crest\b", column):
-                temp_label_cov = "crest"
-            elif re.findall(r"clearence\b", column):
-                temp_label_cov = "clearence"
-            elif re.findall(r"shape\b", column):
-                temp_label_cov = "shape"
-            elif re.findall(r"impulse\b", column):
-                temp_label_cov = "impulse"
-            elif re.findall(r"Event\b", column):
-                temp_label_cov = "Event"
-                columnSeriesObj = self.ev_manager (bear_num, bootstrap, self.total_bearings)
-            elif re.findall(r"Survival_time\b", column):
-                temp_label_cov = "Survival_time"
-                columnSeriesObj = self.sur_time_manager(bear_num, set_boot, ref_value)
-            
-            label= temp_label_cov
-            
-            if label == "Event" or label == "Survival_time":
-                row [label]= pd.Series(columnSeriesObj).T  
-            else:
-                row [label]= pd.Series(np.mean(columnSeriesObj.values)).T
+        while moving_window < time_split:
 
-            if label == "Survival_time":
-                data_cov = pd.concat([data_cov, row], ignore_index= True)
+            for column in covariates:
+                columnSeriesObj = covariates[column]
+                columnSeriesObj= columnSeriesObj.dropna()
+ 
+                timepoints= len(columnSeriesObj)
+                time_window= int(timepoints / time_split)
+                low= time_window * moving_window
+                high= time_window * (moving_window + 1)
+
+                bear_num = int(re.findall("\d?\d?\d", column)[0])
+                temp_label_cov= ""
+                
+                if re.findall(r"mean\b", column):
+                    temp_label_cov = "mean"
+                elif re.findall(r"std\b", column):
+                    temp_label_cov = "std"
+                elif re.findall(r"skew\b", column):
+                    temp_label_cov = "skew"
+                elif re.findall(r"kurtosis\b", column):
+                    temp_label_cov = "kurtosis"
+                elif re.findall(r"entropy\b", column):
+                    temp_label_cov = "entropy"
+                elif re.findall(r"rms\b", column):
+                    temp_label_cov = "rms"
+                elif re.findall(r"max\b", column):
+                    temp_label_cov = "max"
+                elif re.findall(r"p2p\b", column):
+                    temp_label_cov = "p2p"
+                elif re.findall(r"crest\b", column):
+                    temp_label_cov = "crest"
+                elif re.findall(r"clearence\b", column):
+                    temp_label_cov = "clearence"
+                elif re.findall(r"shape\b", column):
+                    temp_label_cov = "shape"
+                elif re.findall(r"impulse\b", column):
+                    temp_label_cov = "impulse"
+                elif re.findall(r"Event\b", column):
+                    temp_label_cov = "Event"
+                    columnSeriesObj = self.ev_manager (bear_num, bootstrap, self.total_bearings)
+                elif re.findall(r"Survival_time\b", column):
+                    temp_label_cov = "Survival_time"
+                    columnSeriesObj = self.sur_time_manager(bear_num, set_boot, ref_value)
+                
+                label= temp_label_cov
+                
+                if label == "Event" or label == "Survival_time":
+                    if label == "Survival_time":
+                    #     if high < columnSeriesObj:
+                    #         proportional_value= columnSeriesObj - high
+                    #     else:
+                    #         proportional_value= columnSeriesObj 
+                        proportional_value= columnSeriesObj
+                        row [label]= pd.Series(proportional_value).T  
+                    else:
+                        row [label]= pd.Series(columnSeriesObj).T   
+                else:
+                    if high <= timepoints:
+                        slice= columnSeriesObj.loc[low:high]
+                    else:
+                        slice= columnSeriesObj.loc[low:-1]
+
+                    row [label]= pd.Series(np.mean(slice.values)).T
+
+                if label == "Survival_time":
+                    data_cov = pd.concat([data_cov, row], ignore_index= True)
+            
+            moving_window+= 1
 
         data_sa = Surv.from_dataframe("Event", "Survival_time", data_cov)
 

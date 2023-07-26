@@ -3,11 +3,15 @@ import pandas as pd
 import scipy.stats as st
 import statsmodels.stats.weightstats as stat 
 from scipy.stats import entropy
+import config as cfg
 
 class Event:
         
-    def __init__ (self):
-        self.total_bearings= 50
+    def __init__ (self, dataset):
+        if dataset == "xjtu": 
+            self.total_bearings = cfg.N_BEARING_TOT_XJTU
+        elif dataset == "pronostia":
+            self.total_bearings = cfg.N_BEARING_TOT_PRONOSTIA          
         self.window= 10
         self.percentage_error = 10
         self.break_in_percentage= 40
