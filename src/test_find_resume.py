@@ -30,6 +30,7 @@ PLOT = True
 RESUME = True
 NEW_DATASET = False
 DATASET = "xjtu"
+TYPE= "correlated" # not_correlated
 
 def main():
 
@@ -38,7 +39,7 @@ def main():
 
     cov, boot, info_pack = FileReader(DATASET).read_data()
     
-    X, y = DataETL(DATASET).make_surv_data_sklS(cov, boot, info_pack, N_BOOT)
+    X, y = DataETL(DATASET).make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
 
     models = [CoxPH, RSF, CoxBoost, DeepSurv, WeibullAFT] #[WeibullAFT, LogNormalAFT, LogLogisticAFT, Cph, CphRidge, CphLASSO, CphElastic, RSF, GradientBoosting, GradientBoostingDART] #   ----------------------------- DeepSurv, WeibullAFT, LogNormalAFT, LogLogisticAFT, Cph, CphRidge, CphLASSO, CphElastic, RSF, GradientBoosting, GradientBoostingDART, SVM
     ft_selectors = [NoneSelector, UMAP8, LowVar, SelectKBest4, SelectKBest8] #SFS4, SFS8, RFE4, RFE8-------------------------NoneSelector, UMAP8, LowVar, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8, VIF4, VIF8
