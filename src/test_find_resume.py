@@ -17,13 +17,12 @@ from sksurv.metrics import concordance_index_censored
 from time import time
 import math
 from auton_survival.metrics import survival_regression_metric
-from auton_survival.experiments import SurvivalRegressionCV
 from auton_survival import DeepCoxPH
 
 import warnings
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
-N_REPEATS = 15
+N_REPEATS = 1 # 15
 N_SPLITS = 2
 N_ITER = 5
 N_BOOT = 3
@@ -192,14 +191,12 @@ def main():
                         x= cvi_new_NN[0].to_numpy()
                         lower, upper = np.percentile(cvi_new[1][cvi_new[1].dtype.names[1]], [10, 90])
                         times = np.arange(math.ceil(lower), math.floor(upper)).tolist()
-                        out_survival = model.predict_survival(x, times)
+                        out_survival = model.predict_survival(x, max(times)).flatten()
                         if cvi_new_NN[1].isnull().values.any() or np.isnan(out_survival.any()):
                             c_index= np.nan
                             print ("Nan happened, skipped evalutation")
                         else:
-                            c_index= np.mean(survival_regression_metric('ctd', cvi_new_NN[1], 
-                                                                        out_survival, 
-                                                                        times=times))
+                            c_index = survival_regression_metric('ctd', out_survival, cvi_new_NN[1], times=max(times))
                     else :
                         preds = model.predict(cvi_new[0])
                         c_index = concordance_index_censored(cvi[1]['Event'], cvi[1]['Survival_time'], preds)[0]
@@ -214,13 +211,16 @@ def main():
                     elif model_name == "DeepSurv":
                         lower, upper = np.percentile(cvi_new[1][cvi_new[1].dtype.names[1]], [10, 90])
                         times = np.arange(math.ceil(lower), math.floor(upper)).tolist()
+                        x = cvi_new_NN[0].to_numpy()
+                        out_survival = model.predict_survival(x, times)
+
+
                         if cvi_new_NN[1].isnull().values.any():
                             brier_score= np.nan
                             print ("Nan happened, skipped evalutation")
                         else:
-                            brier_score= np.mean(survival_regression_metric('brs', cvi_new_NN[1], 
-                                                                        out_survival, 
-                                                                        times=times))
+                            brier_score = np.mean(survival_regression_metric('brs', out_survival, cvi_new_NN[1], times=times))
+                            
                     elif model_name == "SVM":
                         brier_score = np.nan
                     else:
