@@ -20,7 +20,7 @@ class DataETL:
             self.real_bearings= cfg.N_REAL_BEARING_PRONOSTIA
             self.total_signals= cfg.N_SIGNALS_PRONOSTIA
 
-    def make_surv_data_sklS (self, covariates, set_boot, info_pack, bootstrap):
+    def make_surv_data_sklS (self, covariates, set_boot, info_pack, bootstrap, type):
         row = pd.DataFrame()
         data_cov= pd.DataFrame()
         ref_value= {}
@@ -81,12 +81,15 @@ class DataETL:
                 
                 if label == "Event" or label == "Survival_time":
                     if label == "Survival_time":
-                    #     if high < columnSeriesObj:
-                    #         proportional_value= columnSeriesObj - high
-                    #     else:
-                    #         proportional_value= columnSeriesObj 
-                        proportional_value= columnSeriesObj
-                        row [label]= pd.Series(proportional_value).T  
+                        if type == "correlated":
+                            if high < columnSeriesObj:
+                                proportional_value= columnSeriesObj - high
+                            else:
+                                proportional_value= columnSeriesObj
+                            row [label]= pd.Series(proportional_value).T 
+                        else:  
+                            proportional_value= columnSeriesObj
+                            row [label]= pd.Series(proportional_value).T  
                     else:
                         row [label]= pd.Series(columnSeriesObj).T   
                 else:
