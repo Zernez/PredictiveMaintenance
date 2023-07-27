@@ -23,15 +23,9 @@ class Resume:
             self.sample_path= cfg.SAMPLE_PATH_PRONOSTIA
 
         self.cph_path= cfg.CPH_RESULTS
-        self.cphel_path= cfg.CPHELASTIC_RESULTS
-        self.cphlasso_path= cfg.CPHLASSO_RESULTS
-        self.cphridge_path= cfg.CPHRIDGE_RESULTS
         self.dl_path= cfg.DEEPSURV_RESULTS
         self.gb_path= cfg.GB_RESULTS
-        self.gbdart_path= cfg.GB_DART_RESULTS
         self.rsf_path= cfg.RSF_RESULTS
-        self.loglog_path= cfg.LOGLOG_RESULTS
-        self.lognorm_path= cfg.LOGNORMAL_RESULTS
         self.weibull_path= cfg.WEIBULL_RESULTS  
         self.hyper_results= cfg.HYPER_RESULTS   
         self.x= x
@@ -278,17 +272,11 @@ class Resume:
 
             return df_CI, df_B
 
-    def table_result_hyper(self):
-        
+    def table_result_hyper(self): 
         cph_results = pd.read_csv(self.cph_path)
-        cphr_results = pd.read_csv(self.cphridge_path)
-        cphl_results = pd.read_csv(self.cphlasso_path)
-        cphe_results = pd.read_csv(self.cphel_path)
         dl_results = pd.read_csv(self.dl_path)
         rsf_results = pd.read_csv(self.rsf_path)
         cb_results = pd.read_csv(self.gb_path)
-        xgbt_results = pd.read_csv(self.gbdart_path)
-        xgbd_results = pd.read_csv(self.rsf_path)
         aft_results = pd.read_csv(self.weibull_path)
         cv_results = pd.concat([cph_results, rsf_results, cb_results, dl_results, aft_results], axis=0)
 
@@ -306,7 +294,7 @@ class Resume:
         brier_score_res = cv_grp_results.pivot(index='ModelName', columns=['FtSelectorName'], values=['BrierScore']) \
                                         .rename_axis(None, axis=0).set_axis(range(0, len(col_order)), axis=1) \
                                         .set_axis(col_order, axis=1).reindex(row_order)
-        brier_score_res = brier_score_res.apply(lambda x: x*100) # for better readability
+#        brier_score_res = brier_score_res.apply(lambda x: 100 - (x * 100)) # for better readability
 
         c_index_res.xs('(5) WeibullAFT')['(1) NoneSelector'] = np.nan
         c_index_res.xs('(5) WeibullAFT')['(3) LowVar'] = np.nan
