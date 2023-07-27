@@ -22,14 +22,14 @@ from auton_survival import DeepCoxPH
 import warnings
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
-N_REPEATS = 1 # 15
+N_REPEATS = 15
 N_SPLITS = 2
 N_ITER = 5
 N_BOOT = 3
 PLOT = True
 RESUME = True
 NEW_DATASET = False
-DATASET = "xjtu"
+DATASET = "xjtu" # pronostia
 TYPE= "correlated" # not_correlated
 
 def main():
@@ -40,9 +40,10 @@ def main():
     cov, boot, info_pack = FileReader(DATASET).read_data()
     
     X, y = DataETL(DATASET).make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
-
-    models = [CoxPH, RSF, CoxBoost, DeepSurv, WeibullAFT] #[WeibullAFT, LogNormalAFT, LogLogisticAFT, Cph, CphRidge, CphLASSO, CphElastic, RSF, GradientBoosting, GradientBoostingDART] #   ----------------------------- DeepSurv, WeibullAFT, LogNormalAFT, LogLogisticAFT, Cph, CphRidge, CphLASSO, CphElastic, RSF, GradientBoosting, GradientBoostingDART, SVM
-    ft_selectors = [NoneSelector, UMAP8, LowVar, SelectKBest4, SelectKBest8] #SFS4, SFS8, RFE4, RFE8-------------------------NoneSelector, UMAP8, LowVar, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8, VIF4, VIF8
+    #CoxPH, RSF, CoxBoost, DeepSurv, WeibullAFT
+    models = [CoxPH, RSF, CoxBoost, DeepSurv, WeibullAFT]
+    #NoneSelector, UMAP8, LowVar, SelectKBest4, SelectKBest8    
+    ft_selectors = [NoneSelector, UMAP8, LowVar, SelectKBest4, SelectKBest8] 
   
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size= 0.3, random_state= 0)
     T1, T2 = (X_train, y_train), (X_test, y_test)          
