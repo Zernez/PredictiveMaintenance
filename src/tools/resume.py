@@ -10,7 +10,6 @@ from statsmodels.stats.outliers_influence import variance_inflation_factor
 from lifelines.utils import survival_table_from_events
 from lifelines import KaplanMeierFitter
 import config as cfg
-from tools import file_reader
 
 class Resume:
 
