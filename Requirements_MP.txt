@@ -1,6 +1,6 @@
 auton_survival==0.0.5
 mrmr-selection==0.2.8
-umap==0.1.1
+umap-learn==0.5.3
 lifelines==0.27.7
 pandas==2.0.3
 sklearn-pandas==2.2.0
