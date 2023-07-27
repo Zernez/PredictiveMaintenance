@@ -20,14 +20,6 @@ from lifelines import WeibullAFTFitter
 import warnings
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
-# N_BOOT = 3
-# BEARINGS= 2
-# BOOT_NO= 200
-# N_REPEATS = 5
-# NEW_DATASET = False
-# DATASET = "pronostia"
-# TEST_SIZE= 0.3
-
 N_BOOT = 3
 BEARINGS= 5
 BOOT_NO= 200
@@ -35,6 +27,7 @@ N_REPEATS = 5
 NEW_DATASET = False
 DATASET = "xjtu"
 TEST_SIZE= 0.3
+TYPE= "correlated" # not_correlated
 
 def main():
 
@@ -45,7 +38,7 @@ def main():
     survival= Survival()
 
     cov, boot, info_pack = FileReader(DATASET).read_data()
-    X, y = data_util.make_surv_data_sklS(cov, boot, info_pack, N_BOOT)
+    X, y = data_util.make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
 
     Resumer = Resume(X, y, DATASET)
 
