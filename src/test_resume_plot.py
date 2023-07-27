@@ -49,9 +49,8 @@ def main():
     df_B = pd.DataFrame(columns= ["Model", "Brier score"])
 
     for n_repeat in range(N_REPEATS):
-
-        seed= random.randint(0,30)
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size= TEST_SIZE, random_state= seed)
+#        seed= random.randint(0,30)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size= TEST_SIZE, random_state= 0)
         S1, S2 = (X_train, y_train), (X_test, y_test)
 
         set_tr, set_te, set_tr_NN, set_te_NN = data_util.format_main_data(S1, S2)
