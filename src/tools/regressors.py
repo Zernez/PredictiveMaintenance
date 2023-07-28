@@ -227,15 +227,15 @@ class DeepSurv(BaseRegressor):
         model_params = cfg.PARAMS_DEEPSURV
         if params:
             model_params.update(params)
-
-        return DeepCoxPH(layers=[32])
+        return DeepCoxPH(layers=[32, 32])
     
     def get_hyperparams(self):
         return {'batch_size' : [16, 32, 64],
                 'learning_rate' : [1e-4, 1e-3, 1e-2],
-                'iters': [1, 50, 100]
+                'iters': [10, 50, 100]
                 }
     
     def get_best_hyperparams(self):
         return {'batch_size' : 10,
-                'learning_rate' : 1e-4}
+                'learning_rate' : 1e-4,
+                'iters': 100}

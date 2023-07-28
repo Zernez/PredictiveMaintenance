@@ -161,13 +161,17 @@ class SurvivalRegressionCV:
         print("At fold:", fold)
         model = SurvivalModel(self.model, random_seed=self.random_seed, **hyper_param)
         model.fit(features.loc[self.folds!=fold], outcomes.loc[self.folds!=fold])
-        max_time = outcomes.loc[self.folds!=fold]['time'].max()
+        max_time = int(outcomes.loc[self.folds!=fold]['time'].max())
         predictions = model.predict_survival(features.loc[self.folds==fold], times=max_time).flatten()
       
-        score = survival_regression_metric(metric=self.metric, 
-                                           outcomes=outcomes.loc[self.folds==fold],
-                                           predictions=predictions,
-                                           times=max_time)
+        try:
+          score = survival_regression_metric(metric=self.metric, 
+                                            outcomes=outcomes.loc[self.folds==fold],
+                                            predictions=predictions,
+                                            times=max_time)
+        except:
+          score = np.nan
+
         fold_scores.append(np.mean(score))
       hyper_param_scores.append(np.mean(fold_scores)) 
 

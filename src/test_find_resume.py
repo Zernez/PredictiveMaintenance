@@ -22,9 +22,9 @@ from auton_survival import DeepCoxPH
 import warnings
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
-N_REPEATS = 15
-N_SPLITS = 2
-N_ITER = 5
+N_REPEATS = 10
+N_SPLITS = 3
+N_ITER = 10
 N_BOOT = 3
 PLOT = True
 RESUME = True
@@ -171,7 +171,7 @@ def main():
                         model = search.best_estimator_
                         model.fit(x_ti_wf, y_ti_wf)
                     elif model_name == "DeepSurv":
-                        model = DeepCoxPH(layers= [100, 100])
+                        model = DeepCoxPH(layers=[32, 32])
                         x= ti_new_NN[0].to_numpy()
                         t= ti_new_NN[1].loc[:,"time"].to_numpy()
                         e= ti_new_NN[1].loc[:,"event"].to_numpy()

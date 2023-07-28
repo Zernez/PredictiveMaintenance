@@ -82,8 +82,8 @@ PARAMS_SVM = {'alpha': 1,
               'optimizer': 'avltree'}
 
 PARAMS_DEEPSURV = {'batch_size' : 100,
-                    'learning_rate' : 1e-3,
-                    'iters': 1}
+                   'learning_rate' : 1e-3,
+                   'iters': 1}
 
 PARAMS_WEIBULL = {'alpha': 0.05,
                 'penalizer': 0.0,
