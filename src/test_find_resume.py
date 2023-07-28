@@ -18,6 +18,7 @@ from time import time
 import math
 from auton_survival.metrics import survival_regression_metric
 from auton_survival import DeepCoxPH
+import argparse
 
 import warnings
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
@@ -29,10 +30,27 @@ N_BOOT = 3
 PLOT = True
 RESUME = True
 NEW_DATASET = False
-DATASET = "xjtu" # pronostia
-TYPE= "correlated" # not_correlated
+#DATASET = "xjtu" # pronostia
+#TYPE= "correlated" # not_correlated
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dataset', type=str,
+                        required=True,
+                        default=None)
+    parser.add_argument('--corr', type=str,
+                        required=True,
+                        default=None)
+    args = parser.parse_args()
+
+    global DATASET
+    global TYPE
+
+    if args.dataset:
+        DATASET = args.dataset
+
+    if args.corr:
+        TYPE = args.corr
 
     if NEW_DATASET== True:
         Builder(DATASET).build_new_dataset(bootstrap= N_BOOT)
@@ -43,12 +61,12 @@ def main():
     #CoxPH, RSF, CoxBoost, DeepSurv, WeibullAFT
     models = [CoxPH, RSF, CoxBoost, DeepSurv, WeibullAFT]
     #NoneSelector, UMAP8, LowVar, SelectKBest4, SelectKBest8    
-    ft_selectors = [NoneSelector, UMAP8, LowVar, SelectKBest4, SelectKBest8] 
+    ft_selectors = [NoneSelector, UMAP8, LowVar, SelectKBest4, SelectKBest8]
   
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size= 0.3, random_state= 0)
     T1, T2 = (X_train, y_train), (X_test, y_test)          
 
-    print(f"Started evaluation of {len(models)} models/{len(ft_selectors)} ft selectors/{len(T1[0])} total samples")
+    print(f"Started evaluation of {len(models)} models/{len(ft_selectors)} ft selectors/{len(T1[0])} total samples. Dataset: {DATASET}. Type: {TYPE}")
     for model_builder in models:
 
         model_name = model_builder.__name__
@@ -246,7 +264,7 @@ def main():
                     model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
 
         file_name = f"{model_name}_results.csv"
-        model_results.to_csv("data/logs/" + file_name)
+        model_results.to_csv(f"data/logs/{DATASET}/{TYPE}/" + file_name)
 
 if __name__ == "__main__":
     main()
