@@ -13,12 +13,13 @@ echo "==========================================================================
 echo "Starting script"
 echo "=============================================================================================="
 for dataset in ${datasets[@]}; do
-    for corr in ${corrs[@]}; do
-        echo "Starting dataset run <$dataset> <$corr>"
-        python $base_path/../src/test_find_resume.py --dataset $dataset --corr $corr
-        echo "Tuning dataset <$dataset> <$corr> done"
-        echo -e "\n\n\n\n\n"
-        echo "=============================================================================================="
-        echo -e "\n\n\n\n\n"
+	for corr in ${corrs[@]}; do
+		echo "Starting dataset run <$dataset> <$corr>"
+	        python $base_path/../src/test_find_resume.py --dataset $dataset --corr $corr
+	        echo "Tuning dataset <$dataset> <$corr> done"
+	        echo -e "\n\n\n\n\n"
+	        echo "=============================================================================================="
+	        echo -e "\n\n\n\n\n"
+	done
 done
 echo "Finished executing datasets"
