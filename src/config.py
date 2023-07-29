@@ -15,11 +15,6 @@ SAMPLE_PATH_XJTU= "./data/XJTU-SY/csv/"
 RESULT_PATH_PRONOSTIA= "./data/PRONOSTIA/results/"
 SAMPLE_PATH_PRONOSTIA= "./data/PRONOSTIA/csv/"
 HYPER_RESULTS= "./data/logs/"
-CPH_RESULTS= "./data/logs/CoxPH_results.csv"
-DEEPSURV_RESULTS= "./data/logs/DeepSurv_results.csv"
-GB_RESULTS= "./data/logs/CoxBoost_results.csv"
-RSF_RESULTS= "./data/logs/RSF_results.csv"
-WEIBULL_RESULTS= "./data/logs/WeibullAFT_results.csv"
 
 PARAMS_CPH = {'alpha': 0.1,
             'ties': 'breslow',
