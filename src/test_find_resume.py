@@ -61,7 +61,7 @@ def main():
     #CoxPH, RSF, CoxBoost, DeepSurv, WeibullAFT
     models = [CoxPH, RSF, CoxBoost, DeepSurv, WeibullAFT]
     #NoneSelector, UMAP8, LowVar, SelectKBest4, SelectKBest8    
-    ft_selectors = [NoneSelector, UMAP8, LowVar, SelectKBest4, SelectKBest8]
+    ft_selectors = [NoneSelector, VIF4, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8]
   
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size= 0.3, random_state= 0)
     T1, T2 = (X_train, y_train), (X_test, y_test)          

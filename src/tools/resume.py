@@ -22,12 +22,7 @@ class Resume:
         elif dataset == "pronostia":
             self.result_path= cfg.RESULT_PATH_PRONOSTIA
             self.sample_path= cfg.SAMPLE_PATH_PRONOSTIA
-
-        # self.cph_path= cfg.CPH_RESULTS
-        # self.dl_path= cfg.DEEPSURV_RESULTS
-        # self.gb_path= cfg.GB_RESULTS
-        # self.rsf_path= cfg.RSF_RESULTS
-        # self.weibull_path= cfg.WEIBULL_RESULTS  
+  
         self.hyper_results= cfg.HYPER_RESULTS   
         self.x= x
         self.y= y
