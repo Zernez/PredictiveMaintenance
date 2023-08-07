@@ -217,7 +217,7 @@ def main():
                                                            columns=['Event'])], axis=1)
                         preds = model.predict(x_cvi_wf)
                         c_index = concordance_index(cvi[1]['Survival_time'], preds, cvi[1]['Event'])
-                    elif model_name == "DeepSurv" or "DSM":
+                    elif model_name == "DeepSurv" or model_name == "DSM":
                         x= cvi_new_NN[0].to_numpy()
                         lower, upper = np.percentile(cvi_new[1][cvi_new[1].dtype.names[1]], [10, 90])
                         times = np.arange(math.ceil(lower), math.floor(upper)).tolist()
@@ -238,7 +238,7 @@ def main():
                         model_instance = model.lifelines_model
                         surv_prob = model_instance.predict_survival_function(cvi_new[0]).T
                         brier_score = approx_brier_score(cvi_new[1], surv_prob)
-                    elif model_name == "DeepSurv" or "DSM":
+                    elif model_name == "DeepSurv" or model_name == "DSM":
                         lower, upper = np.percentile(cvi_new[1][cvi_new[1].dtype.names[1]], [10, 90])
                         times = np.arange(math.ceil(lower), math.floor(upper)).tolist()
                         x = cvi_new_NN[0].to_numpy()
