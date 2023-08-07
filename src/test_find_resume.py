@@ -217,7 +217,7 @@ def main():
                                                            columns=['Event'])], axis=1)
                         preds = model.predict(x_cvi_wf)
                         c_index = concordance_index(cvi[1]['Survival_time'], preds, cvi[1]['Event'])
-                    elif model_name == "DeepSurv":
+                    elif model_name == "DeepSurv" or "DSM":
                         x= cvi_new_NN[0].to_numpy()
                         lower, upper = np.percentile(cvi_new[1][cvi_new[1].dtype.names[1]], [10, 90])
                         times = np.arange(math.ceil(lower), math.floor(upper)).tolist()
@@ -229,7 +229,7 @@ def main():
                             c_index = survival_regression_metric('ctd', out_survival, cvi_new_NN[1], times=max(times))
                     else :
                         preds = model.predict(cvi_new[0])
-                        c_index = concordance_index_censored(cvi[1]['Event'], cvi[1]['Survival_time'], preds)[0]
+                        c_index = np.mean(concordance_index_censored(cvi[1]['Event'], cvi[1]['Survival_time'], preds))
                     model_ci_inference_time = time() - model_ci_inference_start_time
 
                     #Get BS scores from current fold CVI fold
@@ -243,14 +243,11 @@ def main():
                         times = np.arange(math.ceil(lower), math.floor(upper)).tolist()
                         x = cvi_new_NN[0].to_numpy()
                         out_survival = model.predict_survival(x, times)
-
-
                         if cvi_new_NN[1].isnull().values.any():
                             brier_score= np.nan
                             print ("Nan happened, skipped evalutation")
                         else:
                             brier_score = np.mean(survival_regression_metric('brs', out_survival, cvi_new_NN[1], times=times))
-                            
                     elif model_name == "SVM":
                         brier_score = np.nan
                     else:
