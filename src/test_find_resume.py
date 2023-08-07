@@ -229,7 +229,7 @@ def main():
                             c_index = survival_regression_metric('ctd', out_survival, cvi_new_NN[1], times=max(times))
                     else :
                         preds = model.predict(cvi_new[0])
-                        c_index = np.mean(concordance_index_censored(cvi[1]['Event'], cvi[1]['Survival_time'], preds))
+                        c_index = concordance_index_censored(cvi[1]['Event'], cvi[1]['Survival_time'], preds)[0]
                     model_ci_inference_time = time() - model_ci_inference_start_time
 
                     #Get BS scores from current fold CVI fold

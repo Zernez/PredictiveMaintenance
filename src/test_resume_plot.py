@@ -115,6 +115,9 @@ def main():
         boost_surv_func = survival.predict_survival_function(boost_model, X_test, y_test, lower, upper)    
         rsf_surv_func = survival.predict_survival_function(rsf_model, X_test, y_test, lower, upper)
         NN_surv_func = survival.predict_survival_function(NN_model, X_test_NN, y_test, times, times)
+
+        risk_pred = NN_model.predict_risk(np.array(X_test_NN), t= e.max()).flatten()
+        CI_NN= concordance_index_censored(y_train_NN, y_test_NN, risk_pred)[0]
        
         col_names = ['col' + str(i) for i in np.arange(NN_surv_func.shape[0]) + 1]
         NN_surv_funcDF = pd.DataFrame(data=NN_surv_func.T, columns=col_names)
@@ -129,19 +132,19 @@ def main():
                                                             time_bins)
 
         # WEIBULL C_INDEX
-        weibull_c_index = np.mean(weibull_model.concordance_index_)  
+        weibull_c_index = np.mean(weibull_model.concordance_index_)
 
         # CPH C_INDEX
-        cph_c_index = np.mean(concordance_index_censored(y_test['Event'], y_test['Survival_time'],
-                                                cph_model.predict(X_test)))
+        cph_c_index = concordance_index_censored(y_test['Event'], y_test['Survival_time'],
+                                                cph_model.predict(X_test))[0]
         
         # RSF C_INDEX        
-        rsf_c_index = np.mean(concordance_index_censored(y_test['Event'], y_test['Survival_time'],
-                                                rsf_model.predict(X_test)))
+        rsf_c_index = concordance_index_censored(y_test['Event'], y_test['Survival_time'],
+                                                rsf_model.predict(X_test))[0]
         
         # Boost C_INDEX        
-        boost_c_index = np.mean(concordance_index_censored(y_test['Event'], y_test['Survival_time'],
-                                                boost_model.predict(X_test)))
+        boost_c_index = concordance_index_censored(y_test['Event'], y_test['Survival_time'],
+                                                boost_model.predict(X_test))[0]
         
         # NN C_INDEX        
         NN_c_index = np.mean(survival_regression_metric('ctd', y_test_NN,
