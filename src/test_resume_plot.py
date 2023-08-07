@@ -108,13 +108,16 @@ def main():
         cph_model.fit(X_train, y_train)
         rsf_model.fit(X_train, y_train)
         boost_model.fit(X_train, y_train)
-        NN_model.fit(x, t, e, vsize=0.3, iters= 80, **NN_params)
+        NN_model.fit(x, t, e, vsize=0.3, **NN_params)
 
         weibull_surv_func = survival.predict_survival_function(weibull_model, X_test_WB, y_test, lower, upper)
         cph_surv_func = survival.predict_survival_function(cph_model, X_test, y_test, lower, upper)
         boost_surv_func = survival.predict_survival_function(boost_model, X_test, y_test, lower, upper)    
         rsf_surv_func = survival.predict_survival_function(rsf_model, X_test, y_test, lower, upper)
         NN_surv_func = survival.predict_survival_function(NN_model, X_test_NN, y_test, times, times)
+       
+        col_names = ['col' + str(i) for i in np.arange(NN_surv_func.shape[0]) + 1]
+        NN_surv_funcDF = pd.DataFrame(data=NN_surv_func.T, columns=col_names)
 
         weibull_hazard_func = survival.predict_hazard_function(weibull_model, X_test_WB, y_test, lower, upper)
         cph_hazard_func = survival.predict_hazard_function(cph_model, X_test, y_test, lower, upper)
@@ -129,20 +132,20 @@ def main():
         weibull_c_index = np.mean(weibull_model.concordance_index_)  
 
         # CPH C_INDEX
-        cph_c_index = concordance_index_censored(y_test['Event'], y_test['Survival_time'],
-                                                cph_model.predict(X_test))[0]
+        cph_c_index = np.mean(concordance_index_censored(y_test['Event'], y_test['Survival_time'],
+                                                cph_model.predict(X_test)))
         
         # RSF C_INDEX        
-        rsf_c_index = concordance_index_censored(y_test['Event'], y_test['Survival_time'],
-                                                rsf_model.predict(X_test))[0]
+        rsf_c_index = np.mean(concordance_index_censored(y_test['Event'], y_test['Survival_time'],
+                                                rsf_model.predict(X_test)))
         
         # Boost C_INDEX        
-        boost_c_index = concordance_index_censored(y_test['Event'], y_test['Survival_time'],
-                                                boost_model.predict(X_test))[0]
+        boost_c_index = np.mean(concordance_index_censored(y_test['Event'], y_test['Survival_time'],
+                                                boost_model.predict(X_test)))
         
         # NN C_INDEX        
         NN_c_index = np.mean(survival_regression_metric('ctd', y_test_NN,
-                                                        NN_surv_func,
+                                                        NN_surv_funcDF,
                                                         times=times))
         
         # WEIBULL BS

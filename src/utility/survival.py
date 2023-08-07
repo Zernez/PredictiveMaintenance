@@ -16,7 +16,7 @@ class Survival:
         elif model.__class__.__name__ == 'DeepCoxPH':
             x= X_test.to_numpy()
             times= lower
-            surv_prob = model.predict_survival(x, times)
+            surv_prob = model.predict_survival(x, times).T
             return surv_prob            
         else:
             surv_prob = np.row_stack([fn(times) for fn in model.predict_survival_function(X_test)])
