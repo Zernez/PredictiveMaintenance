@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from lifelines.utils import survival_table_from_events
+from lifelines.statistics import proportional_hazard_test
+from lifelines import CoxPHFitter
 from lifelines import KaplanMeierFitter
 import config as cfg
 import os
@@ -27,7 +29,7 @@ class Resume:
         self.x= x
         self.y= y
         self.event_table= survival_table_from_events(x['Survival_time'].astype('int'),x['Event'])
-        self.dpi= 200
+        self.dpi= "figure"
         self.format= "png"
 
     def presentation (self, bearings, boot_no):
@@ -147,6 +149,16 @@ class Resume:
         for i in range (0, len (y_test) +1):
             surv_label.append('Bearing ' + str(i) + ' test')
 
+        surv_probs.T.plot(figsize=(20, 20), linewidth= 2)            
+        plt.xlabel("Time (10 min)")
+        plt.ylabel("Survival probability")
+        plt.grid()
+        plt.legend(surv_label)
+        plt.title("{}".format(model))
+        plt.savefig(self.result_path + 'sl_{}.png'.format(model) , dpi= self.dpi, format= self.format, bbox_inches='tight')
+        plt.close()
+
+    def plot_aggregate_sl (self, y_test, x_test, model):
         surv_probs.T.plot(figsize=(20, 20), linewidth= 2)            
         plt.xlabel("Time (10 min)")
         plt.ylabel("Survival probability")
@@ -279,6 +291,7 @@ class Resume:
         cb_results = str()
         aft_results = str()
         next(itr)
+        pd.set_option('use_inf_as_na',True)
 
         for next_root, next_dirs, next_files in itr: 
             itr_final = os.walk(next_root)
@@ -299,8 +312,10 @@ class Resume:
                         aft_results = pd.read_csv(os.path.join(final_root, filename))
 
                 cv_results = pd.concat([cph_results, rsf_results, cb_results, dl_results, aft_results], axis=0)
+                cv_results=cv_results.dropna().reset_index(drop=True)
 
-                col_order = ['(1) NoneSelector', '(2) UMAP8', '(3) LowVar', '(4) SelectKBest4', '(5) SelectKBest8']
+
+                col_order = ['(1) None', '(2) VIF4', '(3) SelectKBest4', '(4) SelectKBest8', '(5) RegMRMR4', '(6) RegMRMR8']
                 row_order = ['(1) CoxPH', '(2) RSF', '(3) CoxBoost', '(4) DeepSurv', '(5) WeibullAFT'] 
 
                 # Group results for heatmaps
@@ -316,13 +331,13 @@ class Resume:
                                                 .set_axis(col_order, axis=1).reindex(row_order)
         #        brier_score_res = brier_score_res.apply(lambda x: 100 - (x * 100)) # for better readability
 
-                c_index_res.xs('(5) WeibullAFT')['(1) NoneSelector'] = np.nan
-                c_index_res.xs('(5) WeibullAFT')['(3) LowVar'] = np.nan
-                c_index_res.xs('(5) WeibullAFT')['(5) SelectKBest8'] = np.nan
+                c_index_res.xs('(5) WeibullAFT')['(4) SelectKBest8'] = np.nan
+                c_index_res.xs('(5) WeibullAFT')['(5) RegMRMR4'] = np.nan
+                c_index_res.xs('(5) WeibullAFT')['(6) RegMRMR8'] = np.nan
 
-                brier_score_res.xs('(5) WeibullAFT')['(1) NoneSelector'] = np.nan
-                brier_score_res.xs('(5) WeibullAFT')['(3) LowVar'] = np.nan
-                brier_score_res.xs('(5) WeibullAFT')['(5) SelectKBest8'] = np.nan
+                brier_score_res.xs('(5) WeibullAFT')['(4) SelectKBest8'] = np.nan
+                brier_score_res.xs('(5) WeibullAFT')['(5) RegMRMR4'] = np.nan
+                brier_score_res.xs('(5) WeibullAFT')['(6) RegMRMR8'] = np.nan
 
                 data = cv_grp_results.loc[cv_grp_results['ModelName'] == '(1) CoxPH']['CIndex']
 
@@ -396,7 +411,9 @@ class Resume:
                             .set_axis(col_order, axis=1).reindex(row_order)
                 file = open(final_root + 'Latex_bri.txt', 'w')
                 file.write(table.style.to_latex())
-                file.close()       
+                file.close()
+            
+            pd.set_option('use_inf_as_na',True)       
 
     def compute_vif (self, considered_features):
         x = self.x[considered_features]

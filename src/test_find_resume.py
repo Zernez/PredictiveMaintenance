@@ -4,7 +4,7 @@ import pandas as pd
 from pathlib import Path
 import config as cfg
 from tools.feature_selectors import NoneSelector, LowVar, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8, UMAP8, VIF4, VIF8
-from tools.regressors import CoxPH, CphRidge, CphLASSO, CphElastic, RSF, CoxBoost, GradientBoostingDART, WeibullAFT, LogNormalAFT, LogLogisticAFT, DeepSurv # XGBLinear, SVM
+from tools.regressors import CoxPH, CphRidge, CphLASSO, CphElastic, RSF, CoxBoost, GradientBoostingDART, WeibullAFT, LogNormalAFT, LogLogisticAFT, DeepSurv, DSM # XGBLinear, SVM
 from tools.file_reader import FileReader
 from tools.data_ETL import DataETL
 from utility.builder import Builder
@@ -18,6 +18,7 @@ from time import time
 import math
 from auton_survival.metrics import survival_regression_metric
 from auton_survival import DeepCoxPH
+from auton_survival import DeepSurvivalMachines
 import argparse
 
 import warnings
@@ -59,7 +60,7 @@ def main():
     
     X, y = DataETL(DATASET).make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
     #CoxPH, RSF, CoxBoost, DeepSurv, WeibullAFT
-    models = [CoxPH, RSF, CoxBoost, DeepSurv, WeibullAFT]
+    models = [CoxPH, RSF, CoxBoost, DeepSurv, DSM, WeibullAFT]
     #NoneSelector, UMAP8, LowVar, SelectKBest4, SelectKBest8    
     ft_selectors = [NoneSelector, VIF4, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8]
   
@@ -122,9 +123,11 @@ def main():
                         else:
                             y_ti_mrmr = np.array([x[0] for x in ti[1]], float)
                             ft_selector = ft_selector_builder(ti[0], y_ti_mrmr, estimator=model)
+                    else:
+                        ft_selector = ft_selector_builder(ti[0], ti[1], estimator=model)
                     
                     #From more 4 feature parametric models find difficulties to reach the convergence                                  
-                    elif (parametric == True and ft_selector_name in ["NoneSelector", "SelectKBest8", "RegMRMR8", "LowVar", "VIF4"]):
+                    if (parametric == True and ft_selector_name in ["SelectKBest8", "RegMRMR4", "RegMRMR8"]):
                         c_index, brier_score = np.nan, np.nan
                         get_best_features_time, get_best_params_time, model_train_time = np.nan, np.nan, np.nan
                         model_ci_inference_time, model_bs_inference_time = np.nan, np.nan
@@ -140,8 +143,6 @@ def main():
                                                    "BestParams", "SelectedFts"])
                         model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
                         continue
-                    else:
-                        ft_selector = ft_selector_builder(ti[0], ti[1], estimator=model)
 
                     if ft_selector_name == "UMAP8":     
                         get_best_features_time = time() - get_best_features_start_time 
@@ -175,7 +176,10 @@ def main():
                         best_params = search.best_params_
                     elif model_name == "DeepSurv":
                         experiment = SurvivalRegressionCV(model='dcph', num_folds=N_SPLITS, hyperparam_grid= space)
-                        model,best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='ctd')              
+                        model,best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='ctd')
+                    elif model_name == "DSM":
+                        experiment = SurvivalRegressionCV(model='dsm', num_folds=N_SPLITS, hyperparam_grid= space)
+                        model,best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='ctd')                
                     else:
                         search = RandomizedSearchCV(model, space, n_iter=N_ITER, cv= N_SPLITS, random_state= 0)
                         search.fit(ti_new[0], ti_new[1])
@@ -190,6 +194,12 @@ def main():
                         model.fit(x_ti_wf, y_ti_wf)
                     elif model_name == "DeepSurv":
                         model = DeepCoxPH(layers=[32, 32])
+                        x= ti_new_NN[0].to_numpy()
+                        t= ti_new_NN[1].loc[:,"time"].to_numpy()
+                        e= ti_new_NN[1].loc[:,"event"].to_numpy()
+                        model = model.fit(x, t, e, vsize=0.2, **best_params)
+                    elif model_name == "DSM":
+                        model = DeepSurvivalMachines(layers=[32, 32])
                         x= ti_new_NN[0].to_numpy()
                         t= ti_new_NN[1].loc[:,"time"].to_numpy()
                         e= ti_new_NN[1].loc[:,"event"].to_numpy()
