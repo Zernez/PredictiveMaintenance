@@ -6,11 +6,12 @@ import umap.plot
 import umap
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.model_selection import train_test_split
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from lifelines.utils import survival_table_from_events
 from lifelines.statistics import proportional_hazard_test
 from lifelines import CoxPHFitter
-from lifelines import KaplanMeierFitter
+
 import config as cfg
 import os
 import re
@@ -31,6 +32,7 @@ class Resume:
         self.event_table= survival_table_from_events(x['Survival_time'].astype('int'),x['Event'])
         self.dpi= "figure"
         self.format= "png"
+        self.test_size= 0.7
 
     def presentation (self, bearings, boot_no):
         x = self.x.iloc[:,:-2]
@@ -154,19 +156,34 @@ class Resume:
         plt.ylabel("Survival probability")
         plt.grid()
         plt.legend(surv_label)
-        plt.title("{}".format(model))
-        plt.savefig(self.result_path + 'sl_{}.png'.format(model) , dpi= self.dpi, format= self.format, bbox_inches='tight')
-        plt.close()
+        plt.plot ()
+        # plt.title("{}".format(model))
+        # plt.savefig(self.result_path + 'sl_{}.png'.format(model) , dpi= self.dpi, format= self.format, bbox_inches='tight')
+        # plt.close()
 
-    def plot_aggregate_sl (self, y_test, x_test, model):
-        surv_probs.T.plot(figsize=(20, 20), linewidth= 2)            
-        plt.xlabel("Time (10 min)")
-        plt.ylabel("Survival probability")
-        plt.grid()
-        plt.legend(surv_label)
-        plt.title("{}".format(model))
-        plt.savefig(self.result_path + 'sl_{}.png'.format(model) , dpi= self.dpi, format= self.format, bbox_inches='tight')
-        plt.close()
+    def plot_aggregate_sl (self, km_sc, survival_probs):
+            plt.rcParams.update({'font.size': 12})
+            plt.figure(dpi=80)
+
+            surv_label= []
+            surv_label.append('Weibull')
+            surv_label.append('CoxPH')
+            surv_label.append('RSF')
+            surv_label.append('CoxBoost')
+            surv_label.append('DeepSurv')
+            surv_label.append('DSM')
+            surv_label.append('KM + 95% CI')
+
+            for survival_prob in survival_probs:
+                probs= np.mean(survival_prob, axis= 0)
+                probs.T.plot(linewidth=1.5)
+
+            km_sc.plot(linewidth=2, alpha=0.4)
+
+            plt.xlabel("Time (10 min)")
+            plt.ylabel("Survival probability S(t)")
+            plt.legend(surv_label)
+            plt.grid()
 
     def plot_sl_ci (self, y_test, surv_probs, model):
         plt.rcParams.update({'font.size': 14})
@@ -443,3 +460,27 @@ class Resume:
                 smallest_number = num
 
         return smallest_number
+
+class _TFColor(object):
+    """Enum of colors used in TF docs."""
+    red = '#F15854'
+    blue = '#5DA5DA'
+    orange = '#FAA43A'
+    green = '#60BD68'
+    pink = '#F17CB0'
+    brown = '#B2912F'
+    purple = '#B276B2'
+    yellow = '#DECF3F'
+    gray = '#4D4D4D'
+    def __getitem__(self, i):
+        return [
+            self.red,
+            self.orange,
+            self.green,
+            self.blue,
+            self.pink,
+            self.brown,
+            self.purple,
+            self.yellow,
+            self.gray,
+        ][i % 9]

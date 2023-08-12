@@ -19,7 +19,7 @@ HYPER_RESULTS= "./data/logs/"
 PARAMS_CPH = {'alpha': 0.1,
             'ties': 'breslow',
             'n_iter': 50,
-            'tol': 1e-1}
+            'tol': 1e-5}
 
 PARAMS_CPH_RIDGE = {'alpha': 0.5,
                     'ties': 'breslow',
@@ -43,18 +43,18 @@ PARAMS_CPH_ELASTIC = {'l1_ratio': 0.5,
 PARAMS_RSF = {
     'n_estimators': 100,
     'max_depth' : 7,
-    'min_samples_split': 2,
-    'min_samples_leaf': 4,
+    'min_samples_split': 10,
+    'min_samples_leaf': 2,
     'max_features': None,
     'random_state': 0
 }
 
-PARAMS_GRADBOOST = {'n_estimators': 400,
-                        'learning_rate': 0.1,
+PARAMS_GRADBOOST = {'n_estimators': 200,
+                        'learning_rate': 0.05,
                         'max_depth': 5,
                         'loss': 'coxph',
-                        'min_samples_split': 2,
-                        'min_samples_leaf': 4,
+                        'min_samples_split': 10,
+                        'min_samples_leaf': 1,
                         'max_features': None,
                         'dropout_rate': 0,
                         'subsample': 1.0,
@@ -80,9 +80,9 @@ PARAMS_DEEPSURV = {'batch_size' : 16,
                    'learning_rate' : 1e-3,
                    'iters': 10}
 
-PARAMS_DSM = {'batch_size' :16,
+PARAMS_DSM = {'batch_size' : 64,
                    'learning_rate' : 1e-2,
-                   'iters': 100}
+                   'iters': 10}
 
 PARAMS_WEIBULL = {'alpha': 0.03,
                 'penalizer': 0.0,

@@ -272,6 +272,29 @@ class DataETL:
 
         return X_tr, X_te, y_tr_NN, y_te_NN
     
+    def centering_data (self, ti, cvi):
+        ti_X = ti[0]
+        ti_y = ti[1]
+        cvi_X = cvi[0]
+        cvi_y = cvi[1]
+        features = list(ti_X.columns)
+
+        # Apply scaling
+        scaler = StandardScaler()
+
+        scaler.fit(ti_X)
+        ti_X = pd.DataFrame(scaler.transform(ti_X), columns=features)
+        cvi_X = pd.DataFrame(scaler.transform(cvi_X), columns=features)
+
+        ti_X.reset_index(inplace= True, drop=True)
+        cvi_X.reset_index(inplace= True, drop=True)
+
+        # Collect splits
+        ti = (ti_X, ti_y)
+        cvi = (cvi_X, cvi_y)
+
+        return ti, cvi
+    
     def centering_main_data (self, ti, cvi, ti_NN, cvi_NN):
         ti_X = ti[0]
         ti_y = ti[1]
@@ -352,5 +375,72 @@ class DataETL:
         y_test.reset_index(inplace= True, drop=True)   
 
         return X_test, y_test
+    
+    def calculate_positions_percentages(self, dataframe, column_name, values):
+        """
+        Calculate the positions of values in a DataFrame column as percentages.
+
+        Parameters:
+        dataframe (pd.DataFrame): The DataFrame containing the column.
+        column_name (str): The name of the numerical column.
+        values (list): List of numerical values for which you want to calculate the positions.
+
+        Returns:
+        list: List of positions of the values in percentages.
+        """
+        if not values:
+            return []
+
+        column = dataframe[column_name].tolist()
+        column.sort()  # Sort the column in ascending order
+        total_values = len(column)
+
+        positions_percentages = []
+
+        for value in values:
+            if value < column[0]:
+                position_percent = 0.0
+            elif value > column[-1]:
+                position_percent = 100.0
+            else:
+                # Find the index where the value would be inserted to maintain the order
+                index = 0
+                while index < total_values and column[index] < value:
+                    index += 1
+                
+                # Calculate the position in percentage based on index and total values
+                position_percent = (index / total_values) * 100
+            
+            positions_percentages.append(position_percent)
+        
+        return positions_percentages
+
+    def find_values_by_percentages(self, dataframe, column_name, target_percentages):
+        """
+        Find values in a DataFrame column based on a list of target percentage values within the column.
+
+        Parameters:
+        dataframe (pd.DataFrame): The DataFrame containing the column.
+        column_name (str): The name of the numerical column.
+        target_percentages (list): List of target percentage values.
+
+        Returns:
+        list: List of values from the column corresponding to the target percentage values.
+        """
+        if not target_percentage:
+            return []
+        
+        column = dataframe[column_name].tolist()
+        column.sort()  # Sort the column in ascending order
+        total_values = len(column)
+        
+        values_by_percentages = []
+        
+        for target_percentage in target_percentages:
+            target_position = int((target_percentage / 100) * total_values)
+            values_by_percentages.append(column[target_position])
+        
+        return values_by_percentages
+
 
 
