@@ -427,7 +427,7 @@ class DataETL:
         Returns:
         list: List of values from the column corresponding to the target percentage values.
         """
-        if not target_percentage:
+        if not target_percentages:
             return []
         
         column = dataframe[column_name].tolist()
@@ -442,5 +442,12 @@ class DataETL:
         
         return values_by_percentages
 
+    def transform_column_with_cutpoints(dataset, cut_points, column_name):
+        new_df = dataset.copy()
+        for cut_point in cut_points:
+            new_column_name = f"{column_name}_<=_{cut_point}"
+            new_df[new_column_name] = dataset[column_name] >= cut_point
+        
+        return new_df
 
 

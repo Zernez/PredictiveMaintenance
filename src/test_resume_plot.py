@@ -34,6 +34,7 @@ TYPE= "correlated" # not_correlated
 LINE_PLOT= 3
 FEATURE_TO_SPLIT= "rms"
 SPLIT_THRESHOLD= [2]
+SPLITTED = True
 
 def main():
 
@@ -204,17 +205,21 @@ def main():
         boost_bs = approx_brier_score(y_test, boost_surv_probs)
 
         # NN BS
-        NN_surv_probs = pd.DataFrame(np.row_stack([NN_model.predict_risk(xte, t= time).flatten() for time in times]).T)
+        NN_surv_probs = NN_model.predict_survival(xte)
+        # NN_surv_probs = pd.DataFrame(np.row_stack([NN_model.predict_risk(xte, t= time).flatten() for time in times]).T)
         NN_bs = approx_brier_score(y_test, NN_surv_probs)
 
-        NN_surv_probs_tr = pd.DataFrame(np.row_stack([NN_model.predict_risk(x, t= time).flatten() for time in times_tr]).T)
+        # NN_surv_probs_tr = pd.DataFrame(np.row_stack([NN_model.predict_risk(x, t= time).flatten() for time in times_tr]).T)
+        NN_surv_probs_tr = NN_model.predict_survival(x)
         NN_bs_tr = approx_brier_score(y_train, NN_surv_probs_tr)
 
         # DSM BS
-        DSM_surv_probs = pd.DataFrame(np.row_stack([DSM_model.predict_risk(xte, t= time).flatten() for time in times]).T)
+        # DSM_surv_probs = pd.DataFrame(np.row_stack([DSM_model.predict_risk(xte, t= time).flatten() for time in times]).T)
+        DSM_surv_probs = pd.DataFrame(DSM_model.predict_survival(xte, t=times))
         DSM_bs = approx_brier_score(y_test, DSM_surv_probs)
 
-        DSM_surv_probs_tr = pd.DataFrame(np.row_stack([DSM_model.predict_risk(x, t= time).flatten() for time in times_tr]).T)
+        # DSM_surv_probs_tr = pd.DataFrame(np.row_stack([DSM_model.predict_risk(x, t= time).flatten() for time in times_tr]).T)
+        DSM_surv_probs_tr = pd.DataFrame(NN_model.predict_survival(x, t= max(times_tr)))
         DSM_bs_tr = approx_brier_score(y_train, DSM_surv_probs_tr)
 
 
@@ -233,8 +238,8 @@ def main():
         df_CI, df_B = Resumer.plot_performance(False, df_CI, df_B, "DSM", DSM_c_index, DSM_bs)
 
         print ("Overfitting - underfitting info: ") 
-        print(f"NN model train: TrCI, TrBS - {NN_c_index_tr}/{NN_bs_tr}")
-        print(f"DSM model train: TrCI, TrBS - {DSM_c_index_tr}/{DSM_bs_tr}")
+        print(f"NN model train: TrCI, TrBS - {NN_bs}/{NN_bs_tr}")
+        print(f"DSM model train: TrCI, TrBS - {DSM_bs}/{DSM_bs_tr}")
 
         print ("Latex performance table: ")
         print (f"CoxPH & {round(end_time_cph, 3)} & {round(cph_c_index, 3)} & {round(cph_c_index_td, 3)} & {round(cph_bs, 3)} \\\\" +
@@ -254,10 +259,10 @@ def main():
         surv_label.append(cph_surv_func)
         surv_label.append(boost_surv_func)
         surv_label.append(rsf_surv_func)
-        surv_label.append(NN_surv_func)
-        surv_label.append(DSM_model)
+        surv_label.append(NN_surv_probs)
+        surv_label.append(DSM_surv_probs)
 
-        Resumer.plot_aggregate_sl_mean (Km, surv_label)
+        Resumer.plot_aggregate_sl (Km, surv_label)
 
         # # Make SHAP values
         # if (n_repeat== N_REPEATS - 1):

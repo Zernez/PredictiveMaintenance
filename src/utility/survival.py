@@ -27,5 +27,5 @@ class Survival:
             risk_pred = model.predict_risk(X_test, t= times).flatten()
             return risk_pred            
         else:
-            surv_prob = np.row_stack([fn(times) for fn in model.predict_cumulative_hazard(X_test)])
+            surv_prob = np.row_stack([fn(times) for fn in model.predict_cumulative_hazard_function(X_test)])
         return pd.DataFrame(surv_prob, columns=times)
