@@ -3,10 +3,11 @@ from sksurv.ensemble import RandomSurvivalForest
 from sksurv.linear_model import CoxPHSurvivalAnalysis, CoxnetSurvivalAnalysis
 from sksurv.ensemble import GradientBoostingSurvivalAnalysis
 import config as cfg
-from lifelines import WeibullAFTFitter, LogNormalAFTFitter, LogLogisticAFTFitter, ExponentialFitter
+from lifelines import WeibullAFTFitter, LogNormalAFTFitter, LogLogisticAFTFitter
 from lifelines.utils.sklearn_adapter import sklearn_adapter
 from sksurv.svm import FastSurvivalSVM
 from auton_survival import DeepCoxPH
+from auton_survival import DeepSurvivalMachines
 
 class BaseRegressor (ABC):
     """
@@ -70,7 +71,7 @@ class LogLogisticAFT (BaseRegressor):
     def get_best_hyperparams (self):
         return {'alpha': 0.03}
 
-class Cph (BaseRegressor):
+class CoxPH (BaseRegressor):
     def make_model (self, params=None):
         model_params = cfg.PARAMS_CPH
         if params:
@@ -146,10 +147,10 @@ class RSF (BaseRegressor):
         return RandomSurvivalForest(**model_params)
     
     def get_hyperparams (self):
-        return {'max_depth': [5, 6, 7],
-                'n_estimators': [2, 3, 4],
-                'min_samples_split': [8, 15, 20],
-                'min_samples_leaf': [400, 500 , 600]}
+        return {'max_depth': [3, 5, 7],
+                'n_estimators': [25, 50, 100],
+                'min_samples_split': [2, 5, 10],
+                'min_samples_leaf': [1, 2, 4]}
     
     def get_best_hyperparams (self):
         return  {'n_estimators': 3, 
@@ -157,7 +158,7 @@ class RSF (BaseRegressor):
                  'min_samples_leaf': 600, 
                  'max_depth': 5}
     
-class GradientBoosting (BaseRegressor):
+class CoxBoost (BaseRegressor):
     def make_model (self, params=None):
         model_params = cfg.PARAMS_GRADBOOST
         if params:
@@ -166,10 +167,10 @@ class GradientBoosting (BaseRegressor):
     
     def get_hyperparams (self):
         return {'learning_rate': [0.1, 0.05, 0.01],
-                'n_estimators': [100, 110, 120],
-                'max_depth': [3, 4, 5],
-                'min_samples_split': [2, 3],
-                'min_samples_leaf': [1, 2]}
+                'n_estimators': [100, 200, 300, 400],
+                'max_depth': [3, 5, 7],
+                'min_samples_split': [2, 5, 10],
+                'min_samples_leaf': [1, 2, 4]}
     
     def get_best_hyperparams (self):
         return  {'learning_rate': 0.1,
@@ -227,13 +228,33 @@ class DeepSurv(BaseRegressor):
         model_params = cfg.PARAMS_DEEPSURV
         if params:
             model_params.update(params)
-
-        return DeepCoxPH(layers= [120, 120])
+        return DeepCoxPH(layers=[32, 32])
     
     def get_hyperparams(self):
-        return {'batch_size' : [10, 15, 20],
-                'learning_rate' : [1e-4, 1e-3]}
+        return {'batch_size' : [16, 32, 64],
+                'learning_rate' : [1e-4, 1e-3, 1e-2],
+                'iters': [10, 50, 100]
+                }
     
     def get_best_hyperparams(self):
         return {'batch_size' : 10,
-                'learning_rate' : 1e-4}
+                'learning_rate' : 1e-4,
+                'iters': 100}
+    
+class DSM(BaseRegressor):
+    def make_model(self, params=None):
+        model_params = cfg.PARAMS_DSM
+        if params:
+            model_params.update(params)
+        return DeepSurvivalMachines(layers=[32, 32])
+    
+    def get_hyperparams(self):
+        return {'batch_size' : [16, 32, 64],
+                'learning_rate' : [1e-4, 1e-3, 1e-2],
+                'iters': [10, 50, 100]
+                }
+    
+    def get_best_hyperparams(self):
+        return {'batch_size' : 10,
+                'learning_rate' : 1e-4,
+                'iters': 100}

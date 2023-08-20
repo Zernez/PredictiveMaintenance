@@ -7,11 +7,18 @@ import config as cfg
 
 class Builder:
 
-    def __init__ (self):
-        self.total_bearings= cfg.N_BEARING_TOT
-        self.bootstrapped_fold= cfg.N_BOOT_FOLD
-        self.raw_main_path= cfg.RAW_DATA_PATH
-        self.aggregate_main_path= cfg.DATASET_PATH
+    def __init__ (self, dataset):
+        if dataset == "xjtu":
+            self.total_bearings= cfg.N_BEARING_TOT_XJTU
+            self.bootstrapped_fold= cfg.N_BOOT_FOLD_XJTU
+            self.raw_main_path= cfg.RAW_DATA_PATH_XJTU
+            self.aggregate_main_path= cfg.DATASET_PATH_XJTU
+        elif dataset == "pronostia":
+            self.total_bearings= cfg.N_BEARING_TOT_PRONOSTIA
+            self.bootstrapped_fold= cfg.N_BOOT_FOLD_PRONOSTIA
+            self.raw_main_path= cfg.RAW_DATA_PATH_PRONOSTIA
+            self.aggregate_main_path= cfg.DATASET_PATH_PRONOSTIA
+        self.dataset= dataset 
 
     def build_new_dataset (self,bootstrap= 0):            
         self.from_raw_to_csv(bootstrap)
@@ -23,7 +30,11 @@ class Builder:
         j = 1
         for bearing in range (1, bearings + 1, 1):
             dataset_path = self.raw_main_path + "Bearing1_" + str(bearing)
-            datasets, bootstrap_val = Featuring().time_features(dataset_path, bootstrap= bootno)
+            if self.dataset == "xjtu":
+                datasets, bootstrap_val = Featuring().time_features_xjtu(dataset_path, bootstrap= bootno)
+            elif self.dataset == "pronostia": 
+                datasets, bootstrap_val = Featuring().time_features_pronostia(dataset_path, bootstrap= bootno)
+
             i = 1
             for dataset in datasets:
                 dataset.columns= ['B' + str(j) + '_mean' , 'B' + str(j) + '_std', 'B' + str(j) + '_skew', 'B' + str(j) + '_kurtosis', 'B' + str(j) + '_entropy', 

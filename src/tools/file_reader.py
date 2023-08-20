@@ -6,8 +6,12 @@ import config as cfg
 
 class FileReader:
 
-    def __init__ (self):
-        self.dataset_path = cfg.DATASET_PATH
+    def __init__ (self, dataset):
+        if (dataset == "xjtu"):
+            self.dataset_path = cfg.DATASET_PATH_XJTU
+        elif (dataset == "pronostia"):
+            self.dataset_path = cfg.DATASET_PATH_PRONOSTIA
+        self.dataset= dataset
 
     def read_data_kaggle (self):
         set1 = pd.read_csv("src/dataset/set1_timefeatures.csv")
@@ -22,7 +26,7 @@ class FileReader:
         
         return [set1, set2, set3]
     
-    def read_data_xjtu (self, from_pickle= False):
+    def read_data (self, from_pickle= False):
         set_covariates= pd.read_csv(self.dataset_path + 'covariates.csv')
         set_boot= pd.read_csv(self.dataset_path + 'boot.csv')
         set_analytic= pd.read_csv(self.dataset_path + 'analytic.csv')
@@ -31,11 +35,11 @@ class FileReader:
             event_kl= self.read_pickle(self.dataset_path + "event_kl")
             event_sd= self.read_pickle(self.dataset_path + "event_sd")
         else:
-            event_kl, event_sd, event_t = Event().make_events(set_analytic) 
+            event_kl, event_sd, event_t = Event(self.dataset).make_events(set_analytic) 
         
         info_pack= {'KL': event_kl, 'SD': event_sd}
 
-        return set_covariates, set_boot, info_pack 
+        return set_covariates, set_boot, info_pack
 
     def read_pickle (self, path: Path):
         file_handler = open(path, 'rb')

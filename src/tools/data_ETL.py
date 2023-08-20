@@ -10,12 +10,17 @@ import config as cfg
 
 class DataETL:
 
-    def __init__ (self):
-        self.total_bearings= cfg.N_BEARING_TOT
-        self.real_bearings= cfg.N_REAL_BEARING
-        self.total_signals= cfg.N_SIGNALS
+    def __init__ (self, dataset):
+        if dataset == "xjtu":
+            self.total_bearings= cfg.N_BEARING_TOT_XJTU
+            self.real_bearings= cfg.N_REAL_BEARING_XJTU
+            self.total_signals= cfg.N_SIGNALS_XJTU
+        elif dataset == "pronostia":
+            self.total_bearings= cfg.N_BEARING_TOT_PRONOSTIA
+            self.real_bearings= cfg.N_REAL_BEARING_PRONOSTIA
+            self.total_signals= cfg.N_SIGNALS_PRONOSTIA
 
-    def make_surv_data_sklS (self, covariates, set_boot, info_pack, bootstrap):
+    def make_surv_data_sklS (self, covariates, set_boot, info_pack, bootstrap, type):
         row = pd.DataFrame()
         data_cov= pd.DataFrame()
         ref_value= {}
@@ -24,53 +29,81 @@ class DataETL:
             val= self.event_analyzer (bear_num, info_pack)
             ref_value.update({bear_num : val})
         
-        for column in covariates:
+        moving_window= 0
+        time_split= 20
 
-            columnSeriesObj = covariates[column]
-            bear_num = int(re.findall("\d?\d?\d", column)[0])
-            temp_label_cov= ""
-            columnSeriesObj= columnSeriesObj.dropna()
-            
-            if re.findall(r"mean\b", column):
-                temp_label_cov = "mean"
-            elif re.findall(r"std\b", column):
-                temp_label_cov = "std"
-            elif re.findall(r"skew\b", column):
-                temp_label_cov = "skew"
-            elif re.findall(r"kurtosis\b", column):
-                temp_label_cov = "kurtosis"
-            elif re.findall(r"entropy\b", column):
-                temp_label_cov = "entropy"
-            elif re.findall(r"rms\b", column):
-                temp_label_cov = "rms"
-            elif re.findall(r"max\b", column):
-                temp_label_cov = "max"
-            elif re.findall(r"p2p\b", column):
-                temp_label_cov = "p2p"
-            elif re.findall(r"crest\b", column):
-                temp_label_cov = "crest"
-            elif re.findall(r"clearence\b", column):
-                temp_label_cov = "clearence"
-            elif re.findall(r"shape\b", column):
-                temp_label_cov = "shape"
-            elif re.findall(r"impulse\b", column):
-                temp_label_cov = "impulse"
-            elif re.findall(r"Event\b", column):
-                temp_label_cov = "Event"
-                columnSeriesObj = self.ev_manager (bear_num, bootstrap, self.total_bearings)
-            elif re.findall(r"Survival_time\b", column):
-                temp_label_cov = "Survival_time"
-                columnSeriesObj = self.sur_time_manager(bear_num, set_boot, ref_value)
-            
-            label= temp_label_cov
-            
-            if label == "Event" or label == "Survival_time":
-                row [label]= pd.Series(columnSeriesObj).T  
-            else:
-                row [label]= pd.Series(np.mean(columnSeriesObj.values)).T
+        while moving_window < time_split:
 
-            if label == "Survival_time":
-                data_cov = pd.concat([data_cov, row], ignore_index= True)
+            for column in covariates:
+                columnSeriesObj = covariates[column]
+                columnSeriesObj= columnSeriesObj.dropna()
+ 
+                timepoints= len(columnSeriesObj)
+                time_window= int(timepoints / time_split)
+                low= time_window * moving_window
+                high= time_window * (moving_window + 1)
+
+                bear_num = int(re.findall("\d?\d?\d", column)[0])
+                temp_label_cov= ""
+                
+                if re.findall(r"mean\b", column):
+                    temp_label_cov = "mean"
+                elif re.findall(r"std\b", column):
+                    temp_label_cov = "std"
+                elif re.findall(r"skew\b", column):
+                    temp_label_cov = "skew"
+                elif re.findall(r"kurtosis\b", column):
+                    temp_label_cov = "kurtosis"
+                elif re.findall(r"entropy\b", column):
+                    temp_label_cov = "entropy"
+                elif re.findall(r"rms\b", column):
+                    temp_label_cov = "rms"
+                elif re.findall(r"max\b", column):
+                    temp_label_cov = "max"
+                elif re.findall(r"p2p\b", column):
+                    temp_label_cov = "p2p"
+                elif re.findall(r"crest\b", column):
+                    temp_label_cov = "crest"
+                elif re.findall(r"clearence\b", column):
+                    temp_label_cov = "clearence"
+                elif re.findall(r"shape\b", column):
+                    temp_label_cov = "shape"
+                elif re.findall(r"impulse\b", column):
+                    temp_label_cov = "impulse"
+                elif re.findall(r"Event\b", column):
+                    temp_label_cov = "Event"
+                    columnSeriesObj = self.ev_manager (bear_num, bootstrap, self.total_bearings)
+                elif re.findall(r"Survival_time\b", column):
+                    temp_label_cov = "Survival_time"
+                    columnSeriesObj = self.sur_time_manager(bear_num, set_boot, ref_value)
+                
+                label= temp_label_cov
+                
+                if label == "Event" or label == "Survival_time":
+                    if label == "Survival_time":
+                        if type == "correlated":
+                            if high < columnSeriesObj:
+                                proportional_value= columnSeriesObj - high
+                            else:
+                                proportional_value= columnSeriesObj
+                            row [label]= pd.Series(proportional_value).T 
+                        else:  
+                            proportional_value= columnSeriesObj
+                            row [label]= pd.Series(proportional_value).T  
+                    else:
+                        row [label]= pd.Series(columnSeriesObj).T   
+                else:
+                    if high <= timepoints:
+                        slice= columnSeriesObj.loc[low:high]
+                    else:
+                        slice= columnSeriesObj.loc[low:-1]
+
+                    row [label]= pd.Series(np.mean(slice.values)).T
+
+                if label == "Survival_time":
+                    data_cov = pd.concat([data_cov, row], ignore_index= True)
+            
+            moving_window+= 1
 
         data_sa = Surv.from_dataframe("Event", "Survival_time", data_cov)
 
@@ -239,6 +272,29 @@ class DataETL:
 
         return X_tr, X_te, y_tr_NN, y_te_NN
     
+    def centering_data (self, ti, cvi):
+        ti_X = ti[0]
+        ti_y = ti[1]
+        cvi_X = cvi[0]
+        cvi_y = cvi[1]
+        features = list(ti_X.columns)
+
+        # Apply scaling
+        scaler = StandardScaler()
+
+        scaler.fit(ti_X)
+        ti_X = pd.DataFrame(scaler.transform(ti_X), columns=features)
+        cvi_X = pd.DataFrame(scaler.transform(cvi_X), columns=features)
+
+        ti_X.reset_index(inplace= True, drop=True)
+        cvi_X.reset_index(inplace= True, drop=True)
+
+        # Collect splits
+        ti = (ti_X, ti_y)
+        cvi = (cvi_X, cvi_y)
+
+        return ti, cvi
+    
     def centering_main_data (self, ti, cvi, ti_NN, cvi_NN):
         ti_X = ti[0]
         ti_y = ti[1]
@@ -319,5 +375,79 @@ class DataETL:
         y_test.reset_index(inplace= True, drop=True)   
 
         return X_test, y_test
+    
+    def calculate_positions_percentages(self, dataframe, column_name, values):
+        """
+        Calculate the positions of values in a DataFrame column as percentages.
+
+        Parameters:
+        dataframe (pd.DataFrame): The DataFrame containing the column.
+        column_name (str): The name of the numerical column.
+        values (list): List of numerical values for which you want to calculate the positions.
+
+        Returns:
+        list: List of positions of the values in percentages.
+        """
+        if not values:
+            return []
+
+        column = dataframe[column_name].tolist()
+        column.sort()  # Sort the column in ascending order
+        total_values = len(column)
+
+        positions_percentages = []
+
+        for value in values:
+            if value < column[0]:
+                position_percent = 0.0
+            elif value > column[-1]:
+                position_percent = 100.0
+            else:
+                # Find the index where the value would be inserted to maintain the order
+                index = 0
+                while index < total_values and column[index] < value:
+                    index += 1
+                
+                # Calculate the position in percentage based on index and total values
+                position_percent = (index / total_values) * 100
+            
+            positions_percentages.append(position_percent)
+        
+        return positions_percentages
+
+    def find_values_by_percentages(self, dataframe, column_name, target_percentages):
+        """
+        Find values in a DataFrame column based on a list of target percentage values within the column.
+
+        Parameters:
+        dataframe (pd.DataFrame): The DataFrame containing the column.
+        column_name (str): The name of the numerical column.
+        target_percentages (list): List of target percentage values.
+
+        Returns:
+        list: List of values from the column corresponding to the target percentage values.
+        """
+        if not target_percentages:
+            return []
+        
+        column = dataframe[column_name].tolist()
+        column.sort()  # Sort the column in ascending order
+        total_values = len(column)
+        
+        values_by_percentages = []
+        
+        for target_percentage in target_percentages:
+            target_position = int((target_percentage / 100) * total_values)
+            values_by_percentages.append(column[target_position])
+        
+        return values_by_percentages
+
+    def transform_column_with_cutpoints(dataset, cut_points, column_name):
+        new_df = dataset.copy()
+        for cut_point in cut_points:
+            new_column_name = f"{column_name}_<=_{cut_point}"
+            new_df[new_column_name] = dataset[column_name] >= cut_point
+        
+        return new_df
 
 

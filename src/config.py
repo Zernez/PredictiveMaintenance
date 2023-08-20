@@ -1,14 +1,25 @@
-N_BEARING_TOT= 50
-N_REAL_BEARING= 5
-N_BOOT_FOLD= 10
-N_SIGNALS= 2 + 1
-DATASET_PATH= "./data/XJTU-SY/csv/"
-RAW_DATA_PATH= "./data/XJTU-SY/35Hz12kN/"
+N_BEARING_TOT_XJTU= 50
+N_REAL_BEARING_XJTU= 5
+N_BOOT_FOLD_XJTU= 10
+N_SIGNALS_XJTU= 2 + 1
+N_BEARING_TOT_PRONOSTIA= 20
+N_REAL_BEARING_PRONOSTIA= 2
+N_BOOT_FOLD_PRONOSTIA= 10
+N_SIGNALS_PRONOSTIA= 2 + 1
+DATASET_PATH_XJTU= "./data/XJTU-SY/csv/"
+RAW_DATA_PATH_XJTU= "./data/XJTU-SY/35Hz12kN/" #37.5Hz11kN - 40Hz10kN
+DATASET_PATH_PRONOSTIA= "./data/PRONOSTIA/csv/"
+RAW_DATA_PATH_PRONOSTIA= "./data/PRONOSTIA/30Hz4kN/"
+RESULT_PATH_XJTU= "./data/XJTU-SY/results/"
+SAMPLE_PATH_XJTU= "./data/XJTU-SY/csv/"
+RESULT_PATH_PRONOSTIA= "./data/PRONOSTIA/results/"
+SAMPLE_PATH_PRONOSTIA= "./data/PRONOSTIA/csv/"
+HYPER_RESULTS= "./data/logs/"
 
 PARAMS_CPH = {'alpha': 0.1,
             'ties': 'breslow',
-            'n_iter': 100,
-            'tol': 1e-9}
+            'n_iter': 50,
+            'tol': 1e-1}
 
 PARAMS_CPH_RIDGE = {'alpha': 0.5,
                     'ties': 'breslow',
@@ -31,30 +42,29 @@ PARAMS_CPH_ELASTIC = {'l1_ratio': 0.5,
 
 PARAMS_RSF = {
     'n_estimators': 100,
-    'max_depth' : None,
-    'n_jobs': -1,
-    'min_samples_split': 6,
-    'min_samples_leaf': 3,
+    'max_depth' : 7,
+    'min_samples_split': 2,
+    'min_samples_leaf': 4,
     'max_features': None,
     'random_state': 0
 }
 
-PARAMS_GRADBOOST = {'n_estimators': 100,
-                    'learning_rate': 0.1,
-                    'max_depth': 3,
-                    'loss': 'coxph',
-                    'min_samples_split': 2,
-                    'min_samples_leaf': 1,
-                    'max_features': None,
-                    'dropout_rate': 0.0,
-                    'subsample': 1.0,
-                    'random_state': 0}
-
-PARAMS_GRADBOOST_DART = {'n_estimators': 100,
+PARAMS_GRADBOOST = {'n_estimators': 400,
                         'learning_rate': 0.1,
-                        'max_depth': 3,
+                        'max_depth': 5,
                         'loss': 'coxph',
                         'min_samples_split': 2,
+                        'min_samples_leaf': 4,
+                        'max_features': None,
+                        'dropout_rate': 0,
+                        'subsample': 1.0,
+                        'random_state': 0}
+
+PARAMS_GRADBOOST_DART = {'n_estimators': 200,
+                        'learning_rate': 0.05,
+                        'max_depth': 5,
+                        'loss': 'coxph',
+                        'min_samples_split': 10,
                         'min_samples_leaf': 1,
                         'max_features': None,
                         'dropout_rate': 0.2,
@@ -66,10 +76,15 @@ PARAMS_SVM = {'alpha': 1,
               'max_iter': 40, 
               'optimizer': 'avltree'}
 
-PARAMS_DEEPSURV = {'batch_size' : 10,
-                    'learning_rate' : 1e-3}
+PARAMS_DEEPSURV = {'batch_size' : 16,
+                   'learning_rate' : 1e-3,
+                   'iters': 10}
 
-PARAMS_WEIBULL = {'alpha': 0.05,
+PARAMS_DSM = {'batch_size' :16,
+                   'learning_rate' : 1e-2,
+                   'iters': 100}
+
+PARAMS_WEIBULL = {'alpha': 0.03,
                 'penalizer': 0.0,
                 'l1_ratio': 0.0,
                 'fit_intercept': True}

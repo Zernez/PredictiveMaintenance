@@ -1,0 +1,18 @@
+auton_survival==0.0.5
+mrmr-selection==0.2.8
+umap-learn==0.5.3
+lifelines==0.27.7
+pandas==2.0.3
+sklearn-pandas==2.2.0
+xgbse==0.2.3
+torchtuples==0.2.2
+pycox==0.2.3
+dcor==0.6
+shap==0.42.1
+umap==0.1.1
+datashader== 0.15.1
+bokeh==3.2.1
+holoviews==1.17.0
+scikit-image==0.21.0
+colorcet==3.0.1
+seaborn==0.12.2

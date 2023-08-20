@@ -1,20 +1,12 @@
-pred_man/
-pred_man2/
-pred_man3/
+src/PredMan/
+.vscode
 data/
-pymsm/
-auton-survival-master/
-notes.txt
-src/run_cv_fall_ttest.py
 src/dataset
-src/tools/alarm_inputter.py
-src/tools/alarm_labeler.py
-src/tools/file_writer.py
-src/tools/preprocessor.py
+plotter.jpynb
 
+__pycache__/
 src/utility/config.py
-src/utility/data.py
-src/utility/rfe_pi2.py
-src/utility/time.py
-
+src/__pycache__/
+src/utility/__pycache__/
 src/tools/__pycache__/
+src/plotter.ipynb

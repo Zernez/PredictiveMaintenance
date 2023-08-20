@@ -58,7 +58,7 @@ class NoneSelector (BaseFeatureSelector):
 
 class LowVar (BaseFeatureSelector):
     def make_model (self):
-        return VarianceThreshold(threshold=0.1) #0.5
+        return VarianceThreshold(threshold=0.001)
 
 class SelectKBest4 (BaseFeatureSelector):
     def make_model (self):
@@ -111,7 +111,10 @@ class RegMRMR8 (BaseFeatureSelector):
 class UMAP8 (BaseFeatureSelector):
     def make_model (self):
         self.components= 8
-        return umap.UMAP(n_components= self.components)
+        return umap.UMAP(n_components= self.components,
+                         n_neighbors= 6,
+                         min_dist= 0.8,
+                         metric="manhattan")
     
     def fit (self, ft_selector, X, y= None):
         X = ft_selector.fit_transform(X)
