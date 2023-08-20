@@ -24,16 +24,16 @@ import warnings
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
 N_BOOT = 3
-BEARINGS= 5
+BEARINGS= 2
 BOOT_NO= 200
 N_REPEATS = 1
 NEW_DATASET = False
-DATASET = "xjtu"
+DATASET = "pronostia"
 TEST_SIZE= 0.3
 TYPE= "correlated" # not_correlated
 LINE_PLOT= 3
 FEATURE_TO_SPLIT= "rms"
-SPLIT_THRESHOLD= [2]
+SPLIT_THRESHOLD= []
 SPLITTED = True
 
 def main():
