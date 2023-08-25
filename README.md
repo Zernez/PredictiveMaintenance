@@ -1,2 +1,4 @@
-# Predictive Maintenance
-Predictive maintenance with survival analysis
+# Predictive maintenance for rolling bearings
+
+The source code is in \src
+
