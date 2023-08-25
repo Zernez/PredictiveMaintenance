@@ -84,7 +84,7 @@ PARAMS_DSM = {'batch_size' :16,
                    'learning_rate' : 1e-2,
                    'iters': 100}
 
-PARAMS_WEIBULL = {'alpha': 0.03,
-                'penalizer': 0.0,
+PARAMS_WEIBULL = {'alpha': 0.4,
+                'penalizer': 0.04,
                 'l1_ratio': 0.0,
                 'fit_intercept': True}

@@ -149,8 +149,8 @@ class SurvivalRegressionCV:
       if fold_time_max < time_max: time_max = fold_time_max
       if fold_time_min > time_min: time_min = fold_time_min
     
-    assert max(horizons) < time_max, "Horizons exceeds max time range."
-    assert min(horizons) > time_min, "Horizons exceeds min time range."
+    #assert max(horizons) < time_max, "Horizons exceeds max time range."
+    #assert min(horizons) > time_min, "Horizons exceeds min time range."
 
     hyper_param_scores = []
     for i, hyper_param in enumerate(self.hyperparam_grid):

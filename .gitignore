@@ -3,6 +3,7 @@ src/PredMan/
 data/
 src/dataset
 plotter.jpynb
+HP_crest_kurtosis.jpynb
 
 __pycache__/
 src/utility/config.py

@@ -70,6 +70,16 @@ class DataETL:
                     temp_label_cov = "shape"
                 elif re.findall(r"impulse\b", column):
                     temp_label_cov = "impulse"
+                elif re.findall(r"freq_band_1\b", column):
+                    temp_label_cov = "freq_band_1"
+                elif re.findall(r"freq_band_2\b", column):
+                    temp_label_cov = "freq_band_2"
+                elif re.findall(r"freq_band_3\b", column):
+                    temp_label_cov = "freq_band_3"
+                elif re.findall(r"freq_band_4\b", column):
+                    temp_label_cov = "freq_band_4"
+                elif re.findall(r"freq_band_5\b", column):
+                    temp_label_cov = "freq_band_5"
                 elif re.findall(r"Event\b", column):
                     temp_label_cov = "Event"
                     columnSeriesObj = self.ev_manager (bear_num, bootstrap, self.total_bearings)
