@@ -12,10 +12,7 @@ class Survival:
         if model.__class__.__name__ == 'WeibullAFTFitter':
             surv_prob = model.predict_survival_function(X_test).T
             return surv_prob
-        elif model.__class__.__name__ == 'DeepCoxPH':
-            surv_prob = pd.DataFrame(model.predict_survival(X_test, t= list(times)), columns=times)
-            return surv_prob   
-        elif model.__class__.__name__ == 'DeepSurvivalMachines':
+        elif model.__class__.__name__ == 'DeepCoxPH' or model.__class__.__name__ == 'DeepSurvivalMachines':
             surv_prob = pd.DataFrame(model.predict_survival(X_test, t= list(times)), columns=times)
             return surv_prob          
         else:

@@ -1,32 +1,30 @@
-from sklearn.model_selection import KFold
 import numpy as np
 import pandas as pd
-from pathlib import Path
-import config as cfg
+import time
+import math
+import argparse
+import warnings
+from pycox.evaluation import EvalSurv
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import KFold
+from xgbse.metrics import approx_brier_score
+from sklearn.model_selection import RandomizedSearchCV
 from tools.feature_selectors import NoneSelector, LowVar, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8, UMAP8, VIF4, VIF8
 from tools.regressors import CoxPH, CphRidge, CphLASSO, CphElastic, RSF, CoxBoost, GradientBoostingDART, WeibullAFT, LogNormalAFT, LogLogisticAFT, DeepSurv, DSM # XGBLinear, SVM
 from tools.file_reader import FileReader
 from tools.data_ETL import DataETL
 from utility.builder import Builder
 from tools.experiments import SurvivalRegressionCV
-from sklearn.model_selection import train_test_split
-from xgbse.metrics import approx_brier_score
-from sklearn.model_selection import RandomizedSearchCV
-from lifelines.utils import concordance_index
-from sksurv.metrics import concordance_index_censored
-from time import time
-import math
-from auton_survival.metrics import survival_regression_metric
+from utility.survival import Survival
 from auton_survival import DeepCoxPH
 from auton_survival import DeepSurvivalMachines
-import argparse
+from lifelines import WeibullAFTFitter
 
-import warnings
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
-N_REPEATS = 10
-N_SPLITS = 3
-N_ITER = 10
+N_REPEATS = 4
+N_SPLITS = 5
+N_ITER = 4
 N_BOOT = 3
 PLOT = True
 RESUME = True
@@ -57,15 +55,17 @@ def main():
         Builder(DATASET).build_new_dataset(bootstrap= N_BOOT)
 
     cov, boot, info_pack = FileReader(DATASET).read_data()
+    survival = Survival()
     
     X, y = DataETL(DATASET).make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
-    #CoxPH, RSF, CoxBoost, DeepSurv, WeibullAFT
-    models = [CoxPH, RSF, CoxBoost, DeepSurv, DSM, WeibullAFT]
-    #NoneSelector, UMAP8, LowVar, SelectKBest4, SelectKBest8    
+    #CoxPH, RSF, CoxBoost, DeepSurv, DSM, , WeibullAFT
+    models = [CoxPH, RSF, CoxBoost, DeepSurv, DSM, , WeibullAFT]
+    #NoneSelector, VIF4, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8
     ft_selectors = [NoneSelector, VIF4, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8]
   
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size= 0.3, random_state= 0)
-    T1, T2 = (X_train, y_train), (X_test, y_test)          
+#    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size= 0.3, random_state= 0)
+#    T1, T2 = (X_train, y_train), (X_test, y_test)
+    T1, T2 = (X, y), (X, y)          
 
     print(f"Started evaluation of {len(models)} models/{len(ft_selectors)} ft selectors/{len(T1[0])} total samples. Dataset: {DATASET}. Type: {TYPE}")
     for model_builder in models:
@@ -161,7 +161,7 @@ def main():
                         print ("Selected features: ", selected_fts)
 
                     lower, upper = np.percentile(ti_new[1][ti_new[1].dtype.names[1]], [10, 90])
-                    times = np.arange(math.ceil(lower), math.floor(upper))            
+                    times = np.arange(math.ceil(lower), math.floor(upper))
 
                     #Find hyperparams via CV
                     get_best_params_start_time = time()
@@ -176,10 +176,10 @@ def main():
                         best_params = search.best_params_
                     elif model_name == "DeepSurv":
                         experiment = SurvivalRegressionCV(model='dcph', num_folds=N_SPLITS, hyperparam_grid= space)
-                        model,best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='ctd')
+                        model,best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='brs')
                     elif model_name == "DSM":
                         experiment = SurvivalRegressionCV(model='dsm', num_folds=N_SPLITS, hyperparam_grid= space)
-                        model,best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='ctd')                
+                        model,best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='brs')                
                     else:
                         search = RandomizedSearchCV(model, space, n_iter=N_ITER, cv= N_SPLITS, random_state= 0)
                         search.fit(ti_new[0], ti_new[1])
@@ -190,8 +190,15 @@ def main():
                     #Train on train set TI with new params
                     model_train_start_time = time()
                     if parametric == True:
-                        model = search.best_estimator_
-                        model.fit(x_ti_wf, y_ti_wf)
+                        x_ti_wf = pd.concat([ti_new[0].reset_index(drop=True),
+                                              pd.DataFrame(ti_new[1]['Survival_time'],
+                                                           columns=['Survival_time'])], axis=1)
+                        x_ti_wf = pd.concat([x_ti_wf.reset_index(drop=True),
+                                              pd.DataFrame(ti_new[1]['Event'],
+                                                           columns=['Event'])], axis=1)
+                        model= WeibullAFTFitter(**best_params)
+                        #model = search.best_estimator_
+                        model.fit(x_ti_wf, duration_col='Survival_time', event_col='Event')
                     elif model_name == "DeepSurv":
                         model = DeepCoxPH(layers=[32, 32])
                         x= ti_new_NN[0].to_numpy()
@@ -209,54 +216,52 @@ def main():
                         model.fit(ti_new[0], ti_new[1])
                     model_train_time = time() - model_train_start_time
 
+                    lower, upper = np.percentile(cvi_new[1][cvi_new[1].dtype.names[1]], [10, 90])
+                    times = np.arange(math.ceil(lower), math.floor(upper)).tolist()
+
                     #Get C-index scores from current CVI fold 
                     model_ci_inference_start_time = time()
                     if parametric == True:
                         x_cvi_wf = pd.concat([cvi_new[0].reset_index(drop=True),
+                                              pd.DataFrame(cvi_new[1]['Survival_time'],
+                                                           columns=['Survival_time'])], axis=1)
+                        x_cvi_wf = pd.concat([x_cvi_wf.reset_index(drop=True),
                                               pd.DataFrame(cvi_new[1]['Event'],
                                                            columns=['Event'])], axis=1)
-                        preds = model.predict(x_cvi_wf)
-                        c_index = concordance_index(cvi[1]['Survival_time'], preds, cvi[1]['Event'])
+                        preds = survival.predict_survival_function(model, x_cvi_wf, times)
+                        ev = EvalSurv(preds.T, cvi[1]['Survival_time'], cvi[1]['Event'], censor_surv="km")
+                        c_index = ev.concordance_td()
                     elif model_name == "DeepSurv" or model_name == "DSM":
-                        x= cvi_new_NN[0].to_numpy()
-                        lower, upper = np.percentile(cvi_new[1][cvi_new[1].dtype.names[1]], [10, 90])
-                        times = np.arange(math.ceil(lower), math.floor(upper)).tolist()
-                        out_survival = model.predict_survival(x, max(times)).flatten()
-                        if cvi_new_NN[1].isnull().values.any() or np.isnan(out_survival.any()):
-                            c_index= np.nan
-                            print ("Nan happened, skipped evalutation")
-                        else:
-                            c_index = survival_regression_metric('ctd', out_survival, cvi_new_NN[1], times=max(times))
-                    else :
-                        preds = model.predict(cvi_new[0])
-                        c_index = concordance_index_censored(cvi[1]['Event'], cvi[1]['Survival_time'], preds)[0]
+                        xte= cvi_new_NN[0].to_numpy()
+                        preds= survival.predict_survival_function(model, xte, times)
+                        ev = EvalSurv(preds.T, cvi_new[1]['Survival_time'], cvi_new[1]['Event'], censor_surv="km")
+                        c_index = ev.concordance_td()
+                    else:
+                        preds = survival.predict_survival_function(model, cvi_new[0], times)
+                        ev = EvalSurv(preds.T, cvi_new[1]['Survival_time'], cvi_new[1]['Event'], censor_surv="km")
+                        c_index = ev.concordance_td()
+                    
                     model_ci_inference_time = time() - model_ci_inference_start_time
 
                     #Get BS scores from current fold CVI fold
                     model_bs_inference_start_time = time()
                     if parametric == True:
-                        model_instance = model.lifelines_model
-                        surv_prob = model_instance.predict_survival_function(cvi_new[0]).T
-                        brier_score = approx_brier_score(cvi_new[1], surv_prob)
-                    elif model_name == "DeepSurv" or model_name == "DSM":
-                        lower, upper = np.percentile(cvi_new[1][cvi_new[1].dtype.names[1]], [10, 90])
-                        times = np.arange(math.ceil(lower), math.floor(upper)).tolist()
-                        x = cvi_new_NN[0].to_numpy()
-                        out_survival = model.predict_survival(x, times)
-                        if cvi_new_NN[1].isnull().values.any():
-                            brier_score= np.nan
-                            print ("Nan happened, skipped evalutation")
-                        else:
-                            brier_score = np.mean(survival_regression_metric('brs', out_survival, cvi_new_NN[1], times=times))
+                        brier_score = approx_brier_score(cvi_new[1], preds)
+                    elif model_name == "DeepSurv": 
+                        NN_surv_probs = model.predict_survival(xte)
+                        NN_bs = approx_brier_score(cvi_new[1], NN_surv_probs)                   
+                    elif model_name == "DSM":
+                        NN_surv_probs = pd.DataFrame(model.predict_survival(xte, t=times))
+                        brier_score = approx_brier_score(cvi_new[1], NN_surv_probs)
                     elif model_name == "SVM":
                         brier_score = np.nan
                     else:
-                        surv_probs = pd.DataFrame(np.row_stack([fn(times)
-                                                                for fn in model.predict_survival_function(cvi_new[0])]))
+                        surv_probs = pd.DataFrame(preds)
                         brier_score = approx_brier_score(cvi_new[1], surv_probs)
+                    
                     model_bs_inference_time = time() - model_bs_inference_start_time
-
                     t_total_split_time = time() - split_start_time
+                    
                     print(f"Evaluated {model_print_name} - {ft_selector_print_name}" + \
                           f" - CI={round(c_index, 3)} - BS={round(brier_score, 3)} - T={round(t_total_split_time, 3)}")
 
@@ -271,7 +276,13 @@ def main():
                     model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
 
         file_name = f"{model_name}_results.csv"
-        model_results.to_csv(f"data/logs/{DATASET}/{TYPE}/" + file_name)
+        
+        if TYPE == "True":
+            address= 'correlated'
+        else:
+            address= 'not_correlated'            
+        
+        model_results.to_csv(f"data/logs/{DATASET}/{address}/" + file_name)
 
 if __name__ == "__main__":
     main()

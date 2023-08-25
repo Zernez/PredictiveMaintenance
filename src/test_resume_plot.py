@@ -1,9 +1,8 @@
 import numpy as np
 import pandas as pd
-import random
+import time
 #import shap
-from pathlib import Path
-import config as cfg
+from pycox.evaluation import EvalSurv
 from xgbse.non_parametric import calculate_kaplan_vectorized
 from sklearn.model_selection import train_test_split
 from utility.survival import Survival
@@ -11,22 +10,18 @@ from tools.resume import Resume
 from tools import regressors, feature_selectors
 from utility.builder import Builder
 from xgbse.metrics import approx_brier_score
-from sksurv.metrics import concordance_index_censored, concordance_index_ipcw
-from sklearn.model_selection import KFold
+from sksurv.metrics import concordance_index_censored
 from tools.file_reader import FileReader
 from tools.data_ETL import DataETL
-from auton_survival.metrics import survival_regression_metric
 from lifelines import WeibullAFTFitter
 from lifelines import KaplanMeierFitter
-import time
-from pycox.evaluation import EvalSurv
 
 import warnings
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
 N_BOOT = 3
 BEARINGS= 2
-BOOT_NO= 200
+BOOT_NO= 200 #500
 N_REPEATS = 1
 NEW_DATASET = False
 DATASET = "pronostia"
@@ -43,7 +38,8 @@ def main():
         Builder(DATASET).build_new_dataset(bootstrap= N_BOOT)     
 
     data_util = DataETL(DATASET)
-    survival= Survival()
+    survival = Survival()
+
 
     cov, boot, info_pack = FileReader(DATASET).read_data()
     X, y = data_util.make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
@@ -51,8 +47,8 @@ def main():
     Resumer = Resume(X, y, DATASET)
 
 #    Resumer.table_result_hyper()
-    
 #    Resumer.presentation(BEARINGS, BOOT_NO)
+
     df_CI = pd.DataFrame(columns= ["Model", "CI score"])
     df_B = pd.DataFrame(columns= ["Model", "Brier score"])
 
@@ -81,10 +77,10 @@ def main():
         lower_NN, upper_NN = np.percentile(y_test[y_test.dtype.names[1]], [10, 90])
         times = np.arange(np.ceil(lower_NN), np.floor(upper_NN))
 
-        weibull_model = WeibullAFTFitter(alpha= 0.2, penalizer= 0.02)
-        cph_model = regressors.CoxPH.make_model(regressors.CoxPH().get_best_params())
-        rsf_model = regressors.RSF.make_model(regressors.RSF().get_best_params())
-        boost_model = regressors.CoxBoost.make_model(regressors.CoxBoost().get_best_params())
+        weibull_model = WeibullAFTFitter(alpha= 0.4, penalizer= 0.04)
+        cph_model = regressors.CoxPH().make_model()
+        rsf_model = regressors.RSF().make_model()
+        boost_model = regressors.CoxBoost().make_model()
         NN_model = regressors.DeepSurv().make_model()
         NN_params= regressors.DeepSurv().get_best_hyperparams()
         DSM_model = regressors.DSM().make_model()
@@ -241,7 +237,7 @@ def main():
         print(f"DSM model: TrTime, CI, CItd, BS - {end_time_DSM}/{DSM_c_index}/{DSM_c_index_td}/{DSM_bs}")
         df_CI, df_B = Resumer.plot_performance(False, df_CI, df_B, "DSM", DSM_c_index, DSM_bs)
 
-        print ("Overfitting - underfitting info: ") 
+#        print ("Overfitting - underfitting info: ") 
 #        print(f"NN model train: TrCI, TrBS - {NN_bs}/{NN_bs_tr}")
 #        print(f"DSM model train: TrCI, TrBS - {DSM_bs}/{DSM_bs_tr}")
 

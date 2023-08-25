@@ -1,21 +1,3 @@
-N_BEARING_TOT_XJTU= 50
-N_REAL_BEARING_XJTU= 5
-N_BOOT_FOLD_XJTU= 10
-N_SIGNALS_XJTU= 2 + 1
-N_BEARING_TOT_PRONOSTIA= 20
-N_REAL_BEARING_PRONOSTIA= 2
-N_BOOT_FOLD_PRONOSTIA= 10
-N_SIGNALS_PRONOSTIA= 2 + 1
-DATASET_PATH_XJTU= "./data/XJTU-SY/csv/"
-RAW_DATA_PATH_XJTU= "./data/XJTU-SY/35Hz12kN/"
-DATASET_PATH_PRONOSTIA= "./data/PRONOSTIA/csv/"
-RAW_DATA_PATH_PRONOSTIA= "./data/PRONOSTIA/30Hz4kN/"
-RESULT_PATH_XJTU= "./data/XJTU-SY/results/"
-SAMPLE_PATH_XJTU= "./data/XJTU-SY/csv/"
-RESULT_PATH_PRONOSTIA= "./data/PRONOSTIA/results/"
-SAMPLE_PATH_PRONOSTIA= "./data/PRONOSTIA/csv/"
-HYPER_RESULTS= "./data/logs/"
-
 PARAMS_CPH = {'alpha': 0.1,
             'ties': 'breslow',
             'n_iter': 50,
@@ -84,7 +66,7 @@ PARAMS_DSM = {'batch_size' :16,
                    'learning_rate' : 1e-2,
                    'iters': 100}
 
-PARAMS_WEIBULL = {'alpha': 0.03,
-                'penalizer': 0.0,
+PARAMS_WEIBULL = {'alpha': 0.4,
+                'penalizer': 0.04,
                 'l1_ratio': 0.0,
                 'fit_intercept': True}
