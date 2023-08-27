@@ -16,6 +16,13 @@ RESULT_PATH_PRONOSTIA= "./data/PRONOSTIA/results/"
 SAMPLE_PATH_PRONOSTIA= "./data/PRONOSTIA/csv/"
 HYPER_RESULTS= "./data/logs/"
 
+PH_EXCLUSION = {'pronostia_not_corr': ['mean'],
+                'pronostia_corr': ['mean'],
+                'pronostia_boot': ['mean'],
+                'xjtu_not_corr': ['mean'],
+                'xjtu_corr': ['mean'],
+                'xjtu_boot': ['mean']}  
+
 PARAMS_CPH = {'alpha': 0.1,
             'ties': 'breslow',
             'n_iter': 50,
