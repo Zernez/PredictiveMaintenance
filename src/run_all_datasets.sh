@@ -8,14 +8,14 @@ fi
 echo "$base_path"
 
 datasets=("xjtu" "pronostia")
-corrs=("not_correlated" "correlated")
+corrs=("not_correlated" "correlated" "bootstrap")
 echo "=============================================================================================="
 echo "Starting script"
 echo "=============================================================================================="
 for dataset in ${datasets[@]}; do
 	for corr in ${corrs[@]}; do
 		echo "Starting dataset run <$dataset> <$corr>"
-	        python $base_path/../src/test_find_resume.py --dataset $dataset --corr $corr
+	        python $base_path/../src/test_find_resume.py --dataset $dataset --typedata $corr
 	        echo "Tuning dataset <$dataset> <$corr> done"
 	        echo -e "\n\n\n\n\n"
 	        echo "=============================================================================================="
