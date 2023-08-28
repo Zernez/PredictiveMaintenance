@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-import time
+from time import time
 import math
 import argparse
 import warnings
@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.model_selection import KFold
 from xgbse.metrics import approx_brier_score
 from sklearn.model_selection import RandomizedSearchCV
-from tools.feature_selectors import NoneSelector, LowVar, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8, UMAP8, VIF4, VIF8
+from tools.feature_selectors import NoneSelector, LowVar, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8, UMAP8, VIF4, VIF8, PHSelector
 from tools.regressors import CoxPH, CphRidge, CphLASSO, CphElastic, RSF, CoxBoost, GradientBoostingDART, WeibullAFT, LogNormalAFT, LogLogisticAFT, DeepSurv, DSM # XGBLinear, SVM
 from tools.file_reader import FileReader
 from tools.data_ETL import DataETL
@@ -22,50 +22,59 @@ from lifelines import WeibullAFTFitter
 
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
-N_REPEATS = 4
-N_SPLITS = 5
-N_ITER = 4
 N_BOOT = 3
 PLOT = True
 RESUME = True
 NEW_DATASET = False
 #DATASET = "xjtu" # pronostia
-#TYPE= "correlated" # not_correlated
+#TYPE= "correlated" # not_correlated # boostrap
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str,
                         required=True,
                         default=None)
-    parser.add_argument('--corr', type=str,
+    parser.add_argument('--typedata', type=str,
                         required=True,
                         default=None)
     args = parser.parse_args()
 
     global DATASET
     global TYPE
+    global N_REPEATS
+    global N_SPLITS
+    global N_ITER   
 
     if args.dataset:
         DATASET = args.dataset
 
-    if args.corr:
-        TYPE = args.corr
+    if args.typedata:
+        TYPE = args.typedata
 
     if NEW_DATASET== True:
         Builder(DATASET).build_new_dataset(bootstrap= N_BOOT)
+
+    if args.typedata == 'bootstrap':
+        N_REPEATS = 5  #5
+        N_SPLITS = 3  #3
+        N_ITER = 2  #2
+    else:         
+        N_REPEATS = 3  #3
+        N_SPLITS = 5  #5
+        N_ITER = 2  #2
 
     cov, boot, info_pack = FileReader(DATASET).read_data()
     survival = Survival()
     
     X, y = DataETL(DATASET).make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
-    #CoxPH, RSF, CoxBoost, DeepSurv, DSM, , WeibullAFT
-    models = [CoxPH, RSF, CoxBoost, DeepSurv, DSM, , WeibullAFT]
-    #NoneSelector, VIF4, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8
-    ft_selectors = [NoneSelector, VIF4, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8]
+    #CoxPH, RSF, CoxBoost, DeepSurv, DSM, WeibullAFT
+    models = [CoxPH, RSF, CoxBoost, DeepSurv, DSM, WeibullAFT]
+    #NoneSelector, PHSelector, VIF4, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8
+    ft_selectors = [NoneSelector, PHSelector, VIF4, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8]
   
 #    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size= 0.3, random_state= 0)
 #    T1, T2 = (X_train, y_train), (X_test, y_test)
-    T1, T2 = (X, y), (X, y)          
+    T1, T2 = (X, y), (X, y)    
 
     print(f"Started evaluation of {len(models)} models/{len(ft_selectors)} ft selectors/{len(T1[0])} total samples. Dataset: {DATASET}. Type: {TYPE}")
     for model_builder in models:
@@ -123,21 +132,23 @@ def main():
                         else:
                             y_ti_mrmr = np.array([x[0] for x in ti[1]], float)
                             ft_selector = ft_selector_builder(ti[0], y_ti_mrmr, estimator=model)
+                    elif ft_selector_name == "PHSelector":
+                        ft_selector = ft_selector_builder(ti[0], ti[1], estimator= [DATASET, TYPE])
                     else:
                         ft_selector = ft_selector_builder(ti[0], ti[1], estimator=model)
                     
                     #From more 4 feature parametric models find difficulties to reach the convergence                                  
                     if (parametric == True and ft_selector_name in ["SelectKBest8", "RegMRMR4", "RegMRMR8"]):
-                        c_index, brier_score = np.nan, np.nan
+                        c_index, brier_score, nbll = np.nan, np.nan, np.nan
                         get_best_features_time, get_best_params_time, model_train_time = np.nan, np.nan, np.nan
                         model_ci_inference_time, model_bs_inference_time = np.nan, np.nan
                         t_total_split_time = np.nan
                         best_params, selected_fts = {}, []
-                        res_sr = pd.Series([model_print_name, ft_selector_print_name, n_repeat, c_index, brier_score,
+                        res_sr = pd.Series([model_print_name, ft_selector_print_name, n_repeat, c_index, brier_score, nbll,
                                             get_best_features_time, get_best_params_time, model_train_time,
                                             model_ci_inference_time, model_bs_inference_time, t_total_split_time,
                                             best_params, selected_fts],
-                                            index=["ModelName", "FtSelectorName", "NRepeat", "CIndex", "BrierScore",
+                                            index=["ModelName", "FtSelectorName", "NRepeat", "CIndex", "BrierScore", "NBLL",
                                                    "TBestFeatures", "TBestParams", "TModelTrain",
                                                    "TModelCIInference", "TModelBSInference", "TTotalSplit",
                                                    "BestParams", "SelectedFts"])
@@ -204,13 +215,13 @@ def main():
                         x= ti_new_NN[0].to_numpy()
                         t= ti_new_NN[1].loc[:,"time"].to_numpy()
                         e= ti_new_NN[1].loc[:,"event"].to_numpy()
-                        model = model.fit(x, t, e, vsize=0.2, **best_params)
+                        model = model.fit(x, t, e, vsize=0.3, **best_params)
                     elif model_name == "DSM":
                         model = DeepSurvivalMachines(layers=[32, 32])
                         x= ti_new_NN[0].to_numpy()
                         t= ti_new_NN[1].loc[:,"time"].to_numpy()
                         e= ti_new_NN[1].loc[:,"event"].to_numpy()
-                        model = model.fit(x, t, e, vsize=0.2, **best_params)
+                        model = model.fit(x, t, e, vsize=0.3, **best_params)
                     else:
                         model = search.best_estimator_
                         model.fit(ti_new[0], ti_new[1])
@@ -247,29 +258,34 @@ def main():
                     model_bs_inference_start_time = time()
                     if parametric == True:
                         brier_score = approx_brier_score(cvi_new[1], preds)
+                        nbll= np.mean(ev.nbll(np.array(times)))
                     elif model_name == "DeepSurv": 
                         NN_surv_probs = model.predict_survival(xte)
-                        NN_bs = approx_brier_score(cvi_new[1], NN_surv_probs)                   
+                        brier_score = approx_brier_score(cvi_new[1], NN_surv_probs)
+                        nbll= np.mean(ev.nbll(np.array(times)))                   
                     elif model_name == "DSM":
                         NN_surv_probs = pd.DataFrame(model.predict_survival(xte, t=times))
                         brier_score = approx_brier_score(cvi_new[1], NN_surv_probs)
+                        nbll= np.mean(ev.nbll(np.array(times)))
                     elif model_name == "SVM":
                         brier_score = np.nan
+                        nbll= np.nan
                     else:
                         surv_probs = pd.DataFrame(preds)
                         brier_score = approx_brier_score(cvi_new[1], surv_probs)
-                    
+                        nbll= np.mean(ev.nbll(np.array(times)))
+
                     model_bs_inference_time = time() - model_bs_inference_start_time
                     t_total_split_time = time() - split_start_time
                     
                     print(f"Evaluated {model_print_name} - {ft_selector_print_name}" + \
-                          f" - CI={round(c_index, 3)} - BS={round(brier_score, 3)} - T={round(t_total_split_time, 3)}")
+                          f" - CI={round(c_index, 3)} - BS={round(brier_score, 3)} - NBLL={round(nbll, 3)} - T={round(t_total_split_time, 3)}")
 
-                    res_sr = pd.Series([model_print_name, ft_selector_print_name, n_repeat, c_index, brier_score,
+                    res_sr = pd.Series([model_print_name, ft_selector_print_name, n_repeat, c_index, brier_score, nbll,
                                         get_best_features_time, get_best_params_time, model_train_time,
                                         model_ci_inference_time, model_bs_inference_time, t_total_split_time,
                                         best_params, selected_fts],
-                                        index=["ModelName", "FtSelectorName", "NRepeat", "CIndex", "BrierScore",
+                                        index=["ModelName", "FtSelectorName", "NRepeat", "CIndex", "BrierScore", "NBLL",
                                                "TBestFeatures", "TBestParams", "TModelTrain",
                                                "TModelCIInference", "TModelBSInference", "TTotalSplit",
                                                "BestParams", "SelectedFts"])
@@ -277,10 +293,12 @@ def main():
 
         file_name = f"{model_name}_results.csv"
         
-        if TYPE == "True":
+        if TYPE == "correlated":
             address= 'correlated'
+        if TYPE == "not_correlated":
+            address= 'not_correlated' 
         else:
-            address= 'not_correlated'            
+            address= 'bootstrap'            
         
         model_results.to_csv(f"data/logs/{DATASET}/{address}/" + file_name)
 
