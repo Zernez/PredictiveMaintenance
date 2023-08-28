@@ -1,4 +1,3 @@
-HP_crest_kurtosis.jpynb
 .vscode
 data/
 __pycache__/
@@ -10,4 +9,4 @@ src/utility/__pycache__/
 src/tools/__pycache__/
 src/plotter.ipynb
 src/dataset
-src/HP_crest_kurtosis.jpynb
+src/HP_crest_kurtosis.ipynb

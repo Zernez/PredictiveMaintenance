@@ -5,6 +5,7 @@ import random
 import re
 from scipy.signal import hilbert
 from scipy.stats import entropy
+import config as cfg
 
 class Featuring:
 
@@ -38,6 +39,9 @@ class Featuring:
         features = ['mean','std','skew','kurtosis','entropy','rms','max','p2p', 'crest', 'clearence', 'shape', 'impulse', 
                     "freq_band_1" , "freq_band_2" , "freq_band_3" , "freq_band_4" , "freq_band_5", "Event", "Survival_time"]
         cols2 = ['B1', 'B2']
+
+        start= cfg.FREQUENCY_BANDS['xjtu_start']
+        stop= cfg.FREQUENCY_BANDS['xjtu_stop']
 
         if bootstrap > 8:
             raise Exception("Too much bootstrapping, max is 8")
@@ -79,8 +83,8 @@ class Featuring:
             fft[0]= fft[0] / 2
 
             # Excluding continuous representation
-            start_freq_interested = [9, 31, 68, 104, 168]
-            end_freq_interested = [18, 39, 76, 112, 176]
+            start_freq_interested = start
+            end_freq_interested = stop
             fft_n = [None] * 5
             i = 0
             for index_s in start_freq_interested:
@@ -176,6 +180,9 @@ class Featuring:
                         "freq_band_1" , "freq_band_2" , "freq_band_3" , "freq_band_4" , "freq_band_5", "Event", "Survival_time"]
             cols2 = ['B1', 'B2']
 
+            start= cfg.FREQUENCY_BANDS['pronostia_start']
+            stop= cfg.FREQUENCY_BANDS['pronostia_stop']
+
             if bootstrap > 8:
                 raise Exception("Too much bootstrapping, max is 8")
 
@@ -217,8 +224,8 @@ class Featuring:
                 fft[0]= fft[0] / 2
 
                 # Excluding continuous representation
-                start_freq_interested = [9, 31, 68, 104, 168]
-                end_freq_interested = [18, 39, 76, 112, 176]
+                start_freq_interested = start
+                end_freq_interested = stop
                 fft_n = [None] * 5
                 i = 0
                 for index_s in start_freq_interested:

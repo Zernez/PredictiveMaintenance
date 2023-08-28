@@ -7,15 +7,34 @@ N_REAL_BEARING_PRONOSTIA= 2
 N_BOOT_FOLD_PRONOSTIA= 10
 N_SIGNALS_PRONOSTIA= 2 + 1
 DATASET_PATH_XJTU= "./data/XJTU-SY/csv/"
-RAW_DATA_PATH_XJTU= "./data/XJTU-SY/35Hz12kN/" #37.5Hz11kN - 40Hz10kN
+RAW_DATA_PATH_XJTU= "./data/XJTU-SY/35Hz12kN/" #37.5Hz11kN # 40Hz10kN
 DATASET_PATH_PRONOSTIA= "./data/PRONOSTIA/csv/"
-RAW_DATA_PATH_PRONOSTIA= "./data/PRONOSTIA/30Hz4kN/"
+RAW_DATA_PATH_PRONOSTIA= "./data/PRONOSTIA/30Hz4kN/"  #25Hz5kN # 27.65Hz4.2kN
 RESULT_PATH_XJTU= "./data/XJTU-SY/results/"
 SAMPLE_PATH_XJTU= "./data/XJTU-SY/csv/"
 RESULT_PATH_PRONOSTIA= "./data/PRONOSTIA/results/"
 SAMPLE_PATH_PRONOSTIA= "./data/PRONOSTIA/csv/"
 HYPER_RESULTS= "./data/logs/"
 
+if RAW_DATA_PATH_XJTU == "./data/XJTU-SY/35Hz12kN/":
+    FREQUENCY_BANDS = {'xjtu_start': [10, 32, 69, 105, 169],
+                       'xjtu_stop': [16, 38, 75, 111, 175]}
+elif RAW_DATA_PATH_XJTU == "./data/XJTU-SY/37.5Hz11kN/":
+    FREQUENCY_BANDS = {'xjtu_start': [11, 34, 74, 118, 181],
+                       'xjtu_stop': [17, 40, 80, 112, 187]}
+elif RAW_DATA_PATH_XJTU == "./data/XJTU-SY/40Hz10kN/":
+    FREQUENCY_BANDS = {'xjtu_start': [12, 37, 80, 120, 193],
+                       'xjtu_stop': [17, 43, 86, 126, 199]}
+elif RAW_DATA_PATH_XJTU == "./data/PRONOSTIA/25Hz5kN/":
+    FREQUENCY_BANDS = {'pronostia_start': [7, 22, 87, 137, 181],
+                       'pronostia_stop': [13, 28, 93, 143, 187]} 
+elif RAW_DATA_PATH_XJTU == "./data/PRONOSTIA/27.65Hz4.2kN/":
+    FREQUENCY_BANDS = {'pronostia_start': [9, 25, 96, 151, 201],
+                       'pronostia_stop': [15, 31, 102, 157, 207]}    
+elif RAW_DATA_PATH_PRONOSTIA == "./data/PRONOSTIA/30Hz4kN/":
+    FREQUENCY_BANDS = {'pronostia_start': [10, 27, 105, 165, 214],
+                       'pronostia_stop': [16, 33, 111, 171, 220]}
+   
 PH_EXCLUSION = {'pronostia_not_corr': ['mean'],
                 'pronostia_corr': ['mean'],
                 'pronostia_boot': ['mean'],
