@@ -57,7 +57,7 @@ def main():
     if args.typedata == 'bootstrap':
         N_REPEATS = 5  #5
         N_SPLITS = 3  #3
-        N_ITER = 2  #3
+        N_ITER = 2  #2
     else:         
         N_REPEATS = 3  #3
         N_SPLITS = 5  #5
