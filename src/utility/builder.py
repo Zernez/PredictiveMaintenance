@@ -39,12 +39,14 @@ class Builder:
             for dataset in datasets:
                 dataset.columns= ['B' + str(j) + '_mean' , 'B' + str(j) + '_std', 'B' + str(j) + '_skew', 'B' + str(j) + '_kurtosis', 'B' + str(j) + '_entropy', 
                                 'B' + str(j) + '_rms','B' + str(j) + '_max', 'B' + str(j) + '_p2p', 'B' + str(j) + '_crest', 'B' + str(j) + '_clearence', 
-                                'B' + str(j) + '_shape', 'B' + str(j) + '_impulse', 'B' + str(j) + '_freq_band_1', 'B' + str(j) + '_freq_band_2', 'B' + str(j) + '_freq_band_3', 
-                                'B' + str(j) + '_freq_band_4', 'B' + str(j) + '_freq_band_5', 'B' + str(j) + '_Event', 'B' + str(j) + '_Survival_time',
+                                'B' + str(j) + '_shape', 'B' + str(j) + '_impulse', 'B' + str(j) + '_FoH', 'B' + str(j) + '_FiH', 'B' + str(j) + '_FrH', 
+                                'B' + str(j) + '_FrpH', 'B' + str(j) + '_FcaH', 'B' + str(j) + '_Fo', 'B' + str(j) + '_Fi', 'B' + str(j) + '_Fr', 'B' + str(j) + '_Frp', 'B' + str(j) + '_Fca',
+                                'B' + str(j) + '_noise', 'B' + str(j) + '_Event', 'B' + str(j) + '_Survival_time',
                                 'B' + str(j + 1) + '_mean', 'B' + str(j + 1) + '_std', 'B' + str(j + 1) + '_skew', 'B' + str(j + 1) + '_kurtosis', 'B' + str(j + 1) + '_entropy', 
                                 'B' + str(j + 1) +'_rms', 'B' + str(j + 1) + '_max', 'B' + str(j + 1) + '_p2p', 'B' + str(j + 1) + '_crest' , 'B' + str(j + 1) + '_clearence', 
-                                'B' + str(j + 1) + '_shape','B' + str(j + 1) + '_impulse', 'B' + str(j + 1) + '_freq_band_1' , 'B' + str(j + 1) + '_freq_band_2', 'B' + str(j + 1) + '_freq_band_3', 
-                                'B' + str(j + 1) + '_freq_band_4' , 'B' + str(j + 1) + '_freq_band_5', 'B' + str(j + 1) + '_Event', 'B' + str(j + 1) + '_Survival_time']
+                                'B' + str(j + 1) + '_shape','B' + str(j + 1) + '_impulse', 'B' + str(j + 1) + '_FoH', 'B' + str(j + 1) + '_FiH', 'B' + str(j + 1) + '_FrH', 
+                                'B' + str(j + 1) + '_FrpH', 'B' + str(j + 1) + '_FcaH', 'B' + str(j + 1) + '_Fo', 'B' + str(j + 1) + '_Fi', 'B' + str(j + 1) + '_Fr', 'B' + str(j + 1) + '_Frp', 'B' + str(j + 1) + '_Fca', 
+                                'B' + str(j + 1) + '_noise', 'B' + str(j + 1) + '_Event', 'B' + str(j + 1) + '_Survival_time']
                     
                 dataname= self.aggregate_main_path + "Bearing1_" + str(bearing) + "_" + str(i) + "_timefeature.csv"
                 dataset.to_csv(dataname, index= False)
@@ -76,19 +78,34 @@ class Builder:
                 # set_cov_aux= datafile.iloc[:, 36: 38]     
                 # set_covariates= pd.concat([set_covariates, set_cov_aux], axis= 1)
 
+                # datafile = pd.read_csv(os.path.join(self.aggregate_main_path, filename))
+                # set_analytic_aux= datafile.iloc[:, 12: 17]
+                # set_cov_aux= datafile.iloc[:, 0: 17]
+                # set_analytic= pd.concat([set_analytic, set_analytic_aux], axis= 1)
+                # set_covariates= pd.concat([set_covariates, set_cov_aux], axis= 1)
+                # set_cov_aux= datafile.iloc[:, 17: 19]     
+                # set_covariates= pd.concat([set_covariates, set_cov_aux], axis= 1)   
+
+                # set_analytic_aux= datafile.iloc[:, 31: 36]
+                # set_cov_aux= datafile.iloc[:, 19: 36]
+                # set_analytic= pd.concat([set_analytic, set_analytic_aux], axis= 1)
+                # set_covariates= pd.concat([set_covariates, set_cov_aux], axis= 1)
+                # set_cov_aux= datafile.iloc[:, 36: 38]     
+                # set_covariates= pd.concat([set_covariates, set_cov_aux], axis= 1)
+
                 datafile = pd.read_csv(os.path.join(self.aggregate_main_path, filename))
                 set_analytic_aux= datafile.iloc[:, 12: 17]
-                set_cov_aux= datafile.iloc[:, 0: 17]
+                set_cov_aux= datafile.iloc[:, 0: 23]
                 set_analytic= pd.concat([set_analytic, set_analytic_aux], axis= 1)
                 set_covariates= pd.concat([set_covariates, set_cov_aux], axis= 1)
-                set_cov_aux= datafile.iloc[:, 17: 19]     
+                set_cov_aux= datafile.iloc[:, 23: 25]     
                 set_covariates= pd.concat([set_covariates, set_cov_aux], axis= 1)   
 
-                set_analytic_aux= datafile.iloc[:, 31: 36]
-                set_cov_aux= datafile.iloc[:, 19: 36]
+                set_analytic_aux= datafile.iloc[:, 37: 42]
+                set_cov_aux= datafile.iloc[:, 25: 48]
                 set_analytic= pd.concat([set_analytic, set_analytic_aux], axis= 1)
                 set_covariates= pd.concat([set_covariates, set_cov_aux], axis= 1)
-                set_cov_aux= datafile.iloc[:, 36: 38]     
+                set_cov_aux= datafile.iloc[:, 48: 51]     
                 set_covariates= pd.concat([set_covariates, set_cov_aux], axis= 1)
 
             elif re.search('^Bearing.*bootstrap', filename):

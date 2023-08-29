@@ -64,16 +64,28 @@ class DataETL:
                     temp_label_cov = "shape"
                 elif re.findall(r"impulse\b", column):
                     temp_label_cov = "impulse"
-                elif re.findall(r"freq_band_1\b", column):
-                    temp_label_cov = "freq_band_1"
-                elif re.findall(r"freq_band_2\b", column):
-                    temp_label_cov = "freq_band_2"
-                elif re.findall(r"freq_band_3\b", column):
-                    temp_label_cov = "freq_band_3"
-                elif re.findall(r"freq_band_4\b", column):
-                    temp_label_cov = "freq_band_4"
-                elif re.findall(r"freq_band_5\b", column):
-                    temp_label_cov = "freq_band_5"
+                elif re.findall(r"FoH\b", column):
+                    temp_label_cov = "FoH"
+                elif re.findall(r"FiH\b", column):
+                    temp_label_cov = "FiH"
+                elif re.findall(r"FrH\b", column):
+                    temp_label_cov = "FrH"
+                elif re.findall(r"FrpH\b", column):
+                    temp_label_cov = "FrpH"
+                elif re.findall(r"FcaH\b", column):
+                    temp_label_cov = "FcaH"
+                elif re.findall(r"Fo\b", column):
+                    temp_label_cov = "Fo"
+                elif re.findall(r"Fi\b", column):
+                    temp_label_cov = "Fi"
+                elif re.findall(r"Fr\b", column):
+                    temp_label_cov = "Fr"
+                elif re.findall(r"Frp\b", column):
+                    temp_label_cov = "Frp"
+                elif re.findall(r"Fca\b", column):
+                    temp_label_cov = "Fca"
+                elif re.findall(r"noise\b", column):
+                    temp_label_cov = "noise"
                 elif re.findall(r"Event\b", column):
                     temp_label_cov = "Event"
                     columnSeriesObj = self.ev_manager (bear_num, bootstrap, self.total_bearings)
@@ -128,16 +140,28 @@ class DataETL:
                         temp_label_cov = "shape"
                     elif re.findall(r"impulse\b", column):
                         temp_label_cov = "impulse"
-                    elif re.findall(r"freq_band_1\b", column):
-                        temp_label_cov = "freq_band_1"
-                    elif re.findall(r"freq_band_2\b", column):
-                        temp_label_cov = "freq_band_2"
-                    elif re.findall(r"freq_band_3\b", column):
-                        temp_label_cov = "freq_band_3"
-                    elif re.findall(r"freq_band_4\b", column):
-                        temp_label_cov = "freq_band_4"
-                    elif re.findall(r"freq_band_5\b", column):
-                        temp_label_cov = "freq_band_5"
+                    elif re.findall(r"FoH\b", column):
+                        temp_label_cov = "FoH"
+                    elif re.findall(r"FiH\b", column):
+                        temp_label_cov = "FiH"
+                    elif re.findall(r"FrH\b", column):
+                        temp_label_cov = "FrH"
+                    elif re.findall(r"FrpH\b", column):
+                        temp_label_cov = "FrpH"
+                    elif re.findall(r"FcaH\b", column):
+                        temp_label_cov = "FcaH"
+                    elif re.findall(r"Fo\b", column):
+                        temp_label_cov = "Fo"
+                    elif re.findall(r"Fi\b", column):
+                        temp_label_cov = "Fi"
+                    elif re.findall(r"Fr\b", column):
+                        temp_label_cov = "Fr"
+                    elif re.findall(r"Frp\b", column):
+                        temp_label_cov = "Frp"
+                    elif re.findall(r"Fca\b", column):
+                        temp_label_cov = "Fca"
+                    elif re.findall(r"noise\b", column):
+                        temp_label_cov = "noise"
                     elif re.findall(r"Event\b", column):
                         temp_label_cov = "Event"
                         columnSeriesObj = self.ev_manager (bear_num, bootstrap, self.total_bearings)
