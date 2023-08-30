@@ -10,7 +10,7 @@ from sklearn.model_selection import KFold
 from xgbse.metrics import approx_brier_score
 from sklearn.model_selection import RandomizedSearchCV
 from tools.feature_selectors import NoneSelector, LowVar, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8, UMAP8, VIF4, VIF8, PHSelector
-from tools.regressors import CoxPH, CphRidge, CphLASSO, CphElastic, RSF, CoxBoost, GradientBoostingDART, WeibullAFT, LogNormalAFT, LogLogisticAFT, DeepSurv, DSM  # XGBLinear, SVM
+from tools.regressors import CoxPH, CphRidge, CphLASSO, CphElastic, RSF, CoxBoost, GradientBoostingDART, WeibullAFT, LogNormalAFT, LogLogisticAFT, DeepSurv, DSM
 from tools.file_reader import FileReader
 from tools.data_ETL import DataETL
 from utility.builder import Builder
@@ -25,9 +25,10 @@ warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 N_BOOT = 3
 PLOT = True
 RESUME = True
-NEW_DATASET = True
-# DATASET = "xjtu" # pronostia
-# TYPE= "correlated" # not_correlated # boostrap
+NEW_DATASET = False
+N_REPEATS = 10
+N_SPLITS = 3 
+N_ITER = 10
 
 def main():
     parser = argparse.ArgumentParser()
@@ -41,9 +42,6 @@ def main():
 
     global DATASET
     global TYPE
-    global N_REPEATS
-    global N_SPLITS
-    global N_ITER
 
     if args.dataset:
         DATASET = args.dataset
@@ -54,28 +52,13 @@ def main():
     if NEW_DATASET == True:
         Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)
 
-    if args.typedata == 'bootstrap':
-        N_REPEATS = 10  # 5
-        N_SPLITS = 3  # 3
-        N_ITER = 10  # 2
-    else:
-        N_REPEATS = 1  # 3
-        N_SPLITS = 3  # 5
-        N_ITER = 1  # 2
-
     cov, boot, info_pack = FileReader(DATASET).read_data()
     survival = Survival()
 
-    X, y = DataETL(DATASET).make_surv_data_sklS(
-        cov, boot, info_pack, N_BOOT, TYPE)
-    # CoxPH, RSF, CoxBoost, DeepSurv, DSM, WeibullAFT
-    models = [CoxPH, RSF, CoxBoost, DeepSurv, DSM, WeibullAFT]
-    # NoneSelector, PHSelector, VIF4, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8
-    ft_selectors = [NoneSelector, PHSelector]
-
-#    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size= 0.3, random_state= 0)
-#    T1, T2 = (X_train, y_train), (X_test, y_test)
+    X, y = DataETL(DATASET).make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
     T1, T2 = (X, y), (X, y)
+    models = [CoxPH, RSF, CoxBoost, DeepSurv, DSM, WeibullAFT]
+    ft_selectors = [NoneSelector, PHSelector]
 
     print(f"Started evaluation of {len(models)} models/{len(ft_selectors)} ft selectors/{len(T1[0])} total samples. Dataset: {DATASET}. Type: {TYPE}")
     for model_builder in models:
@@ -229,7 +212,6 @@ def main():
                                              pd.DataFrame(ti_new[1]['Event'],
                                                           columns=['Event'])], axis=1)
                         model = WeibullAFTFitter(**best_params)
-                        # model = search.best_estimator_
                         model.fit(
                             x_ti_wf, duration_col='Survival_time', event_col='Event')
                     elif model_name == "DeepSurv":
