@@ -11,6 +11,7 @@ import umap
 
 class SelectAllFeatures ():
     def fit (self, X, y=None):
+        X= X.loc[:, ~X.columns.isin(['Fca','Fi','Fo','Fr','Frp'])]
         self.features = X.columns
         return self
 

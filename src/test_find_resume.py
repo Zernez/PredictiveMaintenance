@@ -10,7 +10,7 @@ from sklearn.model_selection import KFold
 from xgbse.metrics import approx_brier_score
 from sklearn.model_selection import RandomizedSearchCV
 from tools.feature_selectors import NoneSelector, LowVar, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8, UMAP8, VIF4, VIF8, PHSelector
-from tools.regressors import CoxPH, CphRidge, CphLASSO, CphElastic, RSF, CoxBoost, GradientBoostingDART, WeibullAFT, LogNormalAFT, LogLogisticAFT, DeepSurv, DSM  # XGBLinear, SVM
+from tools.regressors import CoxPH, CphRidge, CphLASSO, CphElastic, RSF, CoxBoost, GradientBoostingDART, WeibullAFT, LogNormalAFT, LogLogisticAFT, DeepSurv, DSM
 from tools.file_reader import FileReader
 from tools.data_ETL import DataETL
 from utility.builder import Builder
@@ -25,7 +25,11 @@ warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 N_BOOT = 3
 PLOT = True
 RESUME = True
-NEW_DATASET = True
+NEW_DATASET = False
+N_REPEATS = 10
+N_SPLITS = 3 
+N_ITER = 10
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -39,9 +43,6 @@ def main():
 
     global DATASET
     global TYPE
-    global N_REPEATS
-    global N_SPLITS
-    global N_ITER
 
     if args.dataset:
         DATASET = args.dataset
@@ -52,13 +53,10 @@ def main():
     if NEW_DATASET== True:
         Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)
 
-    N_REPEATS = 10
-    N_SPLITS = 3
-    N_ITER = 10
 
     cov, boot, info_pack = FileReader(DATASET).read_data()
     survival = Survival()
-    
+
     X, y = DataETL(DATASET).make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
     T1, T2 = (X, y), (X, y)
     models = [CoxPH, RSF, CoxBoost, DeepSurv, DSM, WeibullAFT]
@@ -148,7 +146,7 @@ def main():
                         x_ti_wf = pd.concat([ti_new[0].reset_index(drop=True),
                                              pd.DataFrame(ti_new[1]['Survival_time'],
                                                           columns=['Survival_time'])], axis=1)
-                        x_ti_wf = pd.concat([x_ti_wf.reset_index(drop=True),
+                        x_ti_wf = pd.concat([x_ti_wf.reset_index(drop=True)
                                               pd.DataFrame(ti_new[1]['Event'],
                                                            columns=['Event'])], axis=1)
                         model= WeibullAFTFitter(**best_params)

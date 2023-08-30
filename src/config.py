@@ -30,12 +30,12 @@ FREQUENCY_BANDS5 = {'pronostia_start': [9, 25, 96, 151, 201],
 FREQUENCY_BANDS6 = {'pronostia_start': [10, 27, 105, 165, 214],
                        'pronostia_stop': [16, 33, 111, 171, 220]}
    
-PH_EXCLUSION = {'pronostia_not_corr': ['mean'],
-                'pronostia_corr': ['mean'],
-                'pronostia_boot': ['mean'],
-                'xjtu_not_corr': ['mean'],
-                'xjtu_corr': ['mean'],
-                'xjtu_boot': ['mean']}  
+PH_EXCLUSION = {'pronostia_not_corr': ['Fca','Fi','Fo','Fr','Frp', 'rms', 'clearence', 'FcaH', 'FiH', 'kurtosis', 'FoH', 'entropy', 'impulse', 'mean'],
+                'pronostia_corr': ['Fca','Fi','Fo','Fr','Frp','noise', 'mean', 'std', 'kurtosis', 'rms', 'entropy', 'FrH', 'FoH', 'FrpH'],
+                'pronostia_boot': ['Fca','Fi','Fo','Fr','Frp', 'mean', 'skew', 'FcaH', 'FiH', 'FoH', 'FrH', 'std', 'kurtosis', 'entropy', 'rms'],
+                'xjtu_not_corr': ['Fca','Fi','Fo','Fr','Frp', 'kurtosis', 'FoH', 'rms', 'FcaH', 'noise', 'FiH', 'max', 'p2p'],
+                'xjtu_corr': ['Fca','Fi','Fo','Fr','Frp','mean', 'std', 'skew', 'FcaH', 'clearence', 'max', 'kurtosis', 'shape', 'crest'],
+                'xjtu_boot': ['Fca','Fi','Fo','Fr','Frp','entropy', 'FrpH', 'FcaH']}  
 
 PARAMS_CPH = {'alpha': 0.1,
               'ties': 'breslow',
