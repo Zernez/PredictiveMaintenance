@@ -30,6 +30,7 @@ N_REPEATS = 10
 N_SPLITS = 3 
 N_ITER = 10
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str,
@@ -49,8 +50,9 @@ def main():
     if args.typedata:
         TYPE = args.typedata
 
-    if NEW_DATASET == True:
+    if NEW_DATASET== True:
         Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)
+
 
     cov, boot, info_pack = FileReader(DATASET).read_data()
     survival = Survival()
@@ -69,6 +71,7 @@ def main():
             parametric = True
         else:
             parametric = False
+            parametric = False
 
         model_results = pd.DataFrame()
         for ft_selector_builder in ft_selectors:
@@ -77,8 +80,7 @@ def main():
             print("model_builder name: ", model_name)
 
             for n_repeat in range(N_REPEATS):
-                kf = KFold(n_splits=N_SPLITS,
-                           random_state=n_repeat, shuffle=True)
+                kf = KFold(n_splits=N_SPLITS, random_state=n_repeat, shuffle=True)
                 for train, test in kf.split(T1[0], T1[1]):
                     split_start_time = time()
 
@@ -87,90 +89,31 @@ def main():
                     ti, cvi, ti_NN, cvi_NN = DataETL(
                         DATASET).centering_main_data(ti, cvi, ti_NN, cvi_NN)
 
-                    # Get current model and ft selector
-                    if ft_selector_name == "NoneSelector":
-                        ft_selector_print_name = f"({ft_selectors.index(ft_selector_builder)+1}) None"
-                    else:
-                        ft_selector_print_name = f"({ft_selectors.index(ft_selector_builder)+1}) {ft_selector_name}"
-                    model_print_name = f"({models.index(model_builder)+1}) {model_name}"
-
+                    ft_selector_print_name = f"{ft_selector_name}"
+                    model_print_name = f"{model_name}"
+                    
                     # Create model instance and find best features
                     get_best_features_start_time = time()
                     model = model_builder().get_estimator()
-
-                    if ft_selector_name == "UMAP8":
-                        ft_selector = ft_selector_builder(
-                            ti[0], ti[1], estimator=model)
-                        selected_fts = ft_selector.get_features()
-                        ti_new = (selected_fts, ti[1])
-                        ft_selector_NN = ft_selector_builder(
-                            ti_NN[0], ti_NN[1], estimator=model)
-                        selected_fts = ft_selector_NN.get_features()
-                        ti_new_NN = (selected_fts, ti_NN[1])
-                        ft_selector = ft_selector_builder(
-                            cvi[0], cvi[1], estimator=model)
-                        selected_fts = ft_selector.get_features()
-                        cvi_new = (selected_fts, cvi[1])
-                        ft_selector_NN = ft_selector_builder(
-                            cvi_NN[0], cvi_NN[1], estimator=model)
-                        selected_fts = ft_selector_NN.get_features()
-                        cvi_new_NN = (selected_fts, cvi_NN[1])
-                        selected_fts = list(selected_fts.columns)
-                    elif ft_selector_name in ["RegMRMR4", "RegMRMR8"]:
-                        if parametric == True:
-                            y_ti_mrmr = np.array([x[0] for x in ti[1]], float)
-                            ft_selector = ft_selector_builder(
-                                ti[0], y_ti_mrmr, estimator=model.lifelines_model)
-                        else:
-                            y_ti_mrmr = np.array([x[0] for x in ti[1]], float)
-                            ft_selector = ft_selector_builder(
-                                ti[0], y_ti_mrmr, estimator=model)
-                    elif ft_selector_name == "PHSelector":
-                        ft_selector = ft_selector_builder(
-                            ti[0], ti[1], estimator=[DATASET, TYPE])
+                    if ft_selector_name == "PHSelector":
+                        ft_selector = ft_selector_builder(ti[0], ti[1], estimator=[DATASET, TYPE])
                     else:
-                        ft_selector = ft_selector_builder(
-                            ti[0], ti[1], estimator=model)
+                        ft_selector = ft_selector_builder(ti[0], ti[1], estimator=model)
 
-                    # From more 4 feature parametric models find difficulties to reach the convergence
-                    if (parametric == True and ft_selector_name in ["SelectKBest8", "RegMRMR4", "RegMRMR8"]):
-                        c_index, brier_score, nbll = np.nan, np.nan, np.nan
-                        get_best_features_time, get_best_params_time, model_train_time = np.nan, np.nan, np.nan
-                        model_ci_inference_time, model_bs_inference_time = np.nan, np.nan
-                        t_total_split_time = np.nan
-                        best_params, selected_fts = {}, []
-                        res_sr = pd.Series([model_print_name, ft_selector_print_name, n_repeat, c_index, brier_score, nbll,
-                                            get_best_features_time, get_best_params_time, model_train_time,
-                                            model_ci_inference_time, model_bs_inference_time, t_total_split_time,
-                                            best_params, selected_fts],
-                                           index=["ModelName", "FtSelectorName", "NRepeat", "CIndex", "BrierScore", "NBLL",
-                                                  "TBestFeatures", "TBestParams", "TModelTrain",
-                                                  "TModelCIInference", "TModelBSInference", "TTotalSplit",
-                                                  "BestParams", "SelectedFts"])
-                        model_results = pd.concat(
-                            [model_results, res_sr.to_frame().T], ignore_index=True)
-                        continue
+                    selected_fts = ft_selector.get_features()
+                    ti_new =  (ti[0].loc[:, selected_fts], ti[1])
+                    ti_new[0].reset_index(inplace=True, drop=True)
+                    cvi_new = (cvi[0].loc[:, selected_fts], cvi[1])
+                    cvi_new[0].reset_index(inplace=True, drop=True)
+                    ti_new_NN =  (ti_NN[0].loc[:, selected_fts], ti_NN[1])
+                    ti_new_NN[0].reset_index(inplace=True, drop=True)
+                    cvi_new_NN = (cvi_NN[0].loc[:, selected_fts], cvi_NN[1])     
+                    cvi_new_NN[0].reset_index(inplace=True, drop=True)
+                    get_best_features_time = time() - get_best_features_start_time
 
-                    if ft_selector_name == "UMAP8":
-                        get_best_features_time = time() - get_best_features_start_time
-                        print("Created brand new features from UMAP")
-                    else:
-                        selected_fts = ft_selector.get_features()
-                        ti_new = (ti[0].loc[:, selected_fts], ti[1])
-                        ti_new[0].reset_index(inplace=True, drop=True)
-                        cvi_new = (cvi[0].loc[:, selected_fts], cvi[1])
-                        cvi_new[0].reset_index(inplace=True, drop=True)
-                        ti_new_NN = (ti_NN[0].loc[:, selected_fts], ti_NN[1])
-                        ti_new_NN[0].reset_index(inplace=True, drop=True)
-                        cvi_new_NN = (
-                            cvi_NN[0].loc[:, selected_fts], cvi_NN[1])
-                        cvi_new_NN[0].reset_index(inplace=True, drop=True)
-                        get_best_features_time = time() - get_best_features_start_time
-                        print("Selected features: ", selected_fts)
-
-                    lower, upper = np.percentile(
-                        ti_new[1][ti_new[1].dtype.names[1]], [10, 90])
-                    times = np.arange(math.ceil(lower), math.floor(upper))
+                    # Set event times
+                    lower, upper = np.percentile(ti_new[1][ti_new[1].dtype.names[1]], [10, 90])
+                    times = np.arange(math.ceil(lower), math.floor(upper)).tolist()
 
                     # Find hyperparams via CV
                     get_best_params_start_time = time()
@@ -185,18 +128,13 @@ def main():
                         search.fit(x_ti_wf, y_ti_wf)
                         best_params = search.best_params_
                     elif model_name == "DeepSurv":
-                        experiment = SurvivalRegressionCV(
-                            model='dcph', num_folds=N_SPLITS, hyperparam_grid=space)
-                        model, best_params = experiment.fit(
-                            ti_new_NN[0], ti_new_NN[1], times, metric='brs')
+                        experiment = SurvivalRegressionCV(model='dcph', num_folds=N_SPLITS, hyperparam_grid=space)
+                        model, best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='brs')
                     elif model_name == "DSM":
-                        experiment = SurvivalRegressionCV(
-                            model='dsm', num_folds=N_SPLITS, hyperparam_grid=space)
-                        model, best_params = experiment.fit(
-                            ti_new_NN[0], ti_new_NN[1], times, metric='brs')
+                        experiment = SurvivalRegressionCV(model='dsm', num_folds=N_SPLITS, hyperparam_grid=space)
+                        model, best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='brs')                
                     else:
-                        search = RandomizedSearchCV(
-                            model, space, n_iter=N_ITER, cv=N_SPLITS, random_state=0)
+                        search = RandomizedSearchCV(model, space, n_iter=N_ITER, cv=N_SPLITS, random_state=0)
                         search.fit(ti_new[0], ti_new[1])
                         best_params = search.best_params_
 
@@ -208,12 +146,11 @@ def main():
                         x_ti_wf = pd.concat([ti_new[0].reset_index(drop=True),
                                              pd.DataFrame(ti_new[1]['Survival_time'],
                                                           columns=['Survival_time'])], axis=1)
-                        x_ti_wf = pd.concat([x_ti_wf.reset_index(drop=True),
-                                             pd.DataFrame(ti_new[1]['Event'],
-                                                          columns=['Event'])], axis=1)
-                        model = WeibullAFTFitter(**best_params)
-                        model.fit(
-                            x_ti_wf, duration_col='Survival_time', event_col='Event')
+                        x_ti_wf = pd.concat([x_ti_wf.reset_index(drop=True)
+                                              pd.DataFrame(ti_new[1]['Event'],
+                                                           columns=['Event'])], axis=1)
+                        model= WeibullAFTFitter(**best_params)
+                        model.fit(x_ti_wf, duration_col='Survival_time', event_col='Event')
                     elif model_name == "DeepSurv":
                         model = DeepCoxPH(layers=[32, 32])
                         x = ti_new_NN[0].to_numpy()
@@ -231,12 +168,7 @@ def main():
                         model.fit(ti_new[0], ti_new[1])
                     model_train_time = time() - model_train_start_time
 
-                    lower, upper = np.percentile(
-                        cvi_new[1][cvi_new[1].dtype.names[1]], [10, 90])
-                    times = np.arange(math.ceil(lower),
-                                      math.floor(upper)).tolist()
-
-                    # Get C-index scores from current CVI fold
+                    # Get C-index scores from current CVI fold 
                     model_ci_inference_start_time = time()
                     if parametric == True:
                         x_cvi_wf = pd.concat([cvi_new[0].reset_index(drop=True),
@@ -252,18 +184,15 @@ def main():
                         c_index = ev.concordance_td()
                     elif model_name == "DeepSurv" or model_name == "DSM":
                         xte = cvi_new_NN[0].to_numpy()
-                        preds = survival.predict_survival_function(
-                            model, xte, times)
-                        ev = EvalSurv(
-                            preds.T, cvi_new[1]['Survival_time'], cvi_new[1]['Event'], censor_surv="km")
+                        preds = survival.predict_survival_function(model, xte, times)
+                        ev = EvalSurv(preds.T, cvi_new[1]['Survival_time'], cvi_new[1]['Event'],
+                                      censor_surv="km")
                         c_index = ev.concordance_td()
                     else:
-                        preds = survival.predict_survival_function(
-                            model, cvi_new[0], times)
-                        ev = EvalSurv(
-                            preds.T, cvi_new[1]['Survival_time'], cvi_new[1]['Event'], censor_surv="km")
+                        preds = survival.predict_survival_function(model, cvi_new[0], times)
+                        ev = EvalSurv(preds.T, cvi_new[1]['Survival_time'], cvi_new[1]['Event'],
+                                      censor_surv="km")
                         c_index = ev.concordance_td()
-
                     model_ci_inference_time = time() - model_ci_inference_start_time
 
                     # Get BS scores from current fold CVI fold
@@ -271,24 +200,17 @@ def main():
                     if parametric == True:
                         brier_score = approx_brier_score(cvi_new[1], preds)
                         nbll = np.mean(ev.nbll(np.array(times)))
-                    elif model_name == "DeepSurv":
+                    elif model_name == "DeepSurv": 
                         NN_surv_probs = model.predict_survival(xte)
-                        brier_score = approx_brier_score(
-                            cvi_new[1], NN_surv_probs)
-                        nbll = np.mean(ev.nbll(np.array(times)))
+                        brier_score = approx_brier_score(cvi_new[1], NN_surv_probs)
+                        nbll = np.mean(ev.nbll(np.array(times)))                   
                     elif model_name == "DSM":
-                        NN_surv_probs = pd.DataFrame(
-                            model.predict_survival(xte, t=times))
-                        brier_score = approx_brier_score(
-                            cvi_new[1], NN_surv_probs)
+                        NN_surv_probs = pd.DataFrame(model.predict_survival(xte, t=times))
+                        brier_score = approx_brier_score(cvi_new[1], NN_surv_probs)
                         nbll = np.mean(ev.nbll(np.array(times)))
-                    elif model_name == "SVM":
-                        brier_score = np.nan
-                        nbll = np.nan
                     else:
                         surv_probs = pd.DataFrame(preds)
-                        brier_score = approx_brier_score(
-                            cvi_new[1], surv_probs)
+                        brier_score = approx_brier_score(cvi_new[1], surv_probs)
                         nbll = np.mean(ev.nbll(np.array(times)))
 
                     model_bs_inference_time = time() - model_bs_inference_start_time
