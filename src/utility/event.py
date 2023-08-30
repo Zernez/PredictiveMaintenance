@@ -263,8 +263,7 @@ class Event:
         event_chi= []         
 
         for b_num in range (1, self.total_bearings + 1, 1):
-
-            set= set_analytic[["B{}_freq_band_1".format(b_num), "B{}_freq_band_2".format(b_num), "B{}_freq_band_3".format(b_num), "B{}_freq_band_4".format(b_num), "B{}_freq_band_5".format(b_num)]]   
+            set= set_analytic[["B{}_FoH".format(b_num), "B{}_FiH".format(b_num), "B{}_FrH".format(b_num), "B{}_FrpH".format(b_num), "B{}_FcaH".format(b_num)]]   
             eval_KL.append(self.evaluator_KL(set, window))
             eval_SD.append(self.evaluator_SD(set, window))
             eval_t.append(self.evaluator_Ttest(set, window))

@@ -16,23 +16,18 @@ RESULT_PATH_PRONOSTIA= "./data/PRONOSTIA/results/"
 SAMPLE_PATH_PRONOSTIA= "./data/PRONOSTIA/csv/"
 HYPER_RESULTS= "./data/logs/"
 
-if RAW_DATA_PATH_XJTU == "./data/XJTU-SY/35Hz12kN/":
-    FREQUENCY_BANDS = {'xjtu_start': [10, 32, 69, 105, 169],
+
+FREQUENCY_BANDS1 = {'xjtu_start': [10, 32, 69, 105, 169],
                        'xjtu_stop': [16, 38, 75, 111, 175]}
-elif RAW_DATA_PATH_XJTU == "./data/XJTU-SY/37.5Hz11kN/":
-    FREQUENCY_BANDS = {'xjtu_start': [11, 34, 74, 118, 181],
+FREQUENCY_BANDS2 = {'xjtu_start': [11, 34, 74, 118, 181],
                        'xjtu_stop': [17, 40, 80, 112, 187]}
-elif RAW_DATA_PATH_XJTU == "./data/XJTU-SY/40Hz10kN/":
-    FREQUENCY_BANDS = {'xjtu_start': [12, 37, 80, 120, 193],
+FREQUENCY_BANDS3 = {'xjtu_start': [12, 37, 80, 120, 193],
                        'xjtu_stop': [17, 43, 86, 126, 199]}
-elif RAW_DATA_PATH_XJTU == "./data/PRONOSTIA/25Hz5kN/":
-    FREQUENCY_BANDS = {'pronostia_start': [7, 22, 87, 137, 181],
+FREQUENCY_BANDS4 = {'pronostia_start': [7, 22, 87, 137, 181],
                        'pronostia_stop': [13, 28, 93, 143, 187]} 
-elif RAW_DATA_PATH_XJTU == "./data/PRONOSTIA/27.65Hz4.2kN/":
-    FREQUENCY_BANDS = {'pronostia_start': [9, 25, 96, 151, 201],
+FREQUENCY_BANDS5 = {'pronostia_start': [9, 25, 96, 151, 201],
                        'pronostia_stop': [15, 31, 102, 157, 207]}    
-elif RAW_DATA_PATH_PRONOSTIA == "./data/PRONOSTIA/30Hz4kN/":
-    FREQUENCY_BANDS = {'pronostia_start': [10, 27, 105, 165, 214],
+FREQUENCY_BANDS6 = {'pronostia_start': [10, 27, 105, 165, 214],
                        'pronostia_stop': [16, 33, 111, 171, 220]}
    
 PH_EXCLUSION = {'pronostia_not_corr': ['mean'],
@@ -43,9 +38,9 @@ PH_EXCLUSION = {'pronostia_not_corr': ['mean'],
                 'xjtu_boot': ['mean']}  
 
 PARAMS_CPH = {'alpha': 0.1,
-            'ties': 'breslow',
-            'n_iter': 50,
-            'tol': 1e-1}
+              'ties': 'breslow',
+              'n_iter': 50,
+              'tol': 1e-1}
 
 PARAMS_CPH_RIDGE = {'alpha': 0.5,
                     'ties': 'breslow',
@@ -66,25 +61,23 @@ PARAMS_CPH_ELASTIC = {'l1_ratio': 0.5,
                     'tol': 1e-7,
                     'max_iter': 100000}
 
-PARAMS_RSF = {
-    'n_estimators': 100,
-    'max_depth' : 7,
-    'min_samples_split': 2,
-    'min_samples_leaf': 4,
-    'max_features': None,
-    'random_state': 0
-}
+PARAMS_RSF = {'n_estimators': 100,
+              'max_depth' : 7,
+              'min_samples_split': 2,
+              'min_samples_leaf': 4,
+              'max_features': None,
+              'random_state': 0}
 
 PARAMS_GRADBOOST = {'n_estimators': 400,
-                        'learning_rate': 0.1,
-                        'max_depth': 5,
-                        'loss': 'coxph',
-                        'min_samples_split': 2,
-                        'min_samples_leaf': 4,
-                        'max_features': None,
-                        'dropout_rate': 0,
-                        'subsample': 1.0,
-                        'random_state': 0}
+                    'learning_rate': 0.1,
+                    'max_depth': 5,
+                    'loss': 'coxph',
+                    'min_samples_split': 2,
+                    'min_samples_leaf': 4,
+                    'max_features': None,
+                    'dropout_rate': 0,
+                    'subsample': 1.0,
+                    'random_state': 0}
 
 PARAMS_GRADBOOST_DART = {'n_estimators': 200,
                         'learning_rate': 0.05,
@@ -107,10 +100,10 @@ PARAMS_DEEPSURV = {'batch_size' : 16,
                    'iters': 10}
 
 PARAMS_DSM = {'batch_size' :16,
-                   'learning_rate' : 1e-2,
-                   'iters': 100}
+              'learning_rate' : 1e-2,
+              'iters': 100}
 
 PARAMS_WEIBULL = {'alpha': 0.4,
-                'penalizer': 0.04,
-                'l1_ratio': 0.0,
-                'fit_intercept': True}
+                  'penalizer': 0.04,
+                  'l1_ratio': 0.0,
+                  'fit_intercept': True}
