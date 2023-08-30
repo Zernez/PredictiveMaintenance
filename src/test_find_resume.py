@@ -26,8 +26,6 @@ N_BOOT = 3
 PLOT = True
 RESUME = True
 NEW_DATASET = True
-# DATASET = "xjtu" # pronostia
-# TYPE= "correlated" # not_correlated # boostrap
 
 def main():
     parser = argparse.ArgumentParser()
@@ -54,9 +52,9 @@ def main():
     if NEW_DATASET== True:
         Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)
 
-    N_REPEATS = 1  #10
-    N_SPLITS = 3  #3
-    N_ITER = 1  #10
+    N_REPEATS = 10
+    N_SPLITS = 3
+    N_ITER = 10
 
     cov, boot, info_pack = FileReader(DATASET).read_data()
     survival = Survival()
@@ -96,7 +94,7 @@ def main():
                     ft_selector_print_name = f"{ft_selector_name}"
                     model_print_name = f"{model_name}"
                     
-                    #Create model instance and find best features
+                    # Create model instance and find best features
                     get_best_features_start_time = time()
                     model = model_builder().get_estimator()
                     if ft_selector_name == "PHSelector":
@@ -119,7 +117,6 @@ def main():
                     lower, upper = np.percentile(ti_new[1][ti_new[1].dtype.names[1]], [10, 90])
                     times = np.arange(math.ceil(lower), math.floor(upper)).tolist()
 
-                    # Find hyperparams via CV
                     # Find hyperparams via CV
                     get_best_params_start_time = time()
                     space = model_builder().get_tuneable_params()
@@ -145,7 +142,6 @@ def main():
 
                     get_best_params_time = time() - get_best_params_start_time
 
-                    # Train on train set TI with new params
                     # Train on train set TI with new params
                     model_train_start_time = time()
                     if parametric == True:
@@ -189,8 +185,8 @@ def main():
                             preds.T, cvi[1]['Survival_time'], cvi[1]['Event'], censor_surv="km")
                         c_index = ev.concordance_td()
                     elif model_name == "DeepSurv" or model_name == "DSM":
-                        xte= cvi_new_NN[0].to_numpy()
-                        preds= survival.predict_survival_function(model, xte, times)
+                        xte = cvi_new_NN[0].to_numpy()
+                        preds = survival.predict_survival_function(model, xte, times)
                         ev = EvalSurv(preds.T, cvi_new[1]['Survival_time'], cvi_new[1]['Event'],
                                       censor_surv="km")
                         c_index = ev.concordance_td()
@@ -201,7 +197,6 @@ def main():
                         c_index = ev.concordance_td()
                     model_ci_inference_time = time() - model_ci_inference_start_time
 
-                    # Get BS scores from current fold CVI fold
                     # Get BS scores from current fold CVI fold
                     model_bs_inference_start_time = time()
                     if parametric == True:
