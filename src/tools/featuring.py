@@ -40,13 +40,15 @@ class Featuring:
                     'FoH', 'FiH', 'FrH', 'FrpH', 'FcaH','Fo', 'Fi', 'Fr', 'Frp', 'Fca', 'noise', 'Event', 'Survival_time']
         cols2 = ['B1', 'B2']
 
-        if re.findall("35Hz12kN/$", cfg.RAW_DATA_PATH_XJTU) == ['35Hz12kN/']:
+        start = []
+        stop = []
+        if re.findall("35Hz12kN/", dataset_path) == ['35Hz12kN/']:
             start= cfg.FREQUENCY_BANDS1['xjtu_start']
             stop= cfg.FREQUENCY_BANDS1['xjtu_stop']
-        elif re.findall("37.5Hz11kN/$", cfg.RAW_DATA_PATH_XJTU) == ['37.5Hz11kN/']:
+        elif re.findall("37.5Hz11kN/", dataset_path) == ['37.5Hz11kN/']:
             start= cfg.FREQUENCY_BANDS2['xjtu_start']
             stop= cfg.FREQUENCY_BANDS2['xjtu_stop']
-        elif re.findall("40Hz10kN/$", cfg.RAW_DATA_PATH_XJTU) == ['40Hz10kN/']:
+        elif re.findall("40Hz10kN/", dataset_path) == ['40Hz10kN/']:
             start= cfg.FREQUENCY_BANDS3['xjtu_start']
             stop= cfg.FREQUENCY_BANDS3['xjtu_stop']
 
@@ -218,13 +220,15 @@ class Featuring:
                 'FoH', 'FiH', 'FrH', 'FrpH', 'FcaH','Fo', 'Fi', 'Fr', 'Frp', 'Fca', 'noise', 'Event', 'Survival_time']
         cols2 = ['B1', 'B2']
 
-        if re.findall("25Hz5kN/$", cfg.RAW_DATA_PATH_PRONOSTIA) == ['25Hz5kN/']:
+        start = []
+        stop = []
+        if re.findall("25Hz5kN/", dataset_path) == ['25Hz5kN/']:
             start= cfg.FREQUENCY_BANDS4['pronostia_start']
             stop= cfg.FREQUENCY_BANDS4['pronostia_stop']
-        elif re.findall("27.65Hz4.2kN/$", cfg.RAW_DATA_PATH_PRONOSTIA) == ['27.65Hz4.2kN/']:
+        elif re.findall("27.65Hz4.2kN/", dataset_path) == ['27.65Hz4.2kN/']:
             start= cfg.FREQUENCY_BANDS5['pronostia_start']
             stop= cfg.FREQUENCY_BANDS5['pronostia_stop']
-        elif re.findall("30Hz4kN/$", cfg.RAW_DATA_PATH_PRONOSTIA) == ['30Hz4kN/']:
+        elif re.findall("30Hz4kN/", dataset_path) == ['30Hz4kN/']:
             start= cfg.FREQUENCY_BANDS6['pronostia_start']
             stop= cfg.FREQUENCY_BANDS6['pronostia_stop']
 

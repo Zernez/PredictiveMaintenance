@@ -25,11 +25,11 @@ warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 N_BOOT = 3
 PLOT = True
 RESUME = True
-NEW_DATASET = False
-N_REPEATS = 10
+NEW_DATASET = True
+N_REPEATS = 1
 N_SPLITS = 3 
-N_ITER = 10
-
+N_ITER = 1
+N_CONDITION = 3
 
 def main():
     parser = argparse.ArgumentParser()
@@ -50,15 +50,34 @@ def main():
     if args.typedata:
         TYPE = args.typedata
 
+
     if NEW_DATASET== True:
         Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)
+    
+    cov_group = []
+    boot_group = []
+    info_group = []
 
+    for i in range (0, N_CONDITION):
+        cov, boot, info_pack = FileReader(DATASET).read_data(i)
+        cov_group.append(cov)
+        boot_group.append(boot)
+        info_group.append(info_pack)
 
-    cov, boot, info_pack = FileReader(DATASET).read_data()
     survival = Survival()
 
-    X, y = DataETL(DATASET).make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
-    T1, T2 = (X, y), (X, y)
+    data_merge_X = pd.DataFrame()
+
+    for i, (cov, boot, info_pack) in enumerate(zip(cov_group, boot_group, info_group)):
+        data_temp_X, data_temp_y = DataETL(DATASET).make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
+        if i== 0:
+            data_merge_y =  data_temp_y
+        else:
+            data_merge_y =  np.concatenate((data_merge_y, data_temp_y))
+        data_merge_X = pd.concat([data_merge_X, data_temp_X], ignore_index=True)
+
+    T1, T2 = (data_merge_X, data_merge_y), (data_merge_X, data_merge_y)
+
     models = [CoxPH, RSF, CoxBoost, DeepSurv, DSM, WeibullAFT]
     ft_selectors = [NoneSelector, PHSelector]
 
@@ -146,7 +165,7 @@ def main():
                         x_ti_wf = pd.concat([ti_new[0].reset_index(drop=True),
                                              pd.DataFrame(ti_new[1]['Survival_time'],
                                                           columns=['Survival_time'])], axis=1)
-                        x_ti_wf = pd.concat([x_ti_wf.reset_index(drop=True)
+                        x_ti_wf = pd.concat([x_ti_wf.reset_index(drop=True),
                                               pd.DataFrame(ti_new[1]['Event'],
                                                            columns=['Event'])], axis=1)
                         model= WeibullAFTFitter(**best_params)
