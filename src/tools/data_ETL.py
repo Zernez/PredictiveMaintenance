@@ -24,7 +24,7 @@ class DataETL:
         row = pd.DataFrame()
         data_cov= pd.DataFrame()
         ref_value= {}
-    
+
         for bear_num in range (1, self.total_bearings + 1, (bootstrap * 2) + 4):
             val= self.event_analyzer (bear_num, info_pack)
             ref_value.update({bear_num : val})
@@ -296,12 +296,11 @@ class DataETL:
             if data_sd:
                 data_kl= data_sd
             else:
-                raise Exception("Result impredictable, supervised assestment is needed")
+                data_kl= [tot_lenght]
+                print("For bearing #{}, event considered at the end of the recording".format(bear_num))
         if not data_sd:
             if data_kl:
                 data_sd= data_kl
-            else:
-                raise Exception("Result impredictable, supervised assestment is needed")
 
         res = [max (data_kl), max (data_sd)]
         res= round (statistics.mean (res), 1)
