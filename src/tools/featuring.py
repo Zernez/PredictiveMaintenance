@@ -66,7 +66,7 @@ class Featuring:
         data = pd.DataFrame(columns=columns)
         
         for filename in os.listdir(dataset_path):
-        
+            
             raw_data = pd.read_csv(os.path.join(dataset_path, filename), sep=',')
 
             timeline= int(re.sub('.csv*', '', filename))

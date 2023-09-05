@@ -13,11 +13,13 @@ class Builder:
             self.bootstrapped_fold= cfg.N_BOOT_FOLD_XJTU
             self.raw_main_path= cfg.RAW_DATA_PATH_XJTU
             self.aggregate_main_path= cfg.DATASET_PATH_XJTU
+            self.real_bearing= cfg.N_REAL_BEARING_XJTU
         elif dataset == "pronostia":
             self.total_bearings= cfg.N_BEARING_TOT_PRONOSTIA
             self.bootstrapped_fold= cfg.N_BOOT_FOLD_PRONOSTIA
             self.raw_main_path= cfg.RAW_DATA_PATH_PRONOSTIA
             self.aggregate_main_path= cfg.DATASET_PATH_PRONOSTIA
+            self.real_bearing= cfg.N_REAL_BEARING_XJTU
         self.dataset= dataset 
 
     def build_new_dataset (self,bootstrap= 0):            
@@ -25,7 +27,7 @@ class Builder:
         self.aggregate_and_refine()
 
     def from_raw_to_csv (self, bootno):
-        bearings = int(self.total_bearings / self.bootstrapped_fold) 
+        bearings = self.real_bearing
 
         for z, group in enumerate(self.raw_main_path):
             j = 1

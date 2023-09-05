@@ -28,7 +28,7 @@ PLOT = True
 RESUME = True
 NEW_DATASET = False
 N_REPEATS = 1
-N_SPLITS = 3 
+N_INTERNAL_SPLITS = 3 
 N_ITER = 1
 
 def main():
@@ -48,6 +48,8 @@ def main():
     global TYPE
     global MERGE
     global N_CONDITION
+    global N_BEARING
+    global N_SPLITS
 
     if args.dataset:
         DATASET = args.dataset
@@ -59,9 +61,13 @@ def main():
         MERGE = args.merge
 
     if DATASET == "xjtu":
-        N_CONDITION = len (cfg.RAW_DATA_PATH_XJTU)         
+        N_CONDITION = len (cfg.RAW_DATA_PATH_XJTU)
+        N_BEARING = cfg.N_REAL_BEARING_XJTU
+        N_SPLITS = 3  
     elif DATASET == "pronostia":
         N_CONDITION = len (cfg.RAW_DATA_PATH_PRONOSTIA)
+        N_BEARING = cfg.N_REAL_BEARING_PRONOSTIA
+        N_SPLITS = 2
     
     if NEW_DATASET== True:
         Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)
@@ -111,7 +117,6 @@ def main():
                 parametric = True
             else:
                 parametric = False
-                parametric = False
 
             model_results = pd.DataFrame()
             for ft_selector_builder in ft_selectors:
@@ -119,9 +124,27 @@ def main():
                 print("ft_selector name: ", ft_selector_name)
                 print("model_builder name: ", model_name)
 
+                dummy_x= list(range(0, N_BEARING))
+                dummy_y= list(range(0, N_BEARING))
+
                 for n_repeat in range(N_REPEATS):
-                    kf = KFold(n_splits=N_SPLITS, random_state=n_repeat, shuffle=True)
-                    for train, test in kf.split(T1[0], T1[1]):
+                    kf = KFold(n_splits= N_SPLITS, random_state=n_repeat, shuffle=True)
+                    for train, test in kf.split(dummy_x, dummy_y):     
+
+                        train_index = train
+                        train = np.delete(train, slice(None))
+                        test_index = test
+                        test = np.delete(test, slice(None))
+                        total_upsampling_fold= cfg.N_BOOT_FOLD_UPSAMPLING                                         
+
+                        for element in train_index:
+                            for boot_index in range(element * total_upsampling_fold, (element * total_upsampling_fold) + total_upsampling_fold, 1):
+                                train = np.append(train, boot_index)
+
+                        for element in test_index:
+                            for boot_index in range(element * total_upsampling_fold, (element * total_upsampling_fold) + total_upsampling_fold, 1):
+                                test = np.append(test, boot_index)
+
                         split_start_time = time()
 
                         ti, cvi, ti_NN, cvi_NN = DataETL(
@@ -161,20 +184,20 @@ def main():
                         if parametric == True:
                             wf = model()
                             search = RandomizedSearchCV(
-                                wf, space, n_iter=N_ITER, cv=N_SPLITS, random_state=0)
+                                wf, space, n_iter=N_ITER, cv=N_INTERNAL_SPLITS, random_state=0)
                             x_ti_wf = pd.concat([ti_new[0].reset_index(drop=True),
                                                 pd.DataFrame(ti_new[1]['Event'], columns=['Event'])], axis=1)
                             y_ti_wf = np.array([x[1] for x in ti_new[1]], float)
                             search.fit(x_ti_wf, y_ti_wf)
                             best_params = search.best_params_
                         elif model_name == "DeepSurv":
-                            experiment = SurvivalRegressionCV(model='dcph', num_folds=N_SPLITS, hyperparam_grid=space)
+                            experiment = SurvivalRegressionCV(model='dcph', num_folds=N_INTERNAL_SPLITS, hyperparam_grid=space)
                             model, best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='brs')
                         elif model_name == "DSM":
-                            experiment = SurvivalRegressionCV(model='dsm', num_folds=N_SPLITS, hyperparam_grid=space)
+                            experiment = SurvivalRegressionCV(model='dsm', num_folds=N_INTERNAL_SPLITS, hyperparam_grid=space)
                             model, best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='brs')                
                         else:
-                            search = RandomizedSearchCV(model, space, n_iter=N_ITER, cv=N_SPLITS, random_state=0)
+                            search = RandomizedSearchCV(model, space, n_iter=N_ITER, cv=N_INTERNAL_SPLITS, random_state=0)
                             search.fit(ti_new[0], ti_new[1])
                             best_params = search.best_params_
 
