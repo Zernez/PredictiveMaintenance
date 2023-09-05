@@ -24,7 +24,8 @@ class DataETL:
         row = pd.DataFrame()
         data_cov= pd.DataFrame()
         ref_value= {}
-
+        
+        # self.total_bearings = 10 #pronostia 30 #xjtu 
         for bear_num in range (1, self.total_bearings + 1, (bootstrap * 2) + 4):
             val= self.event_analyzer (bear_num, info_pack)
             ref_value.update({bear_num : val})
