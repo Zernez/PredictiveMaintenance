@@ -19,7 +19,7 @@ class Builder:
             self.bootstrapped_fold= cfg.N_BOOT_FOLD_PRONOSTIA
             self.raw_main_path= cfg.RAW_DATA_PATH_PRONOSTIA
             self.aggregate_main_path= cfg.DATASET_PATH_PRONOSTIA
-            self.real_bearing= cfg.N_REAL_BEARING_XJTU
+            self.real_bearing= cfg.N_REAL_BEARING_PRONOSTIA
         self.dataset= dataset 
 
     def build_new_dataset (self,bootstrap= 0):            
@@ -27,12 +27,10 @@ class Builder:
         self.aggregate_and_refine()
 
     def from_raw_to_csv (self, bootno):
-        bearings = self.real_bearing
-
         for z, group in enumerate(self.raw_main_path):
             j = 1
-            for bearing in range (1, bearings + 1, 1):
-                dataset_path = group + "Bearing1_" + str(bearing)
+            for bearing in range (1, self.real_bearing + 1, 1):
+                dataset_path = group + "Bearing1_" + str(self.real_bearing)
                 if self.dataset == "xjtu":
                     datasets, bootstrap_val = Featuring().time_features_xjtu(dataset_path, bootstrap= bootno)
                 elif self.dataset == "pronostia": 
