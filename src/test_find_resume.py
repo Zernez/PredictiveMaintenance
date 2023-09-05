@@ -5,6 +5,7 @@ import math
 import argparse
 import warnings
 import config as cfg
+import re
 from pycox.evaluation import EvalSurv
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import KFold
@@ -104,7 +105,13 @@ def main():
             data_container_X.append(data_temp_X)
             data_container_y.append(data_temp_y)
                                                                           
-    for data_X, data_y in zip(data_container_X, data_container_y):
+    for i, data_X, data_y in enumerate(zip(data_container_X, data_container_y)):
+
+        y_delta = np.delete(data_y, slice(None))
+        total_upsampling_fold= cfg.N_BOOT_FOLD_UPSAMPLING 
+
+        for element in range(0, N_BEARING * total_upsampling_fold, total_upsampling_fold):
+                y_delta = np.append(y_delta, data_y[element])
 
         T1, T2 = (data_X, data_y), (data_X, data_y)
 
@@ -134,8 +141,7 @@ def main():
                         train_index = train
                         train = np.delete(train, slice(None))
                         test_index = test
-                        test = np.delete(test, slice(None))
-                        total_upsampling_fold= cfg.N_BOOT_FOLD_UPSAMPLING                                         
+                        test = np.delete(test, slice(None))                                       
 
                         for element in train_index:
                             for boot_index in range(element * total_upsampling_fold, (element * total_upsampling_fold) + total_upsampling_fold, 1):
@@ -285,15 +291,18 @@ def main():
                         res_sr = pd.Series([model_print_name, ft_selector_print_name, n_repeat, c_index, brier_score, nbll,
                                             get_best_features_time, get_best_params_time, model_train_time,
                                             model_ci_inference_time, model_bs_inference_time, t_total_split_time,
-                                            best_params, selected_fts],
+                                            best_params, selected_fts, y_delta],
                                         index=["ModelName", "FtSelectorName", "NRepeat", "CIndex", "BrierScore", "NBLL",
                                                 "TBestFeatures", "TBestParams", "TModelTrain",
                                                 "TModelCIInference", "TModelBSInference", "TTotalSplit",
-                                                "BestParams", "SelectedFts"])
+                                                "BestParams", "SelectedFts", "DeltaY"])
                         model_results = pd.concat(
                             [model_results, res_sr.to_frame().T], ignore_index=True)
-
-            file_name = f"{model_name}_results.csv"
+            
+            index = re.search(r"\d\d", cfg.RAW_DATA_PATH_PRONOSTIA[i])
+            type_name = cfg.RAW_DATA_PATH_PRONOSTIA[i][index.start():-1]
+            
+            file_name = f"{model_name}_{type_name}_results.csv"
 
             if TYPE == "correlated":
                 address = 'correlated'

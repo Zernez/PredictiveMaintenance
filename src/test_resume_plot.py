@@ -23,14 +23,14 @@ warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 N_BOOT = 3
 N_REPEATS = 1
 NEW_DATASET = False
-DATASET = "xjtu"
+DATASET = "pronostia"
 TEST_SIZE = 0.3
 TYPE = "correlated"  # not_correlated
 LINE_PLOT = 3
 FEATURE_TO_SPLIT = "rms"
 SPLIT_THRESHOLD = []
 SPLITTED = True
-N_CONDITION = len (cfg.RAW_DATA_PATH_XJTU)
+N_CONDITION = len (cfg.RAW_DATA_PATH_PRONOSTIA)
 MERGE= False
 
 
@@ -41,6 +41,7 @@ def main():
     if DATASET == "pronostia":
         BEARINGS = 2
         BOOT_NO = 200
+        TEST_SIZE = 0.5 
     elif DATASET == "xjtu":
         BEARINGS = 5
         BOOT_NO = 500
@@ -81,6 +82,12 @@ def main():
 
     for X, y in zip(data_container_X, data_container_y):
 
+        y_delta = np.delete(y, slice(None))
+        total_upsampling_fold= cfg.N_BOOT_FOLD_UPSAMPLING 
+
+        for element in range(0, BEARINGS * total_upsampling_fold, total_upsampling_fold):
+                y_delta = np.append(y_delta, y[element])
+
         Resumer = Resume(X, y, DATASET)
 
     #    Resumer.table_result_hyper()
@@ -100,8 +107,7 @@ def main():
             train_index = X_train
             test_index = X_test
             train = np.delete(X_train, slice(None))
-            test = np.delete(X_test, slice(None))   
-            total_upsampling_fold= cfg.N_BOOT_FOLD_UPSAMPLING  
+            test = np.delete(X_test, slice(None))               
 
             for element in train_index:
                 for boot_index in range(element * total_upsampling_fold, (element * total_upsampling_fold) + total_upsampling_fold, 1):
@@ -133,7 +139,7 @@ def main():
 
         #        X_test_NN, y_test_NN = data_util.control_censored_data(X_test_NN, y_test_NN, percentage= 10)
 
-            lower, upper = np.percentile(y['Survival_time'], [10, 90])
+            lower, upper = np.percentile(S1[1]['Survival_time'], [10, 90])
             time_bins = np.arange(np.ceil(lower), np.floor(upper))
             lower_NN, upper_NN = np.percentile(
                 y_test[y_test.dtype.names[1]], [10, 90])
@@ -345,6 +351,8 @@ def main():
                 f"DeepSurv & {round(end_time_NN, 3)} & {round(NN_c_index, 3)} & {round(NN_c_index_td, 3)} & {round(NN_bs, 3)}\\\\" +
                 f"DSM & {round(end_time_DSM, 3)} & {round(DSM_c_index, 3)} & {round(DSM_c_index_td, 3)} & {round(DSM_bs, 3)}\\\\" +
                 f"WeibullAFT & {round(end_time_weibull, 3)} & {round(weibull_c_index, 3)} & {round(weibull_c_index_td, 3)} & {round(weibull_bs, 3)}\\\\")
+            
+            print ("The event detector estabilish an event for each bearing in: ", y_delta)
 
             # Plotting aggregate
             Km = KaplanMeierFitter()
