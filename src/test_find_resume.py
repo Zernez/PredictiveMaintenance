@@ -27,10 +27,10 @@ warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 N_BOOT = 3
 PLOT = True
 RESUME = True
-NEW_DATASET = False
-N_REPEATS = 1
+NEW_DATASET = True
+N_REPEATS = 10
 N_INTERNAL_SPLITS = 3 
-N_ITER = 1
+N_ITER = 10
 
 def main():
     parser = argparse.ArgumentParser()
@@ -62,11 +62,11 @@ def main():
         MERGE = args.merge
 
     if DATASET == "xjtu":
-        N_CONDITION = len (cfg.RAW_DATA_PATH_XJTU)
+        N_CONDITION = len(cfg.RAW_DATA_PATH_XJTU)
         N_BEARING = cfg.N_REAL_BEARING_XJTU
         N_SPLITS = 3  
     elif DATASET == "pronostia":
-        N_CONDITION = len (cfg.RAW_DATA_PATH_PRONOSTIA)
+        N_CONDITION = len(cfg.RAW_DATA_PATH_PRONOSTIA)
         N_BEARING = cfg.N_REAL_BEARING_PRONOSTIA
         N_SPLITS = 2
     
@@ -74,8 +74,8 @@ def main():
         Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)
     
     models = [CoxPH, RSF, CoxBoost, DeepSurv, DSM, WeibullAFT]
-    ft_selectors = [NoneSelector, PHSelector]
-    survival = Survival()    
+    ft_selectors = [NoneSelector]
+    survival = Survival()
     
     cov_group = []
     boot_group = []
@@ -89,6 +89,7 @@ def main():
     data_container_X = []
     data_container_y= []
     if MERGE == True:
+        print("Merging!")
         data_X = pd.DataFrame()
         for i, (cov, boot, info_pack) in enumerate(zip(cov_group, boot_group, info_group)):
             data_temp_X, data_temp_y = DataETL(DATASET).make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
@@ -103,21 +104,18 @@ def main():
         for i, (cov, boot, info_pack) in enumerate(zip(cov_group, boot_group, info_group)):
             data_temp_X, data_temp_y = DataETL(DATASET).make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
             data_container_X.append(data_temp_X)
-            data_container_y.append(data_temp_y)
                                                                           
-    for i, data_X, data_y in enumerate(zip(data_container_X, data_container_y)):
-
+    for i, (data_X, data_y) in enumerate(zip(data_container_X, data_container_y)):
         y_delta = np.delete(data_y, slice(None))
         total_upsampling_fold= cfg.N_BOOT_FOLD_UPSAMPLING 
 
         for element in range(0, N_BEARING * total_upsampling_fold, total_upsampling_fold):
-                y_delta = np.append(y_delta, data_y[element])
+            y_delta = np.append(y_delta, data_y[element])
 
         T1, T2 = (data_X, data_y), (data_X, data_y)
 
         print(f"Started evaluation of {len(models)} models/{len(ft_selectors)} ft selectors/{len(T1[0])} total samples. Dataset: {DATASET}. Type: {TYPE}")
         for model_builder in models:
-
             model_name = model_builder.__name__
 
             if model_name == 'WeibullAFT' or model_name == 'LogNormalAFT' or model_name == 'LogLogisticAFT' or model_name == 'ExponentialRegressionAFT':
@@ -131,8 +129,8 @@ def main():
                 print("ft_selector name: ", ft_selector_name)
                 print("model_builder name: ", model_name)
 
-                dummy_x= list(range(0, N_BEARING))
-                dummy_y= list(range(0, N_BEARING))
+                dummy_x = list(range(0, N_BEARING))
+                dummy_y = list(range(0, N_BEARING))
 
                 for n_repeat in range(N_REPEATS):
                     kf = KFold(n_splits= N_SPLITS, random_state=n_repeat, shuffle=True)
