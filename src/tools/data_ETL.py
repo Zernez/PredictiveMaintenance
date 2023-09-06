@@ -3,6 +3,7 @@ import numpy as np
 import statistics
 import random
 import re
+import math
 from sksurv.util import Surv
 from sklearn.preprocessing import StandardScaler
 from sklearn_pandas import DataFrameMapper
@@ -24,8 +25,7 @@ class DataETL:
         row = pd.DataFrame()
         data_cov= pd.DataFrame()
         ref_value= {}
-        
-        # self.total_bearings = 10 #pronostia 30 #xjtu 
+
         for bear_num in range (1, self.total_bearings + 1, (bootstrap * 2) + 4):
             val= self.event_analyzer (bear_num, info_pack)
             ref_value.update({bear_num : val})
@@ -108,14 +108,24 @@ class DataETL:
                 for column in covariates:
                     columnSeriesObj = covariates[column]
                     columnSeriesObj= columnSeriesObj.dropna()
-    
-                    timepoints= len(columnSeriesObj)
-                    time_window= int(timepoints / time_split)
-                    low= time_window * moving_window
-                    high= time_window * (moving_window + 1)
 
                     bear_num = int(re.findall("\d?\d?\d", column)[0])
-                    temp_label_cov= ""
+                    temp_label_cov= ""                    
+                    
+                    timepoints= int(self.sur_time_manager(bear_num, set_boot, ref_value))
+                    time_window= int(timepoints / time_split)
+                    if time_window == 0:
+                        time_window = 2
+                        low= time_window * moving_window
+                        if moving_window < timepoints:
+                            low= time_window * moving_window
+                            high= time_window * (moving_window + 1)
+                        else:
+                            low= timepoints - 1
+                            high= timepoints
+                    else:                        
+                        low= time_window * moving_window
+                        high= time_window * (moving_window + 1)
                     
                     if re.findall(r"mean\b", column):
                         temp_label_cov = "mean"
@@ -169,27 +179,36 @@ class DataETL:
                     elif re.findall(r"Survival_time\b", column):
                         temp_label_cov = "Survival_time"
                         columnSeriesObj = self.sur_time_manager(bear_num, set_boot, ref_value)
+                        # if bear_num== 1 or bear_num== 11 or bear_num== 21 or bear_num== 31 or bear_num== 41:
+                            # print("Bear num: ", bear_num)
+                            # print (columnSeriesObj)
                     
                     label= temp_label_cov
                     
                     if label == "Event" or label == "Survival_time":
                         if label == "Survival_time":
                             if type == "correlated":
-                                if high < columnSeriesObj:
+                                if high < timepoints:
                                     proportional_value= columnSeriesObj - high
                                 else:
                                     proportional_value= columnSeriesObj
-                                row [label]= pd.Series(proportional_value).T 
+                                row [label]= pd.Series(proportional_value).T
                             else:  
                                 proportional_value= columnSeriesObj
                                 row [label]= pd.Series(proportional_value).T  
                         else:
                             row [label]= pd.Series(columnSeriesObj).T   
                     else:
-                        if high <= timepoints:
-                            slice= columnSeriesObj.loc[low:high]
-                        else:
-                            slice= columnSeriesObj.loc[low:-1]
+                        if type == "correlated":
+                            if high < timepoints:
+                                slice= columnSeriesObj.iloc[- (time_window * (moving_window + 1)): -1]
+                            else:
+                                slice= columnSeriesObj.iloc[low:-1]
+                        else:                            
+                            if high < timepoints:
+                                slice= columnSeriesObj.iloc[low:high]
+                            else:
+                                slice= columnSeriesObj.iloc[low:-1]
 
                         row [label]= pd.Series(np.mean(slice.values)).T
 
@@ -199,7 +218,6 @@ class DataETL:
                 moving_window+= 1
 
         data_sa = Surv.from_dataframe("Event", "Survival_time", data_cov)
-
         return data_cov, data_sa
             
     def ev_manager (self, num, bootstrap, tot):
@@ -225,14 +243,14 @@ class DataETL:
                 return value + random.randint(-2, 2)    
         
         bootstrap= len (bootref) - 1
-        tot= ((bootstrap * 2) + 4) * 5
+        tot= ((bootstrap * 2) + 4) * self.real_bearings
         boot_pack_level=  int((self.total_bearings / self.real_bearings) + 1)
         boot_pack_max= int (self.total_bearings / self.real_bearings)
         num_ref= self.total_signals
        
         #Bootstrapping + addtitional randomizator
         i= 0
-        for check in range(boot_pack_level, tot + (bootstrap * 2) + 5, (bootstrap * 2) + 4):    
+        for check in range(boot_pack_level, tot + (bootstrap * 2) + self.real_bearings, (bootstrap * 2) + 4):    
             if not num >= check:
                 if num== num_ref:
                     return bootref.iat[0,i] + ref[check - boot_pack_max] + random.randint(-2, -1)               

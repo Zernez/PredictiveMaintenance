@@ -23,16 +23,15 @@ warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 N_BOOT = 3
 N_REPEATS = 1
 NEW_DATASET = False
-DATASET = "pronostia"
+DATASET = "xjtu"
 TEST_SIZE = 0.3
 TYPE = "correlated"  # not_correlated
 LINE_PLOT = 3
 FEATURE_TO_SPLIT = "rms"
-SPLIT_THRESHOLD = []
+SPLIT_THRESHOLD = [2]
 SPLITTED = True
 N_CONDITION = len (cfg.RAW_DATA_PATH_PRONOSTIA)
 MERGE= False
-
 
 def main():
     global BEARINGS
@@ -44,7 +43,8 @@ def main():
         TEST_SIZE = 0.5 
     elif DATASET == "xjtu":
         BEARINGS = 5
-        BOOT_NO = 500
+        BOOT_NO = 200
+        TEST_SIZE = 0.3
 
     if NEW_DATASET == True:
         Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)
@@ -102,7 +102,7 @@ def main():
             dummy_y= list(range(0, BEARINGS))
 
             X_train, X_test, y_train, y_test = train_test_split(
-                dummy_x, dummy_y, test_size=TEST_SIZE, random_state=0)
+                dummy_x, dummy_y, shuffle=False, test_size=TEST_SIZE, random_state=None)
 
             train_index = X_train
             test_index = X_test
@@ -119,14 +119,10 @@ def main():
 
             S1, S2 = (X.iloc[train], y[train]), (X.iloc[test], y[test])
 
-            set_tr, set_te, set_tr_NN, set_te_NN = data_util.format_main_data(
-                S1, S2)
-            percent_ref = data_util.calculate_positions_percentages(
-                set_te[0], FEATURE_TO_SPLIT, SPLIT_THRESHOLD)
-            set_tr, set_te, set_tr_NN, set_te_NN = data_util.centering_main_data(
-                set_tr, set_te, set_tr_NN, set_te_NN)
-            val_ref = data_util.find_values_by_percentages(
-                set_te[0], FEATURE_TO_SPLIT, percent_ref)
+            set_tr, set_te, set_tr_NN, set_te_NN = data_util.format_main_data(S1, S2)
+            percent_ref = data_util.calculate_positions_percentages(set_te[0], FEATURE_TO_SPLIT, SPLIT_THRESHOLD)
+            set_tr, set_te, set_tr_NN, set_te_NN = data_util.centering_main_data(set_tr, set_te, set_tr_NN, set_te_NN)
+            val_ref = data_util.find_values_by_percentages(set_te[0], FEATURE_TO_SPLIT, percent_ref)
 
             X_train = set_tr[0]
             y_train = set_tr[1]
@@ -141,8 +137,7 @@ def main():
 
             lower, upper = np.percentile(S1[1]['Survival_time'], [10, 90])
             time_bins = np.arange(np.ceil(lower), np.floor(upper))
-            lower_NN, upper_NN = np.percentile(
-                y_test[y_test.dtype.names[1]], [10, 90])
+            lower_NN, upper_NN = np.percentile(y_test[y_test.dtype.names[1]], [10, 90])
             times = np.arange(np.ceil(lower_NN), np.floor(upper_NN))
 
             weibull_model = WeibullAFTFitter(alpha=0.4, penalizer=0.04)
@@ -154,128 +149,101 @@ def main():
             DSM_model = regressors.DSM().make_model()
             DSM_params = regressors.DSM().get_best_hyperparams()
 
-            best_features = feature_selectors.NoneSelector(
-                X_train, y_train, cph_model).get_features()
-            X_train, X_test, X_train_NN, X_test_NN = X_train.loc[:, best_features], X_test.loc[:,
-                                                                                            best_features], X_train_NN.loc[:, best_features], X_test_NN.loc[:, best_features]
+            best_features = feature_selectors.NoneSelector(X_train, y_train, cph_model).get_features()
+            #best_features= ['mean', 'std', 'skew', 'kurtosis', 'entropy', 'rms', 'max', 'p2p', 'crest', 'clearence', 'shape', 'impulse']
+            X_train, X_test, X_train_NN, X_test_NN = X_train.loc[:, best_features], X_test.loc[:,best_features], X_train_NN.loc[:, best_features], X_test_NN.loc[:, best_features]
 
             x = X_train_NN.to_numpy()
             t = y_train_NN['time'].to_numpy()
             e = y_train_NN['event'].to_numpy()
             xte = X_test_NN.to_numpy()
 
-            X_train_WB = pd.concat([X_train.reset_index(drop=True),
-                                    pd.DataFrame(y_train['Survival_time'], columns=['Survival_time'])], axis=1)
-            X_train_WB = pd.concat([X_train_WB.reset_index(drop=True),
-                                    pd.DataFrame(y_train['Event'], columns=['Event'])], axis=1)
-            X_test_WB = pd.concat([X_test.reset_index(drop=True),
-                                pd.DataFrame(y_test['Survival_time'], columns=['Survival_time'])], axis=1)
-            X_test_WB = pd.concat([X_test_WB.reset_index(drop=True),
-                                pd.DataFrame(y_test['Event'], columns=['Event'])], axis=1)
+            X_train_WB = pd.concat([X_train.reset_index(drop=True), pd.DataFrame(y_train['Survival_time'], columns=['Survival_time'])], axis=1)
+            X_train_WB = pd.concat([X_train_WB.reset_index(drop=True), pd.DataFrame(y_train['Event'], columns=['Event'])], axis=1)
+            X_test_WB = pd.concat([X_test.reset_index(drop=True), pd.DataFrame(y_test['Survival_time'], columns=['Survival_time'])], axis=1)
+            X_test_WB = pd.concat([X_test_WB.reset_index(drop=True), pd.DataFrame(y_test['Event'], columns=['Event'])], axis=1)
 
             start_time_weibull = time.time()
-            weibull_model.fit(
-                X_train_WB, duration_col='Survival_time', event_col='Event')
+            weibull_model.fit(X_train_WB, duration_col='Survival_time', event_col='Event')
             end_time_weibull = time.time()-start_time_weibull
+
             start_time_cph = time.time()
             cph_model.fit(X_train, y_train)
             end_time_cph = time.time()-start_time_cph
+
             start_time_rsf = time.time()
             rsf_model.fit(X_train, y_train)
             end_time_rsf = time.time()-start_time_rsf
+
             start_time_boost = time.time()
             boost_model.fit(X_train, y_train)
             end_time_boost = time.time()-start_time_boost
+
             start_time_NN = time.time()
             NN_model.fit(x, t, e, vsize=0.3, **NN_params)
             end_time_NN = time.time()-start_time_NN
+
             start_time_DSM = time.time()
             DSM_model.fit(x, t, e, vsize=0.3, **DSM_params)
             end_time_DSM = time.time()-start_time_DSM
 
-            lower_NN_tr, upper_NN_tr = np.percentile(
-                y_train[y_train.dtype.names[1]], [10, 90])
+            lower_NN_tr, upper_NN_tr = np.percentile(y_train[y_train.dtype.names[1]], [10, 90])
             times_tr = np.arange(np.ceil(lower_NN_tr), np.floor(upper_NN_tr))
 
-            weibull_surv_func = survival.predict_survival_function(
-                weibull_model, X_test_WB, time_bins)
-            cph_surv_func = survival.predict_survival_function(
-                cph_model, X_test, time_bins)
-            boost_surv_func = survival.predict_survival_function(
-                boost_model, X_test, time_bins)
-            rsf_surv_func = survival.predict_survival_function(
-                rsf_model, X_test, time_bins)
+            weibull_surv_func = survival.predict_survival_function(weibull_model, X_test_WB, time_bins)
+            cph_surv_func = survival.predict_survival_function(cph_model, X_test, time_bins)
+            boost_surv_func = survival.predict_survival_function(boost_model, X_test, time_bins)
+            rsf_surv_func = survival.predict_survival_function(rsf_model, X_test, time_bins)
             NN_surv_func = survival.predict_survival_function(NN_model, xte, times)
-            NN_surv_func_tr = survival.predict_survival_function(
-                NN_model, x, times_tr)
-            DSM_surv_func = survival.predict_survival_function(
-                DSM_model, xte, times)
-            DSM_surv_func_tr = survival.predict_survival_function(
-                DSM_model, x, times_tr)
+            NN_surv_func_tr = survival.predict_survival_function(NN_model, x, times_tr)
+            DSM_surv_func = survival.predict_survival_function(DSM_model, xte, times)
+            DSM_surv_func_tr = survival.predict_survival_function(DSM_model, x, times_tr)
 
-            weibull_hazard_func = survival.predict_hazard_function(
-                weibull_model, X_test_WB, time_bins)
-            cph_hazard_func = survival.predict_hazard_function(
-                cph_model, X_test, time_bins)
-            boost_hazard_func = survival.predict_hazard_function(
-                boost_model, X_test, time_bins)
-            rsf_hazard_func = survival.predict_hazard_function(
-                rsf_model, X_test, time_bins)
+            weibull_hazard_func = survival.predict_hazard_function(weibull_model, X_test_WB, time_bins)
+            cph_hazard_func = survival.predict_hazard_function(cph_model, X_test, time_bins)
+            boost_hazard_func = survival.predict_hazard_function(boost_model, X_test, time_bins)
+            rsf_hazard_func = survival.predict_hazard_function(rsf_model, X_test, time_bins)
 
             km_mean, km_high, km_low = calculate_kaplan_vectorized(y_test['Event'].reshape(1, -1),
-                                                                y_test['Survival_time'].reshape(
-                                                                    1, -1),
-                                                                time_bins)
+                                                                   y_test['Survival_time'].reshape(1, -1),
+                                                                   time_bins)
 
             # WEIBULL C_INDEX
             weibull_c_index = np.mean(weibull_model.concordance_index_)
-            ev = EvalSurv(weibull_surv_func.T,
-                        y_test['Survival_time'], y_test['Event'], censor_surv="km")
+            ev = EvalSurv(weibull_surv_func.T, y_test['Survival_time'], y_test['Event'], censor_surv="km")
             weibull_c_index_td = ev.concordance_td()
 
             # CPH C_INDEX
-            cph_c_index = concordance_index_censored(y_test['Event'], y_test['Survival_time'],
-                                                    cph_model.predict(X_test))[0]
-            ev = EvalSurv(
-                cph_surv_func.T, y_test['Survival_time'], y_test['Event'], censor_surv="km")
+            cph_c_index = concordance_index_censored(y_test['Event'], y_test['Survival_time'], cph_model.predict(X_test))[0]
+            ev = EvalSurv(cph_surv_func.T, y_test['Survival_time'], y_test['Event'], censor_surv="km")
             cph_c_index_td = ev.concordance_td()
 
             # RSF C_INDEX
-            rsf_c_index = concordance_index_censored(y_test['Event'], y_test['Survival_time'],
-                                                    rsf_model.predict(X_test))[0]
-            ev = EvalSurv(
-                rsf_surv_func.T, y_test['Survival_time'], y_test['Event'], censor_surv="km")
+            rsf_c_index = concordance_index_censored(y_test['Event'], y_test['Survival_time'], rsf_model.predict(X_test))[0]
+            ev = EvalSurv(rsf_surv_func.T, y_test['Survival_time'], y_test['Event'], censor_surv="km")
             rsf_c_index_td = ev.concordance_td()
 
             # Boost C_INDEX
-            boost_c_index = concordance_index_censored(y_test['Event'], y_test['Survival_time'],
-                                                    boost_model.predict(X_test))[0]
-            ev = EvalSurv(
-                rsf_surv_func.T, y_test['Survival_time'], y_test['Event'], censor_surv="km")
+            boost_c_index = concordance_index_censored(y_test['Event'], y_test['Survival_time'], boost_model.predict(X_test))[0]
+            ev = EvalSurv(rsf_surv_func.T, y_test['Survival_time'], y_test['Event'], censor_surv="km")
             boost_c_index_td = ev.concordance_td()
 
-            times = np.arange(np.ceil(lower_NN), np.floor(
-                upper_NN), len(y_test['Event']))
+            times = np.arange(np.ceil(lower_NN), np.floor(upper_NN), len(y_test['Event']))
             risk_NN = NN_model.predict_risk(xte, t=list(times))
             risk_NN = [item[0] for item in risk_NN]
 
             # NN C_INDEX
-            NN_c_index = concordance_index_censored(
-                y_test['Event'], y_test['Survival_time'], risk_NN)[0]
+            NN_c_index = concordance_index_censored(y_test['Event'], y_test['Survival_time'], risk_NN)[0]
         #        NN_c_index_tr = concordance_index_censored(y_train['Event'], y_train['Survival_time'], NN_surv_func_tr)[0]
-            ev = EvalSurv(
-                NN_surv_func.T, y_test['Survival_time'], y_test['Event'], censor_surv="km")
+            ev = EvalSurv(NN_surv_func.T, y_test['Survival_time'], y_test['Event'], censor_surv="km")
             NN_c_index_td = ev.concordance_td()
 
+            # DSM C_INDEX
             risk_DSM = DSM_model.predict_risk(xte, t=list(times))
             risk_DSM = [item[0] for item in risk_DSM]
-
-            # DSM C_INDEX
-            DSM_c_index = concordance_index_censored(
-                y_test['Event'], y_test['Survival_time'], risk_DSM)[0]
+            DSM_c_index = concordance_index_censored(y_test['Event'], y_test['Survival_time'], risk_DSM)[0]
         #        DSM_c_index_tr = concordance_index_censored(y_train['Event'], y_train['Survival_time'], DSM_surv_func_tr)[0]
-            ev = EvalSurv(
-                DSM_surv_func.T, y_test['Survival_time'], y_test['Event'], censor_surv="km")
+            ev = EvalSurv(DSM_surv_func.T, y_test['Survival_time'], y_test['Event'], censor_surv="km")
             DSM_c_index_td = ev.concordance_td()
 
             # WEIBULL BS
@@ -293,52 +261,34 @@ def main():
             boost_surv_probs = pd.DataFrame(rsf_surv_func)
             boost_bs = approx_brier_score(y_test, boost_surv_probs)
 
-            times = np.arange(np.ceil(lower_NN), np.floor(upper_NN))
-
             # NN BS
             NN_surv_probs = NN_model.predict_survival(xte)
-            # NN_surv_probs = pd.DataFrame(np.row_stack([NN_model.predict_risk(xte, t= time).flatten() for time in times]).T)
             NN_bs = approx_brier_score(y_test, NN_surv_probs)
 
-            # NN_surv_probs_tr = pd.DataFrame(np.row_stack([NN_model.predict_risk(x, t= time).flatten() for time in times_tr]).T)
             NN_surv_probs_tr = NN_model.predict_survival(x)
             NN_bs_tr = approx_brier_score(y_train, NN_surv_probs_tr)
 
             # DSM BS
-            # DSM_surv_probs = pd.DataFrame(np.row_stack([DSM_model.predict_risk(xte, t= time).flatten() for time in times]).T)
-            DSM_surv_probs = pd.DataFrame(DSM_model.predict_survival(xte, t=times))
+            times = np.arange(np.ceil(lower_NN), np.floor(upper_NN))
+            DSM_surv_probs = pd.DataFrame(DSM_model.predict_survival(xte, t= list(times)))
             DSM_bs = approx_brier_score(y_test, DSM_surv_probs)
 
-            # DSM_surv_probs_tr = pd.DataFrame(np.row_stack([DSM_model.predict_risk(x, t= time).flatten() for time in times_tr]).T)
-            DSM_surv_probs_tr = pd.DataFrame(
-                NN_model.predict_survival(x, t=max(times_tr)))
+            DSM_surv_probs_tr = pd.DataFrame(NN_model.predict_survival(x, t=list(times_tr)))
             DSM_bs_tr = approx_brier_score(y_train, DSM_surv_probs_tr)
 
             print("Performance info: ")
-            print(
-                f"Weibull model: TrTime, CI, CItd, BS - {end_time_weibull}/{weibull_c_index}/{weibull_c_index_td}/{weibull_bs}")
-            df_CI, df_B = Resumer.plot_performance(
-                False, df_CI, df_B, "Weibull AFT", weibull_c_index, weibull_bs)
-            print(
-                f"CPH model: TrTime, CI, CItd, BS - {end_time_cph}/{cph_c_index}/{cph_c_index_td}/{cph_bs}")
-            df_CI, df_B = Resumer.plot_performance(
-                False, df_CI, df_B, "Cox PH", cph_c_index, cph_bs)
-            print(
-                f"RSF model: TrTime, CI, CItd, BS - {end_time_rsf}/{rsf_c_index}/{rsf_c_index_td}/{rsf_bs}")
-            df_CI, df_B = Resumer.plot_performance(
-                False, df_CI, df_B, "Random Survival Forest", rsf_c_index, rsf_bs)
-            print(
-                f"Boost model: TrTime, CI, CItd, BS - {end_time_boost}/{boost_c_index}/{boost_c_index_td}/{boost_bs}")
-            df_CI, df_B = Resumer.plot_performance(
-                False, df_CI, df_B, "Gradient Boosting", boost_c_index, boost_bs)
-            print(
-                f"NN model: TrTime, CI, CItd, BS - {end_time_NN}/{NN_c_index}/{NN_c_index_td}/{NN_bs}")
-            df_CI, df_B = Resumer.plot_performance(
-                False, df_CI, df_B, "Neural Network", NN_c_index, NN_bs)
-            print(
-                f"DSM model: TrTime, CI, CItd, BS - {end_time_DSM}/{DSM_c_index}/{DSM_c_index_td}/{DSM_bs}")
-            df_CI, df_B = Resumer.plot_performance(
-                False, df_CI, df_B, "DSM", DSM_c_index, DSM_bs)
+            print(f"Weibull model: TrTime, CI, CItd, BS - {end_time_weibull}/{weibull_c_index}/{weibull_c_index_td}/{weibull_bs}")
+            df_CI, df_B = Resumer.plot_performance(False, df_CI, df_B, "Weibull AFT", weibull_c_index, weibull_bs)
+            print(f"CPH model: TrTime, CI, CItd, BS - {end_time_cph}/{cph_c_index}/{cph_c_index_td}/{cph_bs}")
+            df_CI, df_B = Resumer.plot_performance(False, df_CI, df_B, "Cox PH", cph_c_index, cph_bs)
+            print(f"RSF model: TrTime, CI, CItd, BS - {end_time_rsf}/{rsf_c_index}/{rsf_c_index_td}/{rsf_bs}")
+            df_CI, df_B = Resumer.plot_performance(False, df_CI, df_B, "Random Survival Forest", rsf_c_index, rsf_bs)
+            print(f"Boost model: TrTime, CI, CItd, BS - {end_time_boost}/{boost_c_index}/{boost_c_index_td}/{boost_bs}")
+            df_CI, df_B = Resumer.plot_performance(False, df_CI, df_B, "Gradient Boosting", boost_c_index, boost_bs)
+            print(f"NN model: TrTime, CI, CItd, BS - {end_time_NN}/{NN_c_index}/{NN_c_index_td}/{NN_bs}")
+            df_CI, df_B = Resumer.plot_performance(False, df_CI, df_B, "Neural Network", NN_c_index, NN_bs)
+            print(f"DSM model: TrTime, CI, CItd, BS - {end_time_DSM}/{DSM_c_index}/{DSM_c_index_td}/{DSM_bs}")
+            df_CI, df_B = Resumer.plot_performance(False, df_CI, df_B, "DSM", DSM_c_index, DSM_bs)
 
         #        print ("Overfitting - underfitting info: ")
         #        print(f"NN model train: TrCI, TrBS - {NN_bs}/{NN_bs_tr}")
@@ -346,18 +296,17 @@ def main():
 
             print("Latex performance table: ")
             print(f"CoxPH & {round(end_time_cph, 3)} & {round(cph_c_index, 3)} & {round(cph_c_index_td, 3)} & {round(cph_bs, 3)} \\\\" +
-                f"RSF & {round(end_time_rsf, 3)} & {round(rsf_c_index, 3)} & {round(rsf_c_index_td, 3)} & {round(rsf_bs, 3)} \\\\" +
-                f"CoxBoost & {round(end_time_boost, 3)} & {round(boost_c_index, 3)} & {round(boost_c_index_td, 3)} & {round(boost_bs, 3)}\\\\" +
-                f"DeepSurv & {round(end_time_NN, 3)} & {round(NN_c_index, 3)} & {round(NN_c_index_td, 3)} & {round(NN_bs, 3)}\\\\" +
-                f"DSM & {round(end_time_DSM, 3)} & {round(DSM_c_index, 3)} & {round(DSM_c_index_td, 3)} & {round(DSM_bs, 3)}\\\\" +
-                f"WeibullAFT & {round(end_time_weibull, 3)} & {round(weibull_c_index, 3)} & {round(weibull_c_index_td, 3)} & {round(weibull_bs, 3)}\\\\")
+                  f"RSF & {round(end_time_rsf, 3)} & {round(rsf_c_index, 3)} & {round(rsf_c_index_td, 3)} & {round(rsf_bs, 3)} \\\\" +
+                  f"CoxBoost & {round(end_time_boost, 3)} & {round(boost_c_index, 3)} & {round(boost_c_index_td, 3)} & {round(boost_bs, 3)}\\\\" +
+                  f"DeepSurv & {round(end_time_NN, 3)} & {round(NN_c_index, 3)} & {round(NN_c_index_td, 3)} & {round(NN_bs, 3)}\\\\" +
+                  f"DSM & {round(end_time_DSM, 3)} & {round(DSM_c_index, 3)} & {round(DSM_c_index_td, 3)} & {round(DSM_bs, 3)}\\\\" +
+                  f"WeibullAFT & {round(end_time_weibull, 3)} & {round(weibull_c_index, 3)} & {round(weibull_c_index_td, 3)} & {round(weibull_bs, 3)}\\\\")
             
             print ("The event detector estabilish an event for each bearing in: ", y_delta)
 
             # Plotting aggregate
             Km = KaplanMeierFitter()
-            Km.fit(durations=X_test_WB["Survival_time"],
-                event_observed=X_test_WB["Survival_time"])
+            Km.fit(durations= X_test_WB["Survival_time"], event_observed= X_test_WB["Survival_time"])
             Km.predict(time_bins)
 
             surv_label = []
@@ -404,7 +353,6 @@ def main():
         # #    Resumer.plot_shap(explainer_NN, shap_values_NN, X_test, "Neural Network")
 
         #    df_CI, df_B = Resumer.plot_performance(True, df_CI, df_B)
-
 
 if __name__ == "__main__":
     main()

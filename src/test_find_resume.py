@@ -189,10 +189,8 @@ def main():
                         space = model_builder().get_tuneable_params()
                         if parametric == True:
                             wf = model()
-                            search = RandomizedSearchCV(
-                                wf, space, n_iter=N_ITER, cv=N_INTERNAL_SPLITS, random_state=0)
-                            x_ti_wf = pd.concat([ti_new[0].reset_index(drop=True),
-                                                pd.DataFrame(ti_new[1]['Event'], columns=['Event'])], axis=1)
+                            search = RandomizedSearchCV(wf, space, n_iter=N_ITER, cv=N_INTERNAL_SPLITS, random_state=0)
+                            x_ti_wf = pd.concat([ti_new[0].reset_index(drop=True), pd.DataFrame(ti_new[1]['Event'], columns=['Event'])], axis=1)
                             y_ti_wf = np.array([x[1] for x in ti_new[1]], float)
                             search.fit(x_ti_wf, y_ti_wf)
                             best_params = search.best_params_
@@ -212,12 +210,8 @@ def main():
                         # Train on train set TI with new params
                         model_train_start_time = time()
                         if parametric == True:
-                            x_ti_wf = pd.concat([ti_new[0].reset_index(drop=True),
-                                                pd.DataFrame(ti_new[1]['Survival_time'],
-                                                            columns=['Survival_time'])], axis=1)
-                            x_ti_wf = pd.concat([x_ti_wf.reset_index(drop=True),
-                                                pd.DataFrame(ti_new[1]['Event'],
-                                                            columns=['Event'])], axis=1)
+                            x_ti_wf = pd.concat([ti_new[0].reset_index(drop=True), pd.DataFrame(ti_new[1]['Survival_time'], columns=['Survival_time'])], axis=1)
+                            x_ti_wf = pd.concat([x_ti_wf.reset_index(drop=True), pd.DataFrame(ti_new[1]['Event'], columns=['Event'])], axis=1)
                             model= WeibullAFTFitter(**best_params)
                             model.fit(x_ti_wf, duration_col='Survival_time', event_col='Event')
                         elif model_name == "DeepSurv":
@@ -240,27 +234,19 @@ def main():
                         # Get C-index scores from current CVI fold 
                         model_ci_inference_start_time = time()
                         if parametric == True:
-                            x_cvi_wf = pd.concat([cvi_new[0].reset_index(drop=True),
-                                                pd.DataFrame(cvi_new[1]['Survival_time'],
-                                                            columns=['Survival_time'])], axis=1)
-                            x_cvi_wf = pd.concat([x_cvi_wf.reset_index(drop=True),
-                                                pd.DataFrame(cvi_new[1]['Event'],
-                                                            columns=['Event'])], axis=1)
-                            preds = survival.predict_survival_function(
-                                model, x_cvi_wf, times)
-                            ev = EvalSurv(
-                                preds.T, cvi[1]['Survival_time'], cvi[1]['Event'], censor_surv="km")
+                            x_cvi_wf = pd.concat([cvi_new[0].reset_index(drop=True), pd.DataFrame(cvi_new[1]['Survival_time'], columns=['Survival_time'])], axis=1)
+                            x_cvi_wf = pd.concat([x_cvi_wf.reset_index(drop=True), pd.DataFrame(cvi_new[1]['Event'], columns=['Event'])], axis=1)
+                            preds = survival.predict_survival_function(model, x_cvi_wf, times)
+                            ev = EvalSurv(preds.T, cvi[1]['Survival_time'], cvi[1]['Event'], censor_surv="km")
                             c_index = ev.concordance_td()
                         elif model_name == "DeepSurv" or model_name == "DSM":
                             xte = cvi_new_NN[0].to_numpy()
                             preds = survival.predict_survival_function(model, xte, times)
-                            ev = EvalSurv(preds.T, cvi_new[1]['Survival_time'], cvi_new[1]['Event'],
-                                        censor_surv="km")
+                            ev = EvalSurv(preds.T, cvi_new[1]['Survival_time'], cvi_new[1]['Event'], censor_surv="km")
                             c_index = ev.concordance_td()
                         else:
                             preds = survival.predict_survival_function(model, cvi_new[0], times)
-                            ev = EvalSurv(preds.T, cvi_new[1]['Survival_time'], cvi_new[1]['Event'],
-                                        censor_surv="km")
+                            ev = EvalSurv(preds.T, cvi_new[1]['Survival_time'], cvi_new[1]['Event'], censor_surv="km")
                             c_index = ev.concordance_td()
                         model_ci_inference_time = time() - model_ci_inference_start_time
 
@@ -292,10 +278,10 @@ def main():
                                             get_best_features_time, get_best_params_time, model_train_time,
                                             model_ci_inference_time, model_bs_inference_time, t_total_split_time,
                                             best_params, selected_fts, y_delta],
-                                        index=["ModelName", "FtSelectorName", "NRepeat", "CIndex", "BrierScore", "NBLL",
-                                                "TBestFeatures", "TBestParams", "TModelTrain",
-                                                "TModelCIInference", "TModelBSInference", "TTotalSplit",
-                                                "BestParams", "SelectedFts", "DeltaY"])
+                                            index=["ModelName", "FtSelectorName", "NRepeat", "CIndex", "BrierScore", "NBLL",
+                                                   "TBestFeatures", "TBestParams", "TModelTrain",
+                                                   "TModelCIInference", "TModelBSInference", "TTotalSplit",
+                                                   "BestParams", "SelectedFts", "DeltaY"])
                         model_results = pd.concat(
                             [model_results, res_sr.to_frame().T], ignore_index=True)
             
