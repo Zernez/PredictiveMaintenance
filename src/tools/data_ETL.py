@@ -4,7 +4,6 @@ import statistics
 import random
 import re
 import math
-from sksurv.util import Surv
 from sklearn.preprocessing import StandardScaler
 from sklearn_pandas import DataFrameMapper
 import config as cfg
@@ -16,15 +15,24 @@ class DataETL:
             self.total_bearings= cfg.N_BEARING_TOT_XJTU
             self.real_bearings= cfg.N_REAL_BEARING_XJTU
             self.total_signals= cfg.N_SIGNALS_XJTU
+            self.boot_folder_size=  cfg.N_BOOT_FOLD_XJTU
+            self.folder_size= cfg.N_BOOT_FOLD_UPSAMPLING
         elif dataset == "pronostia":
             self.total_bearings= cfg.N_BEARING_TOT_PRONOSTIA
             self.real_bearings= cfg.N_REAL_BEARING_PRONOSTIA
             self.total_signals= cfg.N_SIGNALS_PRONOSTIA
+            self.boot_folder_size=  cfg.N_BOOT_FOLD_PRONOSTIA
+            self.folder_size= cfg.N_BOOT_FOLD_UPSAMPLING
 
     def make_surv_data_sklS (self, covariates, set_boot, info_pack, bootstrap, type):
         row = pd.DataFrame()
-        data_cov= pd.DataFrame()
         ref_value= {}
+        data_cov= []
+        type_foldering= []
+        for i in range(0 , self.real_bearings ,1):
+            data_cov.append(pd.DataFrame())
+        for i in range(1, self.boot_folder_size * self.real_bearings, self.boot_folder_size):   
+            type_foldering.append(range(i, (self.boot_folder_size * i) + 1, 1))
 
         for bear_num in range (1, self.total_bearings + 1, (bootstrap * 2) + 4):
             val= self.event_analyzer (bear_num, info_pack)
@@ -102,7 +110,9 @@ class DataETL:
                     row [label]= pd.Series(np.mean(columnSeriesObj.values)).T
 
                 if label == "Survival_time":
-                    data_cov = pd.concat([data_cov, row], ignore_index= True)
+                    for i, list in enumerate(type_foldering):
+                        if bear_num in list:
+                            data_cov[i] = pd.concat([data_cov[i], row], ignore_index= True)
         else:
             while moving_window < time_split:
                 for column in covariates:
@@ -179,9 +189,6 @@ class DataETL:
                     elif re.findall(r"Survival_time\b", column):
                         temp_label_cov = "Survival_time"
                         columnSeriesObj = self.sur_time_manager(bear_num, set_boot, ref_value)
-                        # if bear_num== 1 or bear_num== 11 or bear_num== 21 or bear_num== 31 or bear_num== 41:
-                            # print("Bear num: ", bear_num)
-                            # print (columnSeriesObj)
                     
                     label= temp_label_cov
                     
@@ -213,12 +220,13 @@ class DataETL:
                         row [label]= pd.Series(np.mean(slice.values)).T
 
                     if label == "Survival_time":
-                        data_cov = pd.concat([data_cov, row], ignore_index= True)
+                        for i, list in enumerate(type_foldering):
+                            if bear_num in list:
+                                data_cov[i] = pd.concat([data_cov[i], row], ignore_index= True)
                 
                 moving_window+= 1
 
-        data_sa = Surv.from_dataframe("Event", "Survival_time", data_cov)
-        return data_cov, data_sa
+        return data_cov, ref_value
             
     def ev_manager (self, num, bootstrap, tot):
         checker= True

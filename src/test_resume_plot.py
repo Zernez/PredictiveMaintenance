@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import time
 import config as cfg
+from sksurv.util import Surv
 # import shap
 from pycox.evaluation import EvalSurv
 from xgbse.non_parametric import calculate_kaplan_vectorized
@@ -23,12 +24,12 @@ warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 N_BOOT = 3
 N_REPEATS = 1
 NEW_DATASET = False
-DATASET = "xjtu"
+DATASET = "pronostia"
 TEST_SIZE = 0.3
-TYPE = "correlated"  # not_correlated
+TYPE = "not_correlated"  # not_correlated
 LINE_PLOT = 3
 FEATURE_TO_SPLIT = "rms"
-SPLIT_THRESHOLD = [2]
+SPLIT_THRESHOLD = []
 SPLITTED = True
 N_CONDITION = len (cfg.RAW_DATA_PATH_PRONOSTIA)
 MERGE= False
@@ -64,31 +65,25 @@ def main():
     data_container_X = []
     data_container_y= []
     if MERGE == True:
-        data_X = pd.DataFrame()
+        data_X_merge = pd.DataFrame()
         for i, (cov, boot, info_pack) in enumerate(zip(cov_group, boot_group, info_group)):
-            data_temp_X, data_temp_y = data_util.make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
+            data_temp_X, deltaref_temp_y = data_util.make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
             if i== 0:
-                data_y_merge =  data_temp_y
+                deltaref_y_merge =  deltaref_temp_y
             else:
-                data_y_merge =  np.concatenate((data_y_merge, data_temp_y))
+                deltaref_y_merge =  deltaref_y_merge.update(deltaref_temp_y)
             data_X_merge = pd.concat([data_X_merge, data_temp_X], ignore_index=True)
         data_container_X.append(data_X_merge)
-        data_container_y.append(data_y_merge)
+        data_container_y.append(deltaref_y_merge)
     else:
         for i, (cov, boot, info_pack) in enumerate(zip(cov_group, boot_group, info_group)):
-            data_temp_X, data_temp_y = data_util.make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
+            data_temp_X, deltaref_y = data_util.make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
             data_container_X.append(data_temp_X)
-            data_container_y.append(data_temp_y)
+            data_container_y.append(deltaref_y)
 
     for X, y in zip(data_container_X, data_container_y):
 
-        y_delta = np.delete(y, slice(None))
-        total_upsampling_fold= cfg.N_BOOT_FOLD_UPSAMPLING 
-
-        for element in range(0, BEARINGS * total_upsampling_fold, total_upsampling_fold):
-                y_delta = np.append(y_delta, y[element])
-
-        Resumer = Resume(X, y, DATASET)
+        y_delta = y
 
     #    Resumer.table_result_hyper()
     #    Resumer.presentation(BEARINGS, BOOT_NO)
@@ -101,28 +96,32 @@ def main():
             dummy_x= list(range(0, BEARINGS))
             dummy_y= list(range(0, BEARINGS))
 
-            X_train, X_test, y_train, y_test = train_test_split(
-                dummy_x, dummy_y, shuffle=False, test_size=TEST_SIZE, random_state=None)
+            X_train, X_test, y_train, y_test = train_test_split(dummy_x, dummy_y, shuffle= False, test_size=TEST_SIZE, random_state=None)
 
             train_index = X_train
             test_index = X_test
             train = np.delete(X_train, slice(None))
             test = np.delete(X_test, slice(None))               
 
+            data_X_merge = pd.DataFrame()
             for element in train_index:
-                for boot_index in range(element * total_upsampling_fold, (element * total_upsampling_fold) + total_upsampling_fold, 1):
-                    train = np.append(train, boot_index)
-
+                data_X_merge_tr = pd.concat([data_X_merge, X [element]], ignore_index=True)
             for element in test_index:
-                for boot_index in range(element * total_upsampling_fold, (element * total_upsampling_fold) + total_upsampling_fold, 1):
-                    test = np.append(test, boot_index)
+                data_X_merge_te = pd.concat([data_X_merge, X [element]], ignore_index=True)
 
-            S1, S2 = (X.iloc[train], y[train]), (X.iloc[test], y[test])
+            data_X_train = data_X_merge_tr
+            data_X_test = data_X_merge_te
+            data_y_train = Surv.from_dataframe("Event", "Survival_time", data_X_train)
+            data_y_test = Surv.from_dataframe("Event", "Survival_time", data_X_test)
+
+            S1, S2 = (data_X_train, data_y_train), (data_X_test, data_y_test)
 
             set_tr, set_te, set_tr_NN, set_te_NN = data_util.format_main_data(S1, S2)
             percent_ref = data_util.calculate_positions_percentages(set_te[0], FEATURE_TO_SPLIT, SPLIT_THRESHOLD)
             set_tr, set_te, set_tr_NN, set_te_NN = data_util.centering_main_data(set_tr, set_te, set_tr_NN, set_te_NN)
             val_ref = data_util.find_values_by_percentages(set_te[0], FEATURE_TO_SPLIT, percent_ref)
+
+            Resumer = Resume(data_X_test, data_y_test, DATASET)
 
             X_train = set_tr[0]
             y_train = set_tr[1]
@@ -140,7 +139,7 @@ def main():
             lower_NN, upper_NN = np.percentile(y_test[y_test.dtype.names[1]], [10, 90])
             times = np.arange(np.ceil(lower_NN), np.floor(upper_NN))
 
-            weibull_model = WeibullAFTFitter(alpha=0.4, penalizer=0.04)
+            weibull_model = WeibullAFTFitter(alpha=0.4, penalizer=0.06)
             cph_model = regressors.CoxPH().make_model()
             rsf_model = regressors.RSF().make_model()
             boost_model = regressors.CoxBoost().make_model()
@@ -150,7 +149,6 @@ def main():
             DSM_params = regressors.DSM().get_best_hyperparams()
 
             best_features = feature_selectors.NoneSelector(X_train, y_train, cph_model).get_features()
-            #best_features= ['mean', 'std', 'skew', 'kurtosis', 'entropy', 'rms', 'max', 'p2p', 'crest', 'clearence', 'shape', 'impulse']
             X_train, X_test, X_train_NN, X_test_NN = X_train.loc[:, best_features], X_test.loc[:,best_features], X_train_NN.loc[:, best_features], X_test_NN.loc[:, best_features]
 
             x = X_train_NN.to_numpy()
@@ -165,27 +163,27 @@ def main():
 
             start_time_weibull = time.time()
             weibull_model.fit(X_train_WB, duration_col='Survival_time', event_col='Event')
-            end_time_weibull = time.time()-start_time_weibull
+            end_time_weibull = time.time() - start_time_weibull
 
             start_time_cph = time.time()
             cph_model.fit(X_train, y_train)
-            end_time_cph = time.time()-start_time_cph
+            end_time_cph = time.time() - start_time_cph
 
             start_time_rsf = time.time()
             rsf_model.fit(X_train, y_train)
-            end_time_rsf = time.time()-start_time_rsf
+            end_time_rsf = time.time() - start_time_rsf
 
             start_time_boost = time.time()
             boost_model.fit(X_train, y_train)
-            end_time_boost = time.time()-start_time_boost
+            end_time_boost = time.time() - start_time_boost
 
             start_time_NN = time.time()
             NN_model.fit(x, t, e, vsize=0.3, **NN_params)
-            end_time_NN = time.time()-start_time_NN
+            end_time_NN = time.time() - start_time_NN
 
             start_time_DSM = time.time()
             DSM_model.fit(x, t, e, vsize=0.3, **DSM_params)
-            end_time_DSM = time.time()-start_time_DSM
+            end_time_DSM = time.time() - start_time_DSM
 
             lower_NN_tr, upper_NN_tr = np.percentile(y_train[y_train.dtype.names[1]], [10, 90])
             times_tr = np.arange(np.ceil(lower_NN_tr), np.floor(upper_NN_tr))
@@ -302,7 +300,7 @@ def main():
                   f"DSM & {round(end_time_DSM, 3)} & {round(DSM_c_index, 3)} & {round(DSM_c_index_td, 3)} & {round(DSM_bs, 3)}\\\\" +
                   f"WeibullAFT & {round(end_time_weibull, 3)} & {round(weibull_c_index, 3)} & {round(weibull_c_index_td, 3)} & {round(weibull_bs, 3)}\\\\")
             
-            print ("The event detector estabilish an event for each bearing in: ", y_delta)
+            print ("The event detector establish an event for each bearing in: ", y_delta)
 
             # Plotting aggregate
             Km = KaplanMeierFitter()

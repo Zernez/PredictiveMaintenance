@@ -7,6 +7,7 @@ import warnings
 import config as cfg
 import re
 from pycox.evaluation import EvalSurv
+from sksurv.util import Surv
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import KFold
 from xgbse.metrics import approx_brier_score
@@ -89,33 +90,27 @@ def main():
     data_container_X = []
     data_container_y= []
     if MERGE == True:
-        data_X = pd.DataFrame()
+        data_X_merge = pd.DataFrame()
         for i, (cov, boot, info_pack) in enumerate(zip(cov_group, boot_group, info_group)):
-            data_temp_X, data_temp_y = DataETL(DATASET).make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
+            data_temp_X, deltaref_temp_y = DataETL(DATASET).make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
             if i== 0:
-                data_y_merge =  data_temp_y
+                deltaref_y_merge =  deltaref_temp_y
             else:
-                data_y_merge =  np.concatenate((data_y_merge, data_temp_y))
+                deltaref_y_merge =  deltaref_y_merge.update(deltaref_temp_y)
             data_X_merge = pd.concat([data_X_merge, data_temp_X], ignore_index=True)
         data_container_X.append(data_X_merge)
-        data_container_y.append(data_y_merge)
+        data_container_y.append(deltaref_y_merge)
     else:
         for i, (cov, boot, info_pack) in enumerate(zip(cov_group, boot_group, info_group)):
-            data_temp_X, data_temp_y = DataETL(DATASET).make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
+            data_temp_X, deltaref_y = DataETL(DATASET).make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
             data_container_X.append(data_temp_X)
-            data_container_y.append(data_temp_y)
+            data_container_y.append(deltaref_y)
                                                                           
-    for i, data_X, data_y in enumerate(zip(data_container_X, data_container_y)):
+    for i, (data_X, data_y) in enumerate(zip(data_container_X, data_container_y)):
 
-        y_delta = np.delete(data_y, slice(None))
-        total_upsampling_fold= cfg.N_BOOT_FOLD_UPSAMPLING 
+        y_delta = data_y
 
-        for element in range(0, N_BEARING * total_upsampling_fold, total_upsampling_fold):
-                y_delta = np.append(y_delta, data_y[element])
-
-        T1, T2 = (data_X, data_y), (data_X, data_y)
-
-        print(f"Started evaluation of {len(models)} models/{len(ft_selectors)} ft selectors/{len(T1[0])} total samples. Dataset: {DATASET}. Type: {TYPE}")
+        print(f"Started evaluation of {len(models)} models/{len(ft_selectors)} ft selectors. Dataset: {DATASET}. Type: {TYPE}")
         for model_builder in models:
 
             model_name = model_builder.__name__
@@ -131,32 +126,35 @@ def main():
                 print("ft_selector name: ", ft_selector_name)
                 print("model_builder name: ", model_name)
 
-                dummy_x= list(range(0, N_BEARING))
-                dummy_y= list(range(0, N_BEARING))
+                dummy_x = list(range(0, N_BEARING))
+                dummy_y = list(range(0, N_BEARING))
 
                 for n_repeat in range(N_REPEATS):
                     kf = KFold(n_splits= N_SPLITS, random_state=n_repeat, shuffle=True)
-                    for train, test in kf.split(dummy_x, dummy_y):     
+                    for train, test in kf.split(dummy_x, dummy_y):
+
+                        split_start_time = time()     
 
                         train_index = train
                         train = np.delete(train, slice(None))
                         test_index = test
                         test = np.delete(test, slice(None))                                       
-
+                        
+                        data_X_merge = pd.DataFrame()
                         for element in train_index:
-                            for boot_index in range(element * total_upsampling_fold, (element * total_upsampling_fold) + total_upsampling_fold, 1):
-                                train = np.append(train, boot_index)
-
+                            data_X_merge_tr = pd.concat([data_X_merge, data_X [element]], ignore_index=True)
                         for element in test_index:
-                            for boot_index in range(element * total_upsampling_fold, (element * total_upsampling_fold) + total_upsampling_fold, 1):
-                                test = np.append(test, boot_index)
+                            data_X_merge_te = pd.concat([data_X_merge, data_X [element]], ignore_index=True)
 
-                        split_start_time = time()
+                        data_X_train = data_X_merge_tr
+                        data_X_test = data_X_merge_te
+                        data_y_train = Surv.from_dataframe("Event", "Survival_time", data_X_train)
+                        data_y_test = Surv.from_dataframe("Event", "Survival_time", data_X_test)
 
-                        ti, cvi, ti_NN, cvi_NN = DataETL(
-                            DATASET).format_main_data_Kfold(T1, train, test)
-                        ti, cvi, ti_NN, cvi_NN = DataETL(
-                            DATASET).centering_main_data(ti, cvi, ti_NN, cvi_NN)
+                        T1, T2 = (data_X_train, data_y_train), (data_X_test, data_y_test)
+                        ti, cvi, ti_NN, cvi_NN = DataETL(DATASET).format_main_data(T1, T2)
+                        # ti, cvi, ti_NN, cvi_NN = DataETL(DATASET).format_main_data_Kfold(T1, train, test)
+                        ti, cvi, ti_NN, cvi_NN = DataETL(DATASET).centering_main_data(ti, cvi, ti_NN, cvi_NN)
 
                         ft_selector_print_name = f"{ft_selector_name}"
                         model_print_name = f"{model_name}"
