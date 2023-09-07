@@ -11,6 +11,7 @@ from statsmodels.stats.outliers_influence import variance_inflation_factor
 from lifelines.utils import survival_table_from_events
 from lifelines.statistics import proportional_hazard_test
 from lifelines import CoxPHFitter
+from lifelines import KaplanMeierFitter
 
 import config as cfg
 import os
