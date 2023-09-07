@@ -33,6 +33,7 @@ N_REPEATS = 10
 N_INTERNAL_SPLITS = 3 
 N_ITER = 10
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str,
@@ -52,6 +53,7 @@ def main():
     global N_CONDITION
     global N_BEARING
     global N_SPLITS
+    global TRAIN_SIZE
 
     if args.dataset:
         DATASET = args.dataset
@@ -65,11 +67,13 @@ def main():
     if DATASET == "xjtu":
         N_CONDITION = len(cfg.RAW_DATA_PATH_XJTU)
         N_BEARING = cfg.N_REAL_BEARING_XJTU
-        N_SPLITS = 3  
+        N_SPLITS = 3
+        TRAIN_SIZE = 0.7   
     elif DATASET == "pronostia":
         N_CONDITION = len(cfg.RAW_DATA_PATH_PRONOSTIA)
         N_BEARING = cfg.N_REAL_BEARING_PRONOSTIA
         N_SPLITS = 2
+        TRAIN_SIZE = 0.5 
     
     if NEW_DATASET== True:
         Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)
@@ -110,6 +114,18 @@ def main():
 
         y_delta = data_y
 
+        dummy_x = list(range(0, int(np.floor(N_BEARING * TRAIN_SIZE)), 1))
+        data_index = dummy_x                            
+                        
+        data_X_merge = pd.DataFrame()
+        for element in data_index:
+            data_X_merge = pd.concat([data_X_merge, data_X [element]], ignore_index=True)
+
+        data_X = data_X_merge
+        data_y = Surv.from_dataframe("Event", "Survival_time", data_X)
+
+        T1 = (data_X, data_y)
+
         print(f"Started evaluation of {len(models)} models/{len(ft_selectors)} ft selectors. Dataset: {DATASET}. Type: {TYPE}")
         for model_builder in models:
             model_name = model_builder.__name__
@@ -125,34 +141,12 @@ def main():
                 print("ft_selector name: ", ft_selector_name)
                 print("model_builder name: ", model_name)
 
-                dummy_x = list(range(0, N_BEARING))
-                dummy_y = list(range(0, N_BEARING))
-
                 for n_repeat in range(N_REPEATS):
                     kf = KFold(n_splits= N_SPLITS, random_state=n_repeat, shuffle=True)
-                    for train, test in kf.split(dummy_x, dummy_y):
+                    for train, test in kf.split(data_X, data_y):
 
                         split_start_time = time()     
-
-                        train_index = train
-                        train = np.delete(train, slice(None))
-                        test_index = test
-                        test = np.delete(test, slice(None))                                       
-                        
-                        data_X_merge = pd.DataFrame()
-                        for element in train_index:
-                            data_X_merge_tr = pd.concat([data_X_merge, data_X [element]], ignore_index=True)
-                        for element in test_index:
-                            data_X_merge_te = pd.concat([data_X_merge, data_X [element]], ignore_index=True)
-
-                        data_X_train = data_X_merge_tr
-                        data_X_test = data_X_merge_te
-                        data_y_train = Surv.from_dataframe("Event", "Survival_time", data_X_train)
-                        data_y_test = Surv.from_dataframe("Event", "Survival_time", data_X_test)
-
-                        T1, T2 = (data_X_train, data_y_train), (data_X_test, data_y_test)
-                        ti, cvi, ti_NN, cvi_NN = DataETL(DATASET).format_main_data(T1, T2)
-                        # ti, cvi, ti_NN, cvi_NN = DataETL(DATASET).format_main_data_Kfold(T1, train, test)
+                        ti, cvi, ti_NN, cvi_NN = DataETL(DATASET).format_main_data_Kfold(T1, train, test)
                         ti, cvi, ti_NN, cvi_NN = DataETL(DATASET).centering_main_data(ti, cvi, ti_NN, cvi_NN)
 
                         ft_selector_print_name = f"{ft_selector_name}"
