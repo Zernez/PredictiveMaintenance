@@ -19,7 +19,6 @@ RESULT_PATH_PRONOSTIA= "./data/PRONOSTIA/results/"
 SAMPLE_PATH_PRONOSTIA= "./data/PRONOSTIA/csv/"
 HYPER_RESULTS= "./data/logs/"
 
-
 FREQUENCY_BANDS1 = {'xjtu_start': [10, 32, 69, 105, 169],
                        'xjtu_stop': [16, 38, 75, 111, 175]}
 FREQUENCY_BANDS2 = {'xjtu_start': [11, 34, 74, 112, 181],
