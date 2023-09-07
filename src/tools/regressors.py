@@ -85,7 +85,7 @@ class CoxPH (BaseRegressor):
                 'tol': [1e-1, 1e-5, 1e-9]}
     
     def get_best_hyperparams (self):
-        return {'tol': 1e-9, 
+        return {'tol': 1e-9,
                 'n_iter': 100}
 
 class CphRidge (BaseRegressor):
@@ -100,7 +100,7 @@ class CphRidge (BaseRegressor):
                 'tol': [1e-1, 1e-5, 1e-9]}
     
     def get_best_hyperparams (self):
-        return {'tol': 1e-9, 
+        return {'tol': 1e-9,
                 'n_iter': 100}
 
 class CphLASSO (BaseRegressor):
@@ -117,9 +117,9 @@ class CphLASSO (BaseRegressor):
                 'max_iter': [100000]}
     
     def get_best_hyperparams (self):
-        return {'tol': 1e-05, 
+        return {'tol': 1e-05,
                 'normalize': True,
-                'n_alphas': 50, 
+                'n_alphas': 50,
                 'max_iter': 100000}
 
 class CphElastic (BaseRegressor):

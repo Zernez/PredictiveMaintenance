@@ -1,7 +1,7 @@
 PARAMS_CPH = {'alpha': 0.1,
-            'ties': 'breslow',
-            'n_iter': 50,
-            'tol': 1e-1}
+              'ties': 'breslow',
+              'n_iter': 50,
+              'tol': 1e-05}
 
 PARAMS_CPH_RIDGE = {'alpha': 0.5,
                     'ties': 'breslow',
@@ -31,11 +31,11 @@ PARAMS_RSF = {
     'random_state': 0
 }
 
-PARAMS_GRADBOOST = {'n_estimators': 400,
+PARAMS_GRADBOOST = {'n_estimators': 200,
                         'learning_rate': 0.1,
-                        'max_depth': 5,
+                        'max_depth': 7,
                         'loss': 'coxph',
-                        'min_samples_split': 2,
+                        'min_samples_split': 5,
                         'min_samples_leaf': 4,
                         'max_features': None,
                         'dropout_rate': 0,
@@ -59,14 +59,14 @@ PARAMS_SVM = {'alpha': 1,
               'optimizer': 'avltree'}
 
 PARAMS_DEEPSURV = {'batch_size' : 16,
-                   'learning_rate' : 1e-3,
-                   'iters': 10}
+                   'learning_rate' : 0.01,
+                   'iters': 50}
 
-PARAMS_DSM = {'batch_size' :16,
-                   'learning_rate' : 1e-2,
-                   'iters': 100}
+PARAMS_DSM = {'batch_size' :64,
+              'learning_rate' : 0.01,
+              'iters': 50}
 
-PARAMS_WEIBULL = {'alpha': 0.4,
-                'penalizer': 0.04,
-                'l1_ratio': 0.0,
-                'fit_intercept': True}
+PARAMS_WEIBULL = {'alpha': 0.1,
+                  'penalizer': 0.02,
+                  'l1_ratio': 0.0,
+                  'fit_intercept': True}
