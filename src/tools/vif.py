@@ -9,7 +9,7 @@ class VIF:
         self.k = K
         self.selected_features= []
 
-    def fit(self, X, y):
+    def fit(self, X, y=None):
         # Create a DataFrame to store the VIF results
         data= X
         vif_data = pd.DataFrame()

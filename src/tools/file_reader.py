@@ -26,10 +26,10 @@ class FileReader:
         
         return [set1, set2, set3]
     
-    def read_data (self, from_pickle= False):
-        set_covariates= pd.read_csv(self.dataset_path + 'covariates.csv')
-        set_boot= pd.read_csv(self.dataset_path + 'boot.csv')
-        set_analytic= pd.read_csv(self.dataset_path + 'analytic.csv')
+    def read_data (self, fileno, from_pickle= False):
+        set_covariates= pd.read_csv(self.dataset_path + 'covariates_' + str(fileno) + '.csv')
+        set_boot= pd.read_csv(self.dataset_path + 'boot_' + str(fileno) + '.csv')
+        set_analytic= pd.read_csv(self.dataset_path + 'analytic_'  + str(fileno) + '.csv')
 
         if from_pickle== True:
             event_kl= self.read_pickle(self.dataset_path + "event_kl")

@@ -3,7 +3,7 @@ import numpy as np
 import statistics
 import random
 import re
-from sksurv.util import Surv
+import math
 from sklearn.preprocessing import StandardScaler
 from sklearn_pandas import DataFrameMapper
 import config as cfg
@@ -15,16 +15,25 @@ class DataETL:
             self.total_bearings= cfg.N_BEARING_TOT_XJTU
             self.real_bearings= cfg.N_REAL_BEARING_XJTU
             self.total_signals= cfg.N_SIGNALS_XJTU
+            self.boot_folder_size=  cfg.N_BOOT_FOLD_XJTU
+            self.folder_size= cfg.N_BOOT_FOLD_UPSAMPLING
         elif dataset == "pronostia":
             self.total_bearings= cfg.N_BEARING_TOT_PRONOSTIA
             self.real_bearings= cfg.N_REAL_BEARING_PRONOSTIA
             self.total_signals= cfg.N_SIGNALS_PRONOSTIA
+            self.boot_folder_size=  cfg.N_BOOT_FOLD_PRONOSTIA
+            self.folder_size= cfg.N_BOOT_FOLD_UPSAMPLING
 
     def make_surv_data_sklS (self, covariates, set_boot, info_pack, bootstrap, type):
         row = pd.DataFrame()
-        data_cov= pd.DataFrame()
         ref_value= {}
-    
+        data_cov= []
+        type_foldering= []
+        for i in range(0 , self.real_bearings ,1):
+            data_cov.append(pd.DataFrame())
+        for i in range(1, self.boot_folder_size * self.real_bearings, self.boot_folder_size):   
+            type_foldering.append(range(i, (self.boot_folder_size * i) + 1, 1))
+
         for bear_num in range (1, self.total_bearings + 1, (bootstrap * 2) + 4):
             val= self.event_analyzer (bear_num, info_pack)
             ref_value.update({bear_num : val})
@@ -32,16 +41,10 @@ class DataETL:
         moving_window= 0
         time_split= 20
 
-        while moving_window < time_split:
-
+        if type == 'bootstrap':
             for column in covariates:
                 columnSeriesObj = covariates[column]
                 columnSeriesObj= columnSeriesObj.dropna()
- 
-                timepoints= len(columnSeriesObj)
-                time_window= int(timepoints / time_split)
-                low= time_window * moving_window
-                high= time_window * (moving_window + 1)
 
                 bear_num = int(re.findall("\d?\d?\d", column)[0])
                 temp_label_cov= ""
@@ -70,6 +73,28 @@ class DataETL:
                     temp_label_cov = "shape"
                 elif re.findall(r"impulse\b", column):
                     temp_label_cov = "impulse"
+                elif re.findall(r"FoH\b", column):
+                    temp_label_cov = "FoH"
+                elif re.findall(r"FiH\b", column):
+                    temp_label_cov = "FiH"
+                elif re.findall(r"FrH\b", column):
+                    temp_label_cov = "FrH"
+                elif re.findall(r"FrpH\b", column):
+                    temp_label_cov = "FrpH"
+                elif re.findall(r"FcaH\b", column):
+                    temp_label_cov = "FcaH"
+                elif re.findall(r"Fo\b", column):
+                    temp_label_cov = "Fo"
+                elif re.findall(r"Fi\b", column):
+                    temp_label_cov = "Fi"
+                elif re.findall(r"Fr\b", column):
+                    temp_label_cov = "Fr"
+                elif re.findall(r"Frp\b", column):
+                    temp_label_cov = "Frp"
+                elif re.findall(r"Fca\b", column):
+                    temp_label_cov = "Fca"
+                elif re.findall(r"noise\b", column):
+                    temp_label_cov = "noise"
                 elif re.findall(r"Event\b", column):
                     temp_label_cov = "Event"
                     columnSeriesObj = self.ev_manager (bear_num, bootstrap, self.total_bearings)
@@ -80,34 +105,128 @@ class DataETL:
                 label= temp_label_cov
                 
                 if label == "Event" or label == "Survival_time":
-                    if label == "Survival_time":
-                        if type == "correlated":
-                            if high < columnSeriesObj:
-                                proportional_value= columnSeriesObj - high
-                            else:
-                                proportional_value= columnSeriesObj
-                            row [label]= pd.Series(proportional_value).T 
-                        else:  
-                            proportional_value= columnSeriesObj
-                            row [label]= pd.Series(proportional_value).T  
-                    else:
-                        row [label]= pd.Series(columnSeriesObj).T   
+                    row [label]= pd.Series(columnSeriesObj).T   
                 else:
-                    if high <= timepoints:
-                        slice= columnSeriesObj.loc[low:high]
-                    else:
-                        slice= columnSeriesObj.loc[low:-1]
-
-                    row [label]= pd.Series(np.mean(slice.values)).T
+                    row [label]= pd.Series(np.mean(columnSeriesObj.values)).T
 
                 if label == "Survival_time":
-                    data_cov = pd.concat([data_cov, row], ignore_index= True)
-            
-            moving_window+= 1
+                    for i, list in enumerate(type_foldering):
+                        if bear_num in list:
+                            data_cov[i] = pd.concat([data_cov[i], row], ignore_index= True)
+        else:
+            while moving_window < time_split:
+                for column in covariates:
+                    columnSeriesObj = covariates[column]
+                    columnSeriesObj= columnSeriesObj.dropna()
 
-        data_sa = Surv.from_dataframe("Event", "Survival_time", data_cov)
+                    bear_num = int(re.findall("\d?\d?\d", column)[0])
+                    temp_label_cov= ""                    
+                    
+                    timepoints= int(self.sur_time_manager(bear_num, set_boot, ref_value))
+                    time_window= int(timepoints / time_split)
+                    if time_window == 0:
+                        time_window = 2
+                        low= time_window * moving_window
+                        if moving_window < timepoints:
+                            low= time_window * moving_window
+                            high= time_window * (moving_window + 1)
+                        else:
+                            low= timepoints - 1
+                            high= timepoints
+                    else:                        
+                        low= time_window * moving_window
+                        high= time_window * (moving_window + 1)
+                    
+                    if re.findall(r"mean\b", column):
+                        temp_label_cov = "mean"
+                    elif re.findall(r"std\b", column):
+                        temp_label_cov = "std"
+                    elif re.findall(r"skew\b", column):
+                        temp_label_cov = "skew"
+                    elif re.findall(r"kurtosis\b", column):
+                        temp_label_cov = "kurtosis"
+                    elif re.findall(r"entropy\b", column):
+                        temp_label_cov = "entropy"
+                    elif re.findall(r"rms\b", column):
+                        temp_label_cov = "rms"
+                    elif re.findall(r"max\b", column):
+                        temp_label_cov = "max"
+                    elif re.findall(r"p2p\b", column):
+                        temp_label_cov = "p2p"
+                    elif re.findall(r"crest\b", column):
+                        temp_label_cov = "crest"
+                    elif re.findall(r"clearence\b", column):
+                        temp_label_cov = "clearence"
+                    elif re.findall(r"shape\b", column):
+                        temp_label_cov = "shape"
+                    elif re.findall(r"impulse\b", column):
+                        temp_label_cov = "impulse"
+                    elif re.findall(r"FoH\b", column):
+                        temp_label_cov = "FoH"
+                    elif re.findall(r"FiH\b", column):
+                        temp_label_cov = "FiH"
+                    elif re.findall(r"FrH\b", column):
+                        temp_label_cov = "FrH"
+                    elif re.findall(r"FrpH\b", column):
+                        temp_label_cov = "FrpH"
+                    elif re.findall(r"FcaH\b", column):
+                        temp_label_cov = "FcaH"
+                    elif re.findall(r"Fo\b", column):
+                        temp_label_cov = "Fo"
+                    elif re.findall(r"Fi\b", column):
+                        temp_label_cov = "Fi"
+                    elif re.findall(r"Fr\b", column):
+                        temp_label_cov = "Fr"
+                    elif re.findall(r"Frp\b", column):
+                        temp_label_cov = "Frp"
+                    elif re.findall(r"Fca\b", column):
+                        temp_label_cov = "Fca"
+                    elif re.findall(r"noise\b", column):
+                        temp_label_cov = "noise"
+                    elif re.findall(r"Event\b", column):
+                        temp_label_cov = "Event"
+                        columnSeriesObj = self.ev_manager (bear_num, bootstrap, self.total_bearings)
+                    elif re.findall(r"Survival_time\b", column):
+                        temp_label_cov = "Survival_time"
+                        columnSeriesObj = self.sur_time_manager(bear_num, set_boot, ref_value)
+                    
+                    label= temp_label_cov
+                    
+                    if label == "Event" or label == "Survival_time":
+                        if label == "Survival_time":
+                            if type == "correlated":
+                                if high < timepoints:
+                                    proportional_value= columnSeriesObj - high
+                                else:
+                                    proportional_value= columnSeriesObj
+                                row [label]= pd.Series(proportional_value).T
+                            else:  
+                                proportional_value= columnSeriesObj
+                                row [label]= pd.Series(proportional_value).T  
+                        else:
+                            row [label]= pd.Series(columnSeriesObj).T   
+                    else:
+                        if type == "correlated":
+                            if high < timepoints:
+                                slice= columnSeriesObj.iloc[- (time_window * (moving_window + 1)): -1]
+                            else:
+                                slice= columnSeriesObj.iloc[low:-1]
+                        else:                            
+                            if high < timepoints:
+                                slice= columnSeriesObj.iloc[low:high]
+                            else:
+                                slice= columnSeriesObj.iloc[low:-1]
 
-        return data_cov, data_sa
+                        row [label]= pd.Series(np.mean(slice.values)).T
+
+                    if label == "Survival_time":
+                        for i, list in enumerate(type_foldering):
+                            if bear_num in list:
+                                data_cov[i] = pd.concat([data_cov[i], row], ignore_index= True)
+                
+                moving_window+= 1
+
+        return data_cov, ref_value
             
     def ev_manager (self, num, bootstrap, tot):
         checker= True
@@ -132,14 +251,14 @@ class DataETL:
                 return value + random.randint(-2, 2)    
         
         bootstrap= len (bootref) - 1
-        tot= ((bootstrap * 2) + 4) * 5
+        tot= ((bootstrap * 2) + 4) * self.real_bearings
         boot_pack_level=  int((self.total_bearings / self.real_bearings) + 1)
         boot_pack_max= int (self.total_bearings / self.real_bearings)
         num_ref= self.total_signals
        
         #Bootstrapping + addtitional randomizator
         i= 0
-        for check in range(boot_pack_level, tot + (bootstrap * 2) + 5, (bootstrap * 2) + 4):    
+        for check in range(boot_pack_level, tot + (bootstrap * 2) + self.real_bearings, (bootstrap * 2) + 4):    
             if not num >= check:
                 if num== num_ref:
                     return bootref.iat[0,i] + ref[check - boot_pack_max] + random.randint(-2, -1)               
@@ -204,12 +323,11 @@ class DataETL:
             if data_sd:
                 data_kl= data_sd
             else:
-                raise Exception("Result impredictable, supervised assestment is needed")
+                data_kl= [tot_lenght]
+                print("For bearing #{}, event considered at the end of the recording".format(bear_num))
         if not data_sd:
             if data_kl:
                 data_sd= data_kl
-            else:
-                raise Exception("Result impredictable, supervised assestment is needed")
 
         res = [max (data_kl), max (data_sd)]
         res= round (statistics.mean (res), 1)

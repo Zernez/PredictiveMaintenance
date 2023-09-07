@@ -1,12 +1,12 @@
-src/PredMan/
 .vscode
 data/
-src/dataset
-plotter.jpynb
-
 __pycache__/
+
+src/PredMan/
 src/utility/config.py
 src/__pycache__/
 src/utility/__pycache__/
 src/tools/__pycache__/
 src/plotter.ipynb
+src/dataset
+src/HP_crest_kurtosis.ipynb
