@@ -30,7 +30,7 @@ class Builder:
         for z, group in enumerate(self.raw_main_path):
             j = 1
             for bearing in range (1, self.real_bearing + 1, 1):
-                dataset_path = group + "Bearing1_" + str(self.real_bearing)
+                dataset_path = group + "Bearing1_" + str(bearing)
                 if self.dataset == "xjtu":
                     datasets, bootstrap_val = Featuring().time_features_xjtu(dataset_path, bootstrap= bootno)
                 elif self.dataset == "pronostia": 
