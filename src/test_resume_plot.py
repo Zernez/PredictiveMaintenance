@@ -53,7 +53,6 @@ def main():
     #Prepare the object needed
     survival = Survival()
     data_util = DataETL(DATASET) 
-    Resumer = Resume(data_X_test, data_y_test, DATASET)
     
     #Eventually plot and create a table for CV search 
     #Resumer.table_result_hyper()
@@ -119,6 +118,9 @@ def main():
             data_X_test = data_X_merge_te
             data_y_train = Surv.from_dataframe("Event", "Survival_time", data_X_train)
             data_y_test = Surv.from_dataframe("Event", "Survival_time", data_X_test)
+
+            #Create an object for future plotting using test data
+            Resumer = Resume(data_X_test, data_y_test, DATASET)
 
             S1, S2 = (data_X_train, data_y_train), (data_X_test, data_y_test)
 
@@ -237,8 +239,10 @@ def main():
             ev = EvalSurv(rsf_surv_func.T, y_test['Survival_time'], y_test['Event'], censor_surv="km")
             boost_c_index_td = ev.concordance_td()
 
-            times = np.arange(np.ceil(lower_NN), np.floor(upper_NN), len(y_test['Event']))
-            risk_NN = NN_model.predict_risk(xte, t=list(times))
+            lower_NN, upper_NN = np.percentile(y_train[y_train.dtype.names[1]], [10, 90])
+            times = np.arange(np.ceil(lower_NN), np.floor(upper_NN))
+
+            risk_NN = NN_model.predict_risk(xte, t= times.tolist())
             risk_NN = [item[0] for item in risk_NN]
 
             #NN C_INDEX
