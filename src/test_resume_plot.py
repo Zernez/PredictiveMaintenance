@@ -24,8 +24,8 @@ warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 N_BOOT = cfg.N_BOOT
 N_REPEATS = 1
 NEW_DATASET = False
-DATASET = "pronostia"
-TYPE = "not_correlated"  # not_correlated
+DATASET = "xjtu"
+TYPE = "correlated"  # not_correlated
 LINE_PLOT = 3
 FEATURE_TO_SPLIT = "rms"
 SPLIT_THRESHOLD = [] # [2] Only for xjtu
@@ -108,16 +108,19 @@ def main():
             test = np.delete(X_test, slice(None))               
             
             #Load the indexed data  
-            data_X_merge = pd.DataFrame()
+            data_X_merge_tr = pd.DataFrame()
+            data_X_merge_te = pd.DataFrame()
             for element in train_index:
-                data_X_merge_tr = pd.concat([data_X_merge, X [element]], ignore_index=True)
+                data_X_merge_tr = pd.concat([data_X_merge_tr, X [element]], ignore_index=True)
             for element in test_index:
-                data_X_merge_te = pd.concat([data_X_merge, X [element]], ignore_index=True)
+                data_X_merge_te = pd.concat([data_X_merge_te, X [element]], ignore_index=True)
 
             data_X_train = data_X_merge_tr
             data_X_test = data_X_merge_te
             data_y_train = Surv.from_dataframe("Event", "Survival_time", data_X_train)
             data_y_test = Surv.from_dataframe("Event", "Survival_time", data_X_test)
+            data_X = pd.concat([data_X_train, data_X_test]) 
+            data_y = data_X [["Survival_time", "Event"]]
 
             #Create an object for future plotting using test data
             Resumer = Resume(data_X_test, data_y_test, DATASET)
@@ -126,9 +129,9 @@ def main():
 
             #Format and centering the data
             set_tr, set_te, set_tr_NN, set_te_NN = data_util.format_main_data(S1, S2)
-            percent_ref = data_util.calculate_positions_percentages(set_te[0], FEATURE_TO_SPLIT, SPLIT_THRESHOLD)
+            percent_ref = data_util.calculate_positions_percentages(X, FEATURE_TO_SPLIT, SPLIT_THRESHOLD)
             set_tr, set_te, set_tr_NN, set_te_NN = data_util.centering_main_data(set_tr, set_te, set_tr_NN, set_te_NN)
-            val_ref = data_util.find_values_by_percentages(set_te[0], FEATURE_TO_SPLIT, percent_ref)
+            val_ref = data_util.find_values_by_percentages(X, FEATURE_TO_SPLIT, percent_ref)
 
             #Set up a general format for general models and NNs
             X_train = set_tr[0]
@@ -195,7 +198,7 @@ def main():
             DSM_model.fit(x, t, e, vsize=0.3, **DSM_params)
             end_time_DSM = time.time() - start_time_DSM
 
-            #Set event times
+            #Set event times for training
             lower_NN_tr, upper_NN_tr = np.percentile(y_train[y_train.dtype.names[1]], [10, 90])
             times_tr = np.arange(np.ceil(lower_NN_tr), np.floor(upper_NN_tr))
 
