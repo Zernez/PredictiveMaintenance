@@ -32,7 +32,7 @@ class DataETL:
         for i in range(0 , self.real_bearings ,1):
             data_cov.append(pd.DataFrame())
         for i in range(1, self.boot_folder_size * self.real_bearings, self.boot_folder_size):   
-            type_foldering.append(range(i, (self.boot_folder_size * i) + 1, 1))
+            type_foldering.append(range(i, (i + self.boot_folder_size), 1))
 
         for bear_num in range (1, self.total_bearings + 1, (bootstrap * 2) + 4):
             val= self.event_analyzer (bear_num, info_pack)
@@ -125,14 +125,8 @@ class DataETL:
                     timepoints= int(self.sur_time_manager(bear_num, set_boot, ref_value))
                     time_window= int(timepoints / time_split)
                     if time_window == 0:
-                        time_window = 2
-                        low= time_window * moving_window
-                        if moving_window < timepoints:
-                            low= time_window * moving_window
-                            high= time_window * (moving_window + 1)
-                        else:
-                            low= timepoints - 1
-                            high= timepoints
+                        low= moving_window
+                        high= moving_window + 1
                     else:                        
                         low= time_window * moving_window
                         high= time_window * (moving_window + 1)
@@ -196,7 +190,10 @@ class DataETL:
                         if label == "Survival_time":
                             if type == "correlated":
                                 if high < timepoints:
-                                    proportional_value= columnSeriesObj - high
+                                    if columnSeriesObj > high:
+                                        proportional_value= columnSeriesObj - high
+                                    else:
+                                        proportional_value= columnSeriesObj                                     
                                 else:
                                     proportional_value= columnSeriesObj
                                 row [label]= pd.Series(proportional_value).T
@@ -208,7 +205,7 @@ class DataETL:
                     else:
                         if type == "correlated":
                             if high < timepoints:
-                                slice= columnSeriesObj.iloc[- (time_window * (moving_window + 1)): -1]
+                                slice= columnSeriesObj.iloc[low:high] #[- (time_window * (moving_window + 1)): -1]
                             else:
                                 slice= columnSeriesObj.iloc[low:-1]
                         else:                            
@@ -223,9 +220,7 @@ class DataETL:
                         for i, list in enumerate(type_foldering):
                             if bear_num in list:
                                 data_cov[i] = pd.concat([data_cov[i], row], ignore_index= True)
-                
-                moving_window+= 1
-
+                moving_window += 1        
         return data_cov, ref_value
             
     def ev_manager (self, num, bootstrap, tot):
