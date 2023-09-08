@@ -29,7 +29,7 @@ warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 N_BOOT = 3
 PLOT = True
 RESUME = True
-NEW_DATASET = True
+NEW_DATASET = False
 N_REPEATS = 1
 N_ITER = 10
 N_SPLITS = 5
@@ -64,7 +64,7 @@ def main():
     if args.merge:
         MERGE = args.merge
     
-    DATASET = "pronostia"
+    DATASET = "xjtu"
     TYPE = "correlated"
     MERGE = False
 
@@ -80,7 +80,7 @@ def main():
     if NEW_DATASET== True:
         Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)
     
-    models = [DSM]
+    models = [WeibullAFT, CoxPH, RSF, CoxBoost, DeepSurv, DSM]
     survival = Survival()
     
     cov_group = []

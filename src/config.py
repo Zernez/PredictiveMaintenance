@@ -40,10 +40,8 @@ PH_EXCLUSION = {'pronostia_not_corr': ['Fca','Fi','Fo','Fr','Frp', 'rms', 'clear
                 'xjtu_corr': ['Fca','Fi','Fo','Fr','Frp','mean', 'std', 'skew', 'FcaH', 'clearence', 'max', 'kurtosis', 'shape', 'crest'],
                 'xjtu_boot': ['Fca','Fi','Fo','Fr','Frp','entropy', 'FrpH', 'FcaH']}  
 
-PARAMS_CPH = {'alpha': 0.1,
-              'ties': 'breslow',
-              'n_iter': 50,
-              'tol': 1e-1}
+PARAMS_CPH = {'tol': 0.1, 
+              'n_iter': 50}
 
 PARAMS_CPH_RIDGE = {'alpha': 0.5,
                     'ties': 'breslow',
@@ -64,29 +62,22 @@ PARAMS_CPH_ELASTIC = {'l1_ratio': 0.5,
                     'tol': 1e-7,
                     'max_iter': 100000}
 
-PARAMS_RSF = {'n_estimators': 100,
-              'max_depth' : 7,
-              'min_samples_split': 2,
-              'min_samples_leaf': 4,
-              'max_features': None,
-              'random_state': 0}
+PARAMS_RSF = {'n_estimators': 100, 
+              'min_samples_split': 2, 
+              'min_samples_leaf': 4, 
+              'max_depth': 7}
 
-PARAMS_GRADBOOST = {'n_estimators': 400,
-                    'learning_rate': 0.1,
-                    'max_depth': 5,
-                    'loss': 'coxph',
-                    'min_samples_split': 2,
-                    'min_samples_leaf': 4,
-                    'max_features': None,
-                    'dropout_rate': 0,
-                    'subsample': 1.0,
-                    'random_state': 0}
+PARAMS_GRADBOOST = {'n_estimators': 400, 
+                    'min_samples_split': 2, 
+                    'min_samples_leaf': 4, 
+                    'max_depth': 5, 
+                    'learning_rate': 0.1}
 
-PARAMS_GRADBOOST_DART = {'n_estimators': 200,
-                        'learning_rate': 0.05,
-                        'max_depth': 5,
+PARAMS_GRADBOOST_DART = {'n_estimators': 100,
+                        'learning_rate': 0.1,
+                        'max_depth': 3,
                         'loss': 'coxph',
-                        'min_samples_split': 10,
+                        'min_samples_split': 2,
                         'min_samples_leaf': 1,
                         'max_features': None,
                         'dropout_rate': 0.2,
@@ -99,14 +90,12 @@ PARAMS_SVM = {'alpha': 1,
               'optimizer': 'avltree'}
 
 PARAMS_DEEPSURV = {'batch_size' : 16,
-                   'learning_rate' : 1e-3,
-                   'iters': 10}
+                   'learning_rate' : 0.01,
+                   'iters': 50}
 
-PARAMS_DSM = {'batch_size' :16,
-              'learning_rate' : 1e-2,
-              'iters': 100}
+PARAMS_DSM = {'learning_rate': 0.01, 
+              'iters': 50, 
+              'batch_size': 64}
 
-PARAMS_WEIBULL = {'alpha': 0.4,
-                  'penalizer': 0.04,
-                  'l1_ratio': 0.0,
-                  'fit_intercept': True}
+PARAMS_WEIBULL = {'penalizer': 0.02, 
+                  'alpha': 0.4}
