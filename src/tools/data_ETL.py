@@ -25,6 +25,7 @@ class DataETL:
             self.folder_size= cfg.N_BOOT_FOLD_UPSAMPLING
 
     def make_surv_data_sklS (self, covariates, set_boot, info_pack, bootstrap, type):
+        #Prepare the empty data and folders of grouped bearings to fill for avoid leaking
         row = pd.DataFrame()
         ref_value= {}
         data_cov= []
@@ -33,15 +34,19 @@ class DataETL:
             data_cov.append(pd.DataFrame())
         for i in range(1, self.boot_folder_size * self.real_bearings, self.boot_folder_size):   
             type_foldering.append(range(i, (i + self.boot_folder_size), 1))
-
+        
+        #Extract the info about the time-to-event
         for bear_num in range (1, self.total_bearings + 1, (bootstrap * 2) + 4):
             val= self.event_analyzer (bear_num, info_pack)
             ref_value.update({bear_num : val})
         
+        #Set up the time slices
         moving_window= 0
         time_split= 20
 
+        #If test is for boostrap only dataset, start transform from time-series to survival data
         if type == 'bootstrap':
+            #For each covariates take the all the time values in a column 
             for column in covariates:
                 columnSeriesObj = covariates[column]
                 columnSeriesObj= columnSeriesObj.dropna()
@@ -104,17 +109,23 @@ class DataETL:
                 
                 label= temp_label_cov
                 
+                #If survival time or event type take the values as is, instead for the others take the mean of time-series             
                 if label == "Event" or label == "Survival_time":
                     row [label]= pd.Series(columnSeriesObj).T   
                 else:
                     row [label]= pd.Series(np.mean(columnSeriesObj.values)).T
 
+                #If survival time column close the row for survival data and go to the next
                 if label == "Survival_time":
                     for i, list in enumerate(type_foldering):
                         if bear_num in list:
                             data_cov[i] = pd.concat([data_cov[i], row], ignore_index= True)
+        
+        #If is correlated and not correlated dataset test, start transform from time-series to survival data
         else:
+            #Upsample the data from given time split
             while moving_window < time_split:
+                #For each covariates take the all the time values in a column 
                 for column in covariates:
                     columnSeriesObj = covariates[column]
                     columnSeriesObj= columnSeriesObj.dropna()
@@ -186,8 +197,10 @@ class DataETL:
                     
                     label= temp_label_cov
                     
+                    #If survival time or event type start to slice the time-series, instead for the others take the mean of time-series                     
                     if label == "Event" or label == "Survival_time":
                         if label == "Survival_time":
+                            #If correlated start to create time-to-event relative to time slice
                             if type == "correlated":
                                 if high < timepoints:
                                     if columnSeriesObj > high:
@@ -197,29 +210,35 @@ class DataETL:
                                 else:
                                     proportional_value= columnSeriesObj
                                 row [label]= pd.Series(proportional_value).T
+                            #If not correlated take the time-to-event as is
                             else:  
                                 proportional_value= columnSeriesObj
                                 row [label]= pd.Series(proportional_value).T  
                         else:
                             row [label]= pd.Series(columnSeriesObj).T   
                     else:
+                        #If correlated start to slice the time-series data taking the lasts to correlate to the firsts        
                         if type == "correlated":
                             if high < timepoints:
                                 slice= columnSeriesObj.iloc[low:high] #[- (time_window * (moving_window + 1)): -1]
                             else:
                                 slice= columnSeriesObj.iloc[low:-1]
+                        #If not correlated take the nearest slice to the time-to-event                                 
                         else:                            
                             if high < timepoints:
                                 slice= columnSeriesObj.iloc[low:high]
                             else:
                                 slice= columnSeriesObj.iloc[low:-1]
-
+                        
+                        #Average the covariates value to transform time-series to survival data
                         row [label]= pd.Series(np.mean(slice.values)).T
-
+                    
+                    #If survival time column close the row and save it into a proper folder for avoid leaking
                     if label == "Survival_time":
                         for i, list in enumerate(type_foldering):
                             if bear_num in list:
                                 data_cov[i] = pd.concat([data_cov[i], row], ignore_index= True)
+                #Go for next window                
                 moving_window += 1        
         return data_cov, ref_value
             
@@ -241,17 +260,19 @@ class DataETL:
             return True
 
     def sur_time_manager (self, num, bootref, ref):
+        #Prepare random value for the special reference bearing
         for key, value in ref.items():
             if key == num or key + 1 == num:
                 return value + random.randint(-2, 2)    
         
+        #Prepare the time-to-event referrement
         bootstrap= len (bootref) - 1
         tot= ((bootstrap * 2) + 4) * self.real_bearings
         boot_pack_level=  int((self.total_bearings / self.real_bearings) + 1)
         boot_pack_max= int (self.total_bearings / self.real_bearings)
         num_ref= self.total_signals
        
-        #Bootstrapping + addtitional randomizator
+        #Bootstrapping + addtitional randomizator for the other normal bootstrapped/upsampled bearings
         i= 0
         for check in range(boot_pack_level, tot + (bootstrap * 2) + self.real_bearings, (bootstrap * 2) + 4):    
             if not num >= check:
@@ -298,10 +319,12 @@ class DataETL:
         return -1
 
     def event_analyzer (self, bear_num, info_pack):
+        #Prepare data and set a threshold where the time-to-event is not calculated in lifetime guarantee 
         lifetime_guarantee= 30
         data_kl= []
         data_sd= []
 
+        #From info pack take the information about time-to-event for each bearing
         for info in info_pack:
             for bear_info in info_pack [info][bear_num]:
                 cross= bear_info [2] * 10  #10 as window
@@ -314,6 +337,7 @@ class DataETL:
                     if cross > (tot_lenght)/100 * lifetime_guarantee:
                         data_sd.append(cross)
 
+        #Assign a time-to-event if exist from KL or SD or end of recording if necessary
         if not data_kl:
             if data_sd:
                 data_kl= data_sd
@@ -323,27 +347,29 @@ class DataETL:
         if not data_sd:
             if data_kl:
                 data_sd= data_kl
-
+        
+        #Take the maximum from the evaluations
         res = [max (data_kl), max (data_sd)]
         res= round (statistics.mean (res), 1)
 
         return res
 
     def format_main_data_Kfold (self, T1, train, test):
+        #Extract the y as labels
         ti_y_df= T1[0].iloc[train, -2:]
         cvi_y_df= T1[0].iloc[test, -2:]
 
+        #Change the name of the labels
         ti_y_df.rename(columns = {'Event':'event', 'Survival_time':'time'}, inplace = True)
         cvi_y_df.rename(columns = {'Event':'event', 'Survival_time':'time'}, inplace = True)
 
+        #Create the test/train data
         ti_y_df.event = ti_y_df.event.replace({True: 1, False: 0})
         cvi_y_df.event = cvi_y_df.event.replace({True: 1, False: 0})
-
         ti_X = T1[0].iloc[train, :-2]
         ti_y = T1[1][train]
         cvi_X = T1[0].iloc[test, :-2]
         cvi_y = T1[1][test]
-
         ti_X.reset_index(inplace= True, drop=True)
         cvi_X.reset_index(inplace= True, drop=True)
         ti_y_df.reset_index(inplace= True, drop=True)
@@ -358,20 +384,21 @@ class DataETL:
         return ti, cvi, ti_NN, cvi_NN
 
     def format_main_data (self, T1, T2):
+        #Extract the y as labels
         y_train_NN = T1[0].iloc[:, -2:]
         y_test_NN = T2[0].iloc[:, -2:]
 
+        #Change the name of the labels
         y_train_NN.rename(columns = {'Event':'event', 'Survival_time':'time'}, inplace = True)
         y_test_NN.rename(columns = {'Event':'event', 'Survival_time':'time'}, inplace = True)
-
+        
+        #Create the test/train data
         y_train_NN.event = y_train_NN.event.replace({True: 1, False: 0})
         y_test_NN.event = y_test_NN.event.replace({True: 1, False: 0})
-
         X_train = T1[0].iloc[:, :-2]
         y_train = T1[1]
         X_test = T2[0].iloc[:, :-2]
         y_test = T2[1]
-
         y_train_NN.reset_index(inplace= True, drop=True)
         y_test_NN.reset_index(inplace= True, drop=True)
         X_train.reset_index(inplace= True, drop=True)
@@ -386,29 +413,31 @@ class DataETL:
         return X_tr, X_te, y_tr_NN, y_te_NN
     
     def centering_data (self, ti, cvi):
+        #Change name of the train/test data
         ti_X = ti[0]
         ti_y = ti[1]
         cvi_X = cvi[0]
         cvi_y = cvi[1]
         features = list(ti_X.columns)
 
-        # Apply scaling
+        #Choose scaling
         scaler = StandardScaler()
 
+        #Apply scaling
         scaler.fit(ti_X)
         ti_X = pd.DataFrame(scaler.transform(ti_X), columns=features)
         cvi_X = pd.DataFrame(scaler.transform(cvi_X), columns=features)
-
         ti_X.reset_index(inplace= True, drop=True)
         cvi_X.reset_index(inplace= True, drop=True)
 
-        # Collect splits
+        #Collect splits
         ti = (ti_X, ti_y)
         cvi = (cvi_X, cvi_y)
 
         return ti, cvi
     
     def centering_main_data (self, ti, cvi, ti_NN, cvi_NN):
+        #Change name of the train/test data
         ti_X = ti[0]
         ti_y = ti[1]
         cvi_X = cvi[0]
@@ -419,21 +448,21 @@ class DataETL:
         cvi_y_NN = cvi_NN[1]
         features = list(ti_X.columns)
 
-        # Apply scaling
+        #Choose scaling
         scaler = StandardScaler()
-
+        
+        #Apply scaling
         scaler.fit(ti_X)
         ti_X = pd.DataFrame(scaler.transform(ti_X), columns=features)
         cvi_X = pd.DataFrame(scaler.transform(cvi_X), columns=features)
         ti_X_NN = pd.DataFrame(scaler.transform(ti_X_NN), columns=features)
         cvi_X_NN = pd.DataFrame(scaler.transform(cvi_X_NN), columns=features)
-
         ti_X.reset_index(inplace= True, drop=True)
         cvi_X.reset_index(inplace= True, drop=True)
         ti_X_NN.reset_index(inplace= True, drop=True)
         cvi_X_NN.reset_index(inplace= True, drop=True)
 
-        # Collect splits
+        #Collect splits
         ti = (ti_X, ti_y)
         cvi = (cvi_X, cvi_y)
         ti_NN = (ti_X_NN, ti_y_NN)
@@ -442,52 +471,56 @@ class DataETL:
         return ti, cvi, ti_NN, cvi_NN
     
     def format_centering_NN_data (self, T1NN, T2NN, ti_y_df, cvi_y_df, TvalNN):
+        #Change name of the train/test data
         ti_X_NN = pd.concat([T1NN[0], ti_y_df], axis=1)
         cvi_X_NN = pd.concat([T2NN[0], cvi_y_df], axis=1)
         ti_X_val_NN= TvalNN[0]
-
         features = T1NN[0].columns
         cols_standardize = list(features)
         cols_leave = []
-
+        
+        #Choose scaling
         scaler= StandardScaler()
 
+        #Apply scaling
         standardize = [([col], scaler) for col in cols_standardize]
         leave = [(col, None) for col in cols_leave]
         x_mapper = DataFrameMapper(standardize + leave)
-
         x_train_ti = x_mapper.fit_transform(ti_X_NN).astype('float32')
         x_train_cvi = x_mapper.fit_transform(cvi_X_NN).astype('float32')       
         x_val = x_mapper.transform(ti_X_val_NN).astype('float32')
-
         get_target = lambda df: (df['Survival_time'].values, df['Event'].values)
         y_ti_NN = get_target(ti_X_NN)
         y_val = get_target(ti_X_val_NN)
-
         durations_test, events_test = get_target(cvi_X_NN)       
-
+        
+        #Change name of the train/test data
         ti_NN = x_train_ti
         cvi_NN = x_train_cvi
         val_NN= x_val, y_val
 
         return ti_NN , y_ti_NN, cvi_NN, durations_test, events_test, val_NN
 
-    def control_censored_data (self, X_test, y_test, percentage):
-        censored_indexes = y_test.loc[:,"time"][y_test.loc[:,"event"]== 0].index
+    def control_censored_data (self, X, percentage):
+        #Take the indexes about actual censored data status
+        censored_actual_idx = X.loc[X['Event'] == 0].index
+        not_censored_actual_idx = X.loc[X['Event'] == 1].index
+        
+        #Take the information about actual censored data status
+        num_censored_actual = len(X.iloc[censored_actual_idx])       
+        num_censored_required = int(np.floor(len(X) * percentage))
+        
+        #If needed less censored data
+        if num_censored_actual > num_censored_required:
+            censored_indexes = np.random.choice(censored_actual_idx, size= num_censored_actual - num_censored_required , replace=False)
+            X.loc[censored_indexes, "Event"] = 1
+        #If needed more censored data
+        elif num_censored_actual < num_censored_required:
+            not_censored_indexes = np.random.choice(not_censored_actual_idx, size= num_censored_required - num_censored_actual, replace=False)
+            X.loc[not_censored_indexes, "Event"] = 0
+        X.reset_index(drop= True)
 
-        #Drop censored data in percentage to avoid error in some models that is required 
-        if len(censored_indexes) > 0:
-            if np.floor(len(y_test)/100*percentage) == 0:
-                num_censored= 1
-            else:
-                num_censored= int(np.floor(len(y_test)/100*percentage))
-            censored_indexes = np.random.choice(censored_indexes, size= num_censored, replace=False)
-        X_test.drop(censored_indexes, axis=0, inplace=True)
-        X_test.reset_index(inplace= True, drop=True)
-        y_test.drop(censored_indexes, axis=0, inplace=True)
-        y_test.reset_index(inplace= True, drop=True)   
-
-        return X_test, y_test
+        return X
     
     def calculate_positions_percentages(self, dataframe, column_name, values):
         """
@@ -503,13 +536,15 @@ class DataETL:
         """
         if not values:
             return []
-
+        
+        #Take the columns name and sort the column in ascending order
         column = dataframe[column_name].tolist()
-        column.sort()  # Sort the column in ascending order
+        column.sort()  
         total_values = len(column)
 
         positions_percentages = []
-
+        
+        #Find the value end manage special cases
         for value in values:
             if value < column[0]:
                 position_percent = 0.0
@@ -549,6 +584,7 @@ class DataETL:
         
         values_by_percentages = []
         
+        #Find the point in the dataframe
         for target_percentage in target_percentages:
             target_position = int((target_percentage / 100) * total_values)
             values_by_percentages.append(column[target_position])
