@@ -434,7 +434,7 @@ class Resume:
             
             pd.set_option('use_inf_as_na',True)
 
-    def table_result_hyper_v2(self):
+    def table_result_hyper_v2(self, database, test_type):
 
         itr = os.walk(self.hyper_results)
         cph_results = str()
@@ -560,55 +560,117 @@ class Resume:
 
                 # Generate some sample test results and values for three groups
                 np.random.seed(42)
-                test_results = ['Boostrap', 'MA', 'AMA']
-                values_group1_1 = np.random.normal(10, 2, len(test_results))
-                values_group2_1 = np.random.normal(15, 3, len(test_results))
-                values_group3_1 = np.random.normal(8, 1.5, len(test_results))
+                test_results = ['CL 30%', 'CL 60%', 'CL 90%']
 
-                values_group1_2 = np.random.normal(10, 2, len(test_results))
-                values_group2_2 = np.random.normal(15, 3, len(test_results))
-                values_group3_2 = np.random.normal(8, 1.5, len(test_results))
+                values_group1 =  [0] * len(test_results)
+                values_group2 =  [0] * len(test_results)
+                values_group3 =  [0] * len(test_results)
+                values_group4 =  [0] * len(test_results)
+                values_group5 =  [0] * len(test_results)
 
-                values_group1_3 = np.random.normal(10, 2, len(test_results))
-                values_group2_3 = np.random.normal(15, 3, len(test_results))
-                values_group3_3 = np.random.normal(8, 1.5, len(test_results))
+                # Generate some sample test results and values for three groups
+                np.random.seed(42)
+
+                values_group1[0] = np.random.normal(10, 2, len(test_results))
+                values_group2[0] = np.random.normal(15, 3, len(test_results))
+                values_group3[0] = np.random.normal(8, 1.5, len(test_results))
+                values_group4[0] = np.random.normal(15, 3, len(test_results))
+                values_group5[0] = np.random.normal(8, 1.5, len(test_results))
+
+                values_group1[1] = np.random.normal(10, 2, len(test_results))
+                values_group2[1] = np.random.normal(15, 3, len(test_results))
+                values_group3[1] = np.random.normal(8, 1.5, len(test_results))
+                values_group4[1] = np.random.normal(15, 3, len(test_results))
+                values_group5[1] = np.random.normal(8, 1.5, len(test_results))
+
+                values_group1[2] = np.random.normal(10, 2, len(test_results))
+                values_group2[2] = np.random.normal(15, 3, len(test_results))
+                values_group3[2] = np.random.normal(8, 1.5, len(test_results))
+                values_group4[2] = np.random.normal(15, 3, len(test_results))
+                values_group5[2] = np.random.normal(8, 1.5, len(test_results))
 
                 # Combine all values for calculating overall statistics
-                all_values = np.concatenate((values_group1_1, values_group1_2, values_group1_3, values_group2_1, values_group2_2, values_group2_3, values_group3_1, values_group3_2, values_group3_3))
+                all_values = np.concatenate((values_group1[0], values_group1[1], values_group1[2], 
+                                            values_group2[0], values_group2[1], values_group2[2], 
+                                            values_group3[0], values_group3[1], values_group3[2], 
+                                            values_group4[0], values_group4[1], values_group4[2], 
+                                            values_group5[0], values_group5[1], values_group5[2]))
 
                 # Calculate means and standard deviations for each group
-                mean_group1_1 = np.mean(values_group1_1)
-                std_group1_1 = np.std(values_group1_1)
-                mean_group1_2 = np.mean(values_group1_2)
-                std_group1_2 = np.std(values_group1_2)
-                mean_group1_3 = np.mean(values_group1_3)
-                std_group1_3 = np.std(values_group1_3)
-                mean_group2_1 = np.mean(values_group2_1)
-                std_group2_1 = np.std(values_group2_1)
-                mean_group2_2 = np.mean(values_group2_2)
-                std_group2_2 = np.std(values_group2_2)
-                mean_group2_3 = np.mean(values_group2_3)
-                std_group2_3 = np.std(values_group2_3)
-                mean_group3_1 = np.mean(values_group3_1)
-                std_group3_1 = np.std(values_group3_1)
-                mean_group3_2 = np.mean(values_group3_2)
-                std_group3_2 = np.std(values_group3_2)
-                mean_group3_3 = np.mean(values_group3_3)
-                std_group3_3 = np.std(values_group3_3)
+                mean_group1 =  [0] * len(test_results)
+                std_group1 =  [0] * len(test_results)
+                mean_group2 =  [0] * len(test_results)
+                std_group2 =  [0] * len(test_results)
+                mean_group3 =  [0] * len(test_results)
+                std_group3 =  [0] * len(test_results)
+                mean_group4 =  [0] * len(test_results)
+                std_group4 =  [0] * len(test_results)
+                mean_group5 =  [0] * len(test_results)
+                std_group5 =  [0] * len(test_results)
+
+                mean_group1[0] = np.mean(values_group1[0])
+                std_group1[0] = np.std(values_group1[0])
+                mean_group1[1] = np.mean(values_group1[1])
+                std_group1[1] = np.std(values_group1[1])
+                mean_group1[2] = np.mean(values_group1[2])
+                std_group1[2] = np.std(values_group1[2])
+
+                mean_group2[0] = np.mean(values_group2[0])
+                std_group2[0] = np.std(values_group2[0])
+                mean_group2[1] = np.mean(values_group2[1])
+                std_group2[1] = np.std(values_group2[1])
+                mean_group2[2] = np.mean(values_group2[2])
+                std_group2[2] = np.std(values_group2[2])
+
+                mean_group3[0] = np.mean(values_group3[0])
+                std_group3[0] = np.std(values_group3[0])
+                mean_group3[1] = np.mean(values_group3[1])
+                std_group3[1] = np.std(values_group3[1])
+                mean_group3[2] = np.mean(values_group3[2])
+                std_group3[2] = np.std(values_group3[2])
+
+                mean_group4[0] = np.mean(values_group4[0])
+                std_group4[0] = np.std(values_group4[0])
+                mean_group4[1] = np.mean(values_group4[1])
+                std_group4[1] = np.std(values_group4[1])
+                mean_group4[2] = np.mean(values_group4[2])
+                std_group4[2] = np.std(values_group4[2])
+
+                mean_group5[0] = np.mean(values_group5[0])
+                std_group5[0] = np.std(values_group5[0])
+                mean_group5[1] = np.mean(values_group5[1])
+                std_group5[1] = np.std(values_group5[1])
+                mean_group5[2] = np.mean(values_group5[2])
+                std_group5[2] = np.std(values_group5[2])
 
                 # Calculate confidence intervals for each group
+
+                ci_group1 =  [0] * len(test_results)
+                ci_group2 =  [0] * len(test_results)
+                ci_group3 =  [0] * len(test_results)
+                ci_group4 =  [0] * len(test_results)
+                ci_group5 =  [0] * len(test_results)
+
                 confidence_level = 0.95
                 n_per_group = len(test_results)
                 t_value = stats.t.ppf((1 + confidence_level) / 2, n_per_group - 1)
-                ci_group1_1 = t_value * (std_group1_1 / np.sqrt(n_per_group))
-                ci_group1_2 = t_value * (std_group1_2 / np.sqrt(n_per_group))
-                ci_group1_3 = t_value * (std_group1_3 / np.sqrt(n_per_group))
-                ci_group2_1 = t_value * (std_group2_1 / np.sqrt(n_per_group))
-                ci_group2_2 = t_value * (std_group2_2 / np.sqrt(n_per_group))
-                ci_group2_3 = t_value * (std_group2_3 / np.sqrt(n_per_group))
-                ci_group3_1 = t_value * (std_group3_1 / np.sqrt(n_per_group))
-                ci_group3_2 = t_value * (std_group3_2 / np.sqrt(n_per_group))
-                ci_group3_3 = t_value * (std_group3_3 / np.sqrt(n_per_group))
+                ci_group1[0] = t_value * (std_group1[0] / np.sqrt(n_per_group))
+                ci_group2[0] = t_value * (std_group2[0] / np.sqrt(n_per_group))
+                ci_group3[0] = t_value * (std_group3[0] / np.sqrt(n_per_group))
+                ci_group4[0] = t_value * (std_group4[0] / np.sqrt(n_per_group))
+                ci_group5[0] = t_value * (std_group5[0] / np.sqrt(n_per_group))
+
+                ci_group1[1]= t_value * (std_group1[1] / np.sqrt(n_per_group))
+                ci_group2[1] = t_value * (std_group2[1] / np.sqrt(n_per_group))
+                ci_group3[1] = t_value * (std_group3[1] / np.sqrt(n_per_group))
+                ci_group4[1] = t_value * (std_group4[1] / np.sqrt(n_per_group))
+                ci_group5[1] = t_value * (std_group5[1] / np.sqrt(n_per_group))
+
+                ci_group1[2] = t_value * (std_group1[2]/ np.sqrt(n_per_group))
+                ci_group2[2] = t_value * (std_group2[2] / np.sqrt(n_per_group))
+                ci_group3[2] = t_value * (std_group3[2] / np.sqrt(n_per_group))
+                ci_group4[2] = t_value * (std_group4[2] / np.sqrt(n_per_group))
+                ci_group5[2] = t_value * (std_group5[2] / np.sqrt(n_per_group))
 
                 # Optionally add confidence intervals as error bars on top of each bar
                 show_confidence_intervals = True
@@ -621,29 +683,194 @@ class Resume:
                     ax = axes[i]
                     values = None
 
+                    if i < 3:
+                        j = i
+                    else:
+                        j = i - n_per_group
+
                     # Create the bar plot with different colors and black borders for each group
-                    bar_width = 0.2
-                    ax.bar(np.arange(len(test_results)) - bar_width, values_group1_1, width=bar_width, align='center', label='CL 30%', alpha=0.7, edgecolor='black', linewidth=1)
-                    ax.bar(np.arange(len(test_results)), values_group2_1, width=bar_width, align='center', label='CL 60%', alpha=0.7, edgecolor='black', linewidth=1)
-                    ax.bar(np.arange(len(test_results)) + bar_width, values_group3_1, width=bar_width, align='center', label='CL 90%', alpha=0.7, edgecolor='black', linewidth=1)
+                    bar_width = 0.1
+                    ax.bar(np.arange(len(test_results)) - bar_width *2, values_group1[j], width=bar_width, align='center', label='CoxPH', alpha=0.7, edgecolor='black', linewidth=1)
+                    ax.bar(np.arange(len(test_results)) - bar_width, values_group2[j], width=bar_width, align='center', label='CoxBoost', alpha=0.7, edgecolor='black', linewidth=1)
+                    ax.bar(np.arange(len(test_results)) , values_group3[j], width=bar_width, align='center', label='DeepSruv', alpha=0.7, edgecolor='black', linewidth=1)
+                    ax.bar(np.arange(len(test_results)) + bar_width, values_group4[j], width=bar_width, align='center', label='DSM', alpha=0.7, edgecolor='black', linewidth=1)
+                    ax.bar(np.arange(len(test_results)) + bar_width * 2, values_group5[j], width=bar_width, align='center', label='WeibullAFT', alpha=0.7, edgecolor='black', linewidth=1)
 
                     # Optionally add confidence intervals as error bars on top of each bar
                     show_confidence_intervals = True
                     if show_confidence_intervals:
                         for i in range(len(test_results)):
-                            ax.errorbar(i - bar_width, values_group1_1[i], yerr=ci_group1_1, fmt='o', color='black', capsize=5)
-                            ax.errorbar(i, values_group2_1[i], yerr=ci_group2_1, fmt='o', color='black', capsize=5)
-                            ax.errorbar(i + bar_width, values_group3_1[i], yerr=ci_group3_1, fmt='o', color='black', capsize=5)
+                            ax.errorbar(i - bar_width * 2, values_group1[j][i], yerr=ci_group1[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
+                            ax.errorbar(i - bar_width, values_group2[j][i], yerr=ci_group2[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
+                            ax.errorbar(i, values_group3[j][i], yerr=ci_group3[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
+                            ax.errorbar(i + bar_width, values_group4[j][i], yerr=ci_group4[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
+                            ax.errorbar(i + bar_width * 2, values_group5[j][i], yerr=ci_group5[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
 
                     # Add labels and title
-                    ax.set_xlabel('Test Results')
-                    ax.set_ylabel('Values')
-                    ax.set_title('Test Results and Values with CI')
+                    ax.set_xlabel(f'Test setting {test_type} over {database}')
+                    ax.set_ylabel('Brier score (BS)')
                     ax.set_xticks(np.arange(len(test_results)))
                     ax.set_xticklabels(test_results, rotation=45)
                     ax.legend()
                 
-                plt.savefig(final_root + "bar_plot.png")   
+                plt.savefig(final_root + "bar_plot_brier.png")  
+
+                # Generate some sample test results and values for three groups
+                np.random.seed(42)
+                test_results = ['CL 30%', 'CL 60%', 'CL 90%']
+
+                values_group1 =  [0] * len(test_results)
+                values_group2 =  [0] * len(test_results)
+                values_group3 =  [0] * len(test_results)
+                values_group4 =  [0] * len(test_results)
+                values_group5 =  [0] * len(test_results)
+
+                # Generate some sample test results and values for three groups
+                np.random.seed(42)
+
+                values_group1[0] = np.random.normal(10, 2, len(test_results))
+                values_group2[0] = np.random.normal(15, 3, len(test_results))
+                values_group3[0] = np.random.normal(8, 1.5, len(test_results))
+                values_group4[0] = np.random.normal(15, 3, len(test_results))
+                values_group5[0] = np.random.normal(8, 1.5, len(test_results))
+
+                values_group1[1] = np.random.normal(10, 2, len(test_results))
+                values_group2[1] = np.random.normal(15, 3, len(test_results))
+                values_group3[1] = np.random.normal(8, 1.5, len(test_results))
+                values_group4[1] = np.random.normal(15, 3, len(test_results))
+                values_group5[1] = np.random.normal(8, 1.5, len(test_results))
+
+                values_group1[2] = np.random.normal(10, 2, len(test_results))
+                values_group2[2] = np.random.normal(15, 3, len(test_results))
+                values_group3[2] = np.random.normal(8, 1.5, len(test_results))
+                values_group4[2] = np.random.normal(15, 3, len(test_results))
+                values_group5[2] = np.random.normal(8, 1.5, len(test_results))
+
+                # Combine all values for calculating overall statistics
+                all_values = np.concatenate((values_group1[0], values_group1[1], values_group1[2], 
+                                            values_group2[0], values_group2[1], values_group2[2], 
+                                            values_group3[0], values_group3[1], values_group3[2], 
+                                            values_group4[0], values_group4[1], values_group4[2], 
+                                            values_group5[0], values_group5[1], values_group5[2]))
+
+                # Calculate means and standard deviations for each group
+                mean_group1 =  [0] * len(test_results)
+                std_group1 =  [0] * len(test_results)
+                mean_group2 =  [0] * len(test_results)
+                std_group2 =  [0] * len(test_results)
+                mean_group3 =  [0] * len(test_results)
+                std_group3 =  [0] * len(test_results)
+                mean_group4 =  [0] * len(test_results)
+                std_group4 =  [0] * len(test_results)
+                mean_group5 =  [0] * len(test_results)
+                std_group5 =  [0] * len(test_results)
+
+                mean_group1[0] = np.mean(values_group1[0])
+                std_group1[0] = np.std(values_group1[0])
+                mean_group1[1] = np.mean(values_group1[1])
+                std_group1[1] = np.std(values_group1[1])
+                mean_group1[2] = np.mean(values_group1[2])
+                std_group1[2] = np.std(values_group1[2])
+
+                mean_group2[0] = np.mean(values_group2[0])
+                std_group2[0] = np.std(values_group2[0])
+                mean_group2[1] = np.mean(values_group2[1])
+                std_group2[1] = np.std(values_group2[1])
+                mean_group2[2] = np.mean(values_group2[2])
+                std_group2[2] = np.std(values_group2[2])
+
+                mean_group3[0] = np.mean(values_group3[0])
+                std_group3[0] = np.std(values_group3[0])
+                mean_group3[1] = np.mean(values_group3[1])
+                std_group3[1] = np.std(values_group3[1])
+                mean_group3[2] = np.mean(values_group3[2])
+                std_group3[2] = np.std(values_group3[2])
+
+                mean_group4[0] = np.mean(values_group4[0])
+                std_group4[0] = np.std(values_group4[0])
+                mean_group4[1] = np.mean(values_group4[1])
+                std_group4[1] = np.std(values_group4[1])
+                mean_group4[2] = np.mean(values_group4[2])
+                std_group4[2] = np.std(values_group4[2])
+
+                mean_group5[0] = np.mean(values_group5[0])
+                std_group5[0] = np.std(values_group5[0])
+                mean_group5[1] = np.mean(values_group5[1])
+                std_group5[1] = np.std(values_group5[1])
+                mean_group5[2] = np.mean(values_group5[2])
+                std_group5[2] = np.std(values_group5[2])
+
+                # Calculate confidence intervals for each group
+
+                ci_group1 =  [0] * len(test_results)
+                ci_group2 =  [0] * len(test_results)
+                ci_group3 =  [0] * len(test_results)
+                ci_group4 =  [0] * len(test_results)
+                ci_group5 =  [0] * len(test_results)
+
+                confidence_level = 0.95
+                n_per_group = len(test_results)
+                t_value = stats.t.ppf((1 + confidence_level) / 2, n_per_group - 1)
+                ci_group1[0] = t_value * (std_group1[0] / np.sqrt(n_per_group))
+                ci_group2[0] = t_value * (std_group2[0] / np.sqrt(n_per_group))
+                ci_group3[0] = t_value * (std_group3[0] / np.sqrt(n_per_group))
+                ci_group4[0] = t_value * (std_group4[0] / np.sqrt(n_per_group))
+                ci_group5[0] = t_value * (std_group5[0] / np.sqrt(n_per_group))
+
+                ci_group1[1]= t_value * (std_group1[1] / np.sqrt(n_per_group))
+                ci_group2[1] = t_value * (std_group2[1] / np.sqrt(n_per_group))
+                ci_group3[1] = t_value * (std_group3[1] / np.sqrt(n_per_group))
+                ci_group4[1] = t_value * (std_group4[1] / np.sqrt(n_per_group))
+                ci_group5[1] = t_value * (std_group5[1] / np.sqrt(n_per_group))
+
+                ci_group1[2] = t_value * (std_group1[2]/ np.sqrt(n_per_group))
+                ci_group2[2] = t_value * (std_group2[2] / np.sqrt(n_per_group))
+                ci_group3[2] = t_value * (std_group3[2] / np.sqrt(n_per_group))
+                ci_group4[2] = t_value * (std_group4[2] / np.sqrt(n_per_group))
+                ci_group5[2] = t_value * (std_group5[2] / np.sqrt(n_per_group))
+
+                # Optionally add confidence intervals as error bars on top of each bar
+                show_confidence_intervals = True
+
+                # Create a 2x3 grid of subplots
+                fig, axes = plt.subplots(2, 3, figsize=(15, 8))
+                axes = axes.ravel()  # Flatten the axes for easy iteration
+
+                for i in range(6):
+                    ax = axes[i]
+                    values = None
+
+                    if i < 3:
+                        j = i
+                    else:
+                        j = i - n_per_group
+
+                    # Create the bar plot with different colors and black borders for each group
+                    bar_width = 0.1
+                    ax.bar(np.arange(len(test_results)) - bar_width *2, values_group1[j], width=bar_width, align='center', label='CoxPH', alpha=0.7, edgecolor='black', linewidth=1)
+                    ax.bar(np.arange(len(test_results)) - bar_width, values_group2[j], width=bar_width, align='center', label='CoxBoost', alpha=0.7, edgecolor='black', linewidth=1)
+                    ax.bar(np.arange(len(test_results)) , values_group3[j], width=bar_width, align='center', label='DeepSruv', alpha=0.7, edgecolor='black', linewidth=1)
+                    ax.bar(np.arange(len(test_results)) + bar_width, values_group4[j], width=bar_width, align='center', label='DSM', alpha=0.7, edgecolor='black', linewidth=1)
+                    ax.bar(np.arange(len(test_results)) + bar_width * 2, values_group5[j], width=bar_width, align='center', label='WeibullAFT', alpha=0.7, edgecolor='black', linewidth=1)
+
+                    # Optionally add confidence intervals as error bars on top of each bar
+                    show_confidence_intervals = True
+                    if show_confidence_intervals:
+                        for i in range(len(test_results)):
+                            ax.errorbar(i - bar_width * 2, values_group1[j][i], yerr=ci_group1[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
+                            ax.errorbar(i - bar_width, values_group2[j][i], yerr=ci_group2[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
+                            ax.errorbar(i, values_group3[j][i], yerr=ci_group3[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
+                            ax.errorbar(i + bar_width, values_group4[j][i], yerr=ci_group4[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
+                            ax.errorbar(i + bar_width * 2, values_group5[j][i], yerr=ci_group5[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
+
+                    # Add labels and title
+                    ax.set_xlabel(f'Test setting {test_type} over {database}')
+                    ax.set_ylabel('Confidence Interval score (CItd)')
+                    ax.set_xticks(np.arange(len(test_results)))
+                    ax.set_xticklabels(test_results, rotation=45)
+                    ax.legend()
+
+                plt.savefig(final_root + "bar_plot_CItd.png")  
 
             pd.set_option('use_inf_as_na',True)  
 
