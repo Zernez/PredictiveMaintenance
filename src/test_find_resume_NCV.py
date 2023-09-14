@@ -28,7 +28,7 @@ warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 N_BOOT = cfg.N_BOOT
 PLOT = True
 RESUME = True
-NEW_DATASET = False
+NEW_DATASET = True
 N_REPEATS = 1
 N_INTERNAL_SPLITS = 3 
 N_ITER = 1
@@ -322,7 +322,7 @@ def main():
                 
                 #Indexing the file name linked to the DATASET condition
                 index = re.search(r"\d\d", cfg.RAW_DATA_PATH_PRONOSTIA[i])
-                condition_name = cfg.RAW_DATA_PATH_PRONOSTIA[i][index.start():-1] + "_censoring" + str(CENSORING[j] * 100)
+                condition_name = cfg.RAW_DATA_PATH_PRONOSTIA[i][index.start():-1] + "_censoring" + str(int(CENSORING[j] * 100))
                 
                 file_name = f"{model_name}_{condition_name}_results.csv"
 

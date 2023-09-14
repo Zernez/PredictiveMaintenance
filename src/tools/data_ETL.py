@@ -220,9 +220,9 @@ class DataETL:
                         #If correlated start to slice the time-series data taking the lasts to correlate to the firsts        
                         if type == "correlated":
                             if high < timepoints:
-                                slice= columnSeriesObj.iloc[low:high] #[- (time_window * (moving_window + 1)): -1]
+                                slice= columnSeriesObj.iloc[- (time_window * (moving_window + 1)): -1] #.iloc[low:high]
                             else:
-                                slice= columnSeriesObj.iloc[low:-1]
+                                slice= columnSeriesObj #.iloc[low:-1]
                         #If not correlated take the nearest slice to the time-to-event                                 
                         else:                            
                             if high < timepoints:
