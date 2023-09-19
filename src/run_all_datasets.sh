@@ -7,16 +7,16 @@ if [[ -z "$base_path" ]] ; then  # error; for some reason, the path is not acces
 fi
 echo "$base_path"
 
-datasets=("xjtu" "pronostia")
-corrs=("not_correlated" "correlated" "bootstrap")
+datasets= ("xjtu" "pronostia")
+corrs= ("not_correlated" "correlated" "bootstrap")
 echo "=============================================================================================="
 echo "Starting script"
 echo "=============================================================================================="
 for dataset in ${datasets[@]}; do
 	for corr in ${corrs[@]}; do
-		echo "Starting dataset run <$dataset> <$corr>"
-	        python $base_path/../src/test_find_resume.py --dataset $dataset --typedata $corr
-	        echo "Tuning dataset <$dataset> <$corr> done"
+		echo "Starting dataset run <$dataset> <$corr> <$merge>"
+	        python $base_path/../src/test_find_resume.py --dataset $dataset --typedata $corr --typedata $merge
+	        echo "Tuning dataset <$dataset> <$corr> <$merge> done"
 	        echo -e "\n\n\n\n\n"
 	        echo "=============================================================================================="
 	        echo -e "\n\n\n\n\n"

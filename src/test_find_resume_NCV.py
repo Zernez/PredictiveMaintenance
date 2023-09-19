@@ -322,7 +322,7 @@ def main():
                 
                 #Indexing the file name linked to the DATASET condition
                 index = re.search(r"\d\d", cfg.RAW_DATA_PATH_PRONOSTIA[i])
-                condition_name = cfg.RAW_DATA_PATH_PRONOSTIA[i][index.start():-1] + "_censoring" + str(int(CENSORING[j] * 100))
+                condition_name = cfg.RAW_DATA_PATH_PRONOSTIA[i][index.start():-1] + "_" + str(int(CENSORING[j] * 100))
                 
                 file_name = f"{model_name}_{condition_name}_results.csv"
 
