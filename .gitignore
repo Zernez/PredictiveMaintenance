@@ -10,3 +10,5 @@ src/tools/__pycache__/
 src/plotter.ipynb
 src/dataset
 src/HP_crest_kurtosis.ipynb
+
+*.pt
