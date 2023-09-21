@@ -24,10 +24,12 @@ class Resume:
         if dataset == "xjtu":
             self.result_path= cfg.RESULT_PATH_XJTU
             self.sample_path= cfg.SAMPLE_PATH_XJTU
+            self.condition_types= cfg.RAW_DATA_PATH_XJTU
         elif dataset == "pronostia":
             self.result_path= cfg.RESULT_PATH_PRONOSTIA
             self.sample_path= cfg.SAMPLE_PATH_PRONOSTIA
-  
+            self.condition_types= cfg.RAW_DATA_PATH_PRONOSTIA
+        self.censoring_levels= str(cfg.CENSORING_LEVEL / 100)
         self.hyper_results= cfg.HYPER_RESULTS   
         self.x= x
         self.y= y
@@ -301,7 +303,7 @@ class Resume:
 
             return df_CI, df_B
 
-    def table_result_hyper(self):
+    def table_result_hyper (self):
 
         itr = os.walk(self.hyper_results)
         cph_results = str()
@@ -434,445 +436,378 @@ class Resume:
             
             pd.set_option('use_inf_as_na',True)
 
-    def table_result_hyper_v2(self, database, test_type):
+    def table_result_hyper_v2 (self): 
+        
+        results= []
+        models= ["CoxPH", "DeepSurv", "RSF", "CoxBoost", "WeibullAFT"]
+        data_types= ["boostrap", "correlated", "not_correlated"] 
+        datasets= ["xjtu, pronostia"]
+        pd.set_option('use_inf_as_na',True)
+
+        for dataset in datasets:
+            for model in models:
+                for type_test in self.condition_types:
+                    index = re.search(r"\d\d", type_test)
+                    condition_name = type_test[index.start():-1]
+                    for type_data in data_types: 
+                        for censor_level in self.censoring_levels:
+                            results.append(dict(dataset = dataset, type_test = condition_name, type_data= type_data, censor_test = censor_level, model= model, results= 0))
 
         itr = os.walk(self.hyper_results)
-        cph_results = str()
-        dl_results = str()
-        rsf_results = str()
-        cb_results = str()
-        aft_results = str()
         next(itr)
-        pd.set_option('use_inf_as_na',True)
 
         for next_root, next_dirs, next_files in itr: 
             itr_final = os.walk(next_root)
             next(itr_final)
             
-            for final_root, final_dirs, final_files in itr_final: 
-                
+            for final_root, final_dirs, final_files in itr_final:
+                info_type_data= re.split(r"/", final_root)[4] 
                 for filename in os.listdir(final_root):
-                    if re.findall(r"\bCoxPH", filename):
-                        cph_results = pd.read_csv(os.path.join(final_root, filename))
-                    elif re.findall(r"\bDeepSurv", filename):
-                        dl_results = pd.read_csv(os.path.join(final_root, filename))
-                    elif re.findall(r"\bRSF", filename):
-                        rsf_results = pd.read_csv(os.path.join(final_root, filename))
-                    elif re.findall(r"\bCoxBoost", filename):
-                        cb_results = pd.read_csv(os.path.join(final_root, filename))
-                    elif re.findall(r"\bWeibullAFT", filename):
-                        aft_results = pd.read_csv(os.path.join(final_root, filename))
+                    info= re.split(r"_", filename)
+                    for dataset in datasets:
+                        for i, result in enumerate(results):
+                            if result['dataset'] == dataset and result['type_data'] == info_type_data and result['model'] == info[0] and result['type_test'] == info[1] and result['censor_test'] == info[2]:
+                                results[i]['results'] = pd.read_csv(os.path.join(final_root, filename))
 
-                cv_results = pd.concat([cph_results, rsf_results, cb_results, dl_results, aft_results], axis=0)
-                cv_results=cv_results.dropna().reset_index(drop=True)
+                for type_test in self.condition_types:
+                    index = re.search(r"\d\d", type_test)
+                    condition_name = type_test[index.start():-1]
+                    for censor_level in self.censoring_levels:  
+                        for dataset in datasets: 
+                            models_results= []              
+                            for i, model in enumerate(models):
+                                match = next((res for res in results if res['dataset'] == dataset and res['type_data'] == info_type_data and res['model'] == model and res['type_test'] == type_test and res['censor_test'] == censor_level), None)
+                                models_results.append(match['results']) 
+                        
+                            cv_results = pd.concat([models_results[0], models_results[1], models_results[2], models_results[3], models_results[4]], axis=0)
+                            cv_results= cv_results.dropna().reset_index(drop=True)
+                            col_order = ['(1) None', '(2) PHSelector']
+                            row_order = ['(1) CoxPH', '(2) RSF', '(3) CoxBoost', '(4) DeepSurv', '(5) WeibullAFT']
 
+                            # Group results for heatmaps
+                            cv_grp_results = cv_results.groupby(['ModelName', 'FtSelectorName'])[['CIndex', 'BrierScore']] \
+                                            .mean().round(4).reset_index()
+                            
+                            c_index_res = cv_grp_results.pivot(index='ModelName', columns=['FtSelectorName'], values=['CIndex']) \
+                                                        .rename_axis(None, axis=0).set_axis(range(0, len(col_order)), axis=1) \
+                                                        .set_axis(col_order, axis=1).reindex(row_order)
+                            
+                            brier_score_res = cv_grp_results.pivot(index='ModelName', columns=['FtSelectorName'], values=['BrierScore']) \
+                                                            .rename_axis(None, axis=0).set_axis(range(0, len(col_order)), axis=1) \
+                                                            .set_axis(col_order, axis=1).reindex(row_order)
+                            
+                    #        brier_score_res = brier_score_res.apply(lambda x: 100 - (x * 100)) # for better readability
 
-                col_order = ['(1) None', '(2) PHSelector']
-                row_order = ['(1) CoxPH', '(2) RSF', '(3) CoxBoost', '(4) DeepSurv', '(5) WeibullAFT'] 
+                            data = cv_grp_results.loc[cv_grp_results['ModelName'] == '(1) CoxPH']['CIndex']
 
-                # Group results for heatmaps
-                cv_grp_results = cv_results.groupby(['ModelName', 'FtSelectorName'])[['CIndex', 'BrierScore']] \
-                                .mean().round(4).reset_index()
-                
-                c_index_res = cv_grp_results.pivot(index='ModelName', columns=['FtSelectorName'], values=['CIndex']) \
-                                            .rename_axis(None, axis=0).set_axis(range(0, len(col_order)), axis=1) \
-                                            .set_axis(col_order, axis=1).reindex(row_order)
-                
-                brier_score_res = cv_grp_results.pivot(index='ModelName', columns=['FtSelectorName'], values=['BrierScore']) \
-                                                .rename_axis(None, axis=0).set_axis(range(0, len(col_order)), axis=1) \
-                                                .set_axis(col_order, axis=1).reindex(row_order)
-                
-        #        brier_score_res = brier_score_res.apply(lambda x: 100 - (x * 100)) # for better readability
+                            # Plot heatmap of c-index
+                            df = pd.DataFrame(c_index_res)
+                            annot_df = df.applymap(lambda f: f'{f:.3g}')
+                            fig, ax = plt.subplots(figsize=(25, 7), squeeze=False)
+                            sns.heatmap(np.where(df.isna(), 0, np.nan), ax=ax[0, 0], cbar=False,
+                                        annot=np.full_like(df, "NA", dtype=object), fmt="",
+                                        annot_kws={"size": 14, "va": "center_baseline", "color": "black"},
+                                        cmap=sns.diverging_palette(20, 220, n=200), linewidth=0)
+                            sns.heatmap(df, ax=ax[0, 0], cbar=True, annot=annot_df,
+                                        fmt="", annot_kws={"size": 14, "va": "center_baseline"},
+                                        cmap=sns.diverging_palette(20, 220, n=200),#vmin=0.5, vmax=1,
+                                        linewidth=2, linecolor="black", xticklabels=True, yticklabels=True)
+                            ax[0,0].set_ylabel('Machine Learning Model', fontsize=14)
+                            ax[0,0].set_xlabel('Feature Selection Method', fontsize=14)
+                            ax[0,0].xaxis.set_ticks_position('top')
+                            ax[0,0].xaxis.set_label_position('top')
+                            ax[0,0].tick_params(axis='both', which='major', labelsize=14)
+                            plt.xticks(rotation=45)
+                            plt.savefig(self.result_path + 'cindex_table_' + type_test + '_' + censor_level +  '_' + dataset + '_' + info_type_data + '.png')
 
-                data = cv_grp_results.loc[cv_grp_results['ModelName'] == '(1) CoxPH']['CIndex']
+                            # Plot heatmap of brier score
+                            df = pd.DataFrame(brier_score_res)
+                            annot_df = df.applymap(lambda f: f'{f:.3g}')
+                            fig, ax = plt.subplots(figsize=(25, 8), squeeze=False)
+                            sns.heatmap(np.where(df.isna(), 0, np.nan), ax=ax[0, 0], cbar=False,
+                                        annot=np.full_like(df, "NA", dtype=object), fmt="",
+                                        annot_kws={"size": 14, "va": "center_baseline", "color": "black"},
+                                        cmap=sns.diverging_palette(20, 220, n=200), linewidth=0)
+                            sns.heatmap(df, ax=ax[0, 0], cbar=True, annot=annot_df, 
+                                        fmt="", annot_kws={"size": 14, "va": "center_baseline"},
+                                        cmap=sns.diverging_palette(20, 220, n=200),# vmin=3, vmax=5.9,
+                                        linewidth=2, linecolor="black", xticklabels=True, yticklabels=True)
+                            ax[0,0].set_ylabel('Machine Learning Model', fontsize=14)
+                            ax[0,0].set_xlabel('Feature Selection Method', fontsize=14)
+                            ax[0,0].xaxis.set_ticks_position('top')
+                            ax[0,0].xaxis.set_label_position('top')
+                            ax[0,0].tick_params(axis='both', which='major', labelsize=14)
+                            plt.xticks(rotation=45)
+                            plt.savefig(self.result_path + 'brier_table_' + type_test + '_' + censor_level + '_' + dataset + '_' + info_type_data + '.png')
 
-                # Plot heatmap of c-index
-                df = pd.DataFrame(c_index_res)
-                annot_df = df.applymap(lambda f: f'{f:.3g}')
-                fig, ax = plt.subplots(figsize=(25, 7), squeeze=False)
-                sns.heatmap(np.where(df.isna(), 0, np.nan), ax=ax[0, 0], cbar=False,
-                            annot=np.full_like(df, "NA", dtype=object), fmt="",
-                            annot_kws={"size": 14, "va": "center_baseline", "color": "black"},
-                            cmap=sns.diverging_palette(20, 220, n=200), linewidth=0)
-                sns.heatmap(df, ax=ax[0, 0], cbar=True, annot=annot_df,
-                            fmt="", annot_kws={"size": 14, "va": "center_baseline"},
-                            cmap=sns.diverging_palette(20, 220, n=200),#vmin=0.5, vmax=1,
-                            linewidth=2, linecolor="black", xticklabels=True, yticklabels=True)
-                ax[0,0].set_ylabel('Machine Learning Model', fontsize=14)
-                ax[0,0].set_xlabel('Feature Selection Method', fontsize=14)
-                ax[0,0].xaxis.set_ticks_position('top')
-                ax[0,0].xaxis.set_label_position('top')
-                ax[0,0].tick_params(axis='both', which='major', labelsize=14)
-                plt.xticks(rotation=45)
-                plt.savefig(final_root + "cindex_table.png")
+                            # Make table with ci results
+                            c_index_mean = cv_results.groupby(['ModelName', 'FtSelectorName'])[['CIndex']].mean().round(2)
+                            c_index_std = cv_results.groupby(['ModelName', 'FtSelectorName'])[['CIndex']].std().round(2)
+                            col_order = cv_results['FtSelectorName'].unique()
+                            row_order = ['(1) CoxPH', '(2) RSF', '(3) CoxBoost', '(4) DeepSurv', '(5) WeibullAFT']
+                            results_merged = pd.merge(c_index_mean, c_index_std, left_index=True,
+                                                    right_index=True, suffixes=('Mean', 'Std')).reset_index()
+                            results_merged = results_merged.fillna("NA")
+                            results_merged['CIndex'] = results_merged['CIndexMean'].astype(str) + " ($\pm$"+ results_merged["CIndexStd"].astype(str) + ")"
+                            table = results_merged.pivot(index='ModelName', columns=['FtSelectorName'], values=['CIndex']) \
+                                        .rename_axis(None, axis=0).set_axis(range(0, len(col_order)), axis=1) \
+                                        .set_axis(col_order, axis=1).reindex(row_order)
+                            file = open(self.result_path + 'Latex_CI_' + type_test + '_' + censor_level + '_' + dataset + '_' + info_type_data + '.txt', 'w')
+                            file.write(table.style.to_latex())
+                            file.close()
 
-                # Plot heatmap of brier score
-                df = pd.DataFrame(brier_score_res)
-                annot_df = df.applymap(lambda f: f'{f:.3g}')
-                fig, ax = plt.subplots(figsize=(25, 8), squeeze=False)
-                sns.heatmap(np.where(df.isna(), 0, np.nan), ax=ax[0, 0], cbar=False,
-                            annot=np.full_like(df, "NA", dtype=object), fmt="",
-                            annot_kws={"size": 14, "va": "center_baseline", "color": "black"},
-                            cmap=sns.diverging_palette(20, 220, n=200), linewidth=0)
-                sns.heatmap(df, ax=ax[0, 0], cbar=True, annot=annot_df, 
-                            fmt="", annot_kws={"size": 14, "va": "center_baseline"},
-                            cmap=sns.diverging_palette(20, 220, n=200),# vmin=3, vmax=5.9,
-                            linewidth=2, linecolor="black", xticklabels=True, yticklabels=True)
-                ax[0,0].set_ylabel('Machine Learning Model', fontsize=14)
-                ax[0,0].set_xlabel('Feature Selection Method', fontsize=14)
-                ax[0,0].xaxis.set_ticks_position('top')
-                ax[0,0].xaxis.set_label_position('top')
-                ax[0,0].tick_params(axis='both', which='major', labelsize=14)
-                plt.xticks(rotation=45)
-                plt.savefig(final_root + "brier_table.png")
+                            # Make table with brier results
+                            bri_mean = cv_results.groupby(['ModelName', 'FtSelectorName'])[['BrierScore']].mean().round(2)
+                            bri_std = cv_results.groupby(['ModelName', 'FtSelectorName'])[['BrierScore']].std().round(2)
+                            col_order = cv_results['FtSelectorName'].unique()
+                            row_order = ['(1) CoxPH', '(2) RSF', '(3) CoxBoost', '(4) DeepSurv', '(5) WeibullAFT']
+                            results_merged = pd.merge(bri_mean, bri_std, left_index=True,
+                                                    right_index=True, suffixes=('Mean', 'Std')).reset_index()
+                            results_merged = results_merged.fillna("NA")
+                            results_merged['BrierScore'] = results_merged['BrierScoreMean'].astype(str) + " ($\pm$"+ results_merged["BrierScoreStd"].astype(str) + ")"
+                            table = results_merged.pivot(index='ModelName', columns=['FtSelectorName'], values=['BrierScore']) \
+                                        .rename_axis(None, axis=0).set_axis(range(0, len(col_order)), axis=1) \
+                                        .set_axis(col_order, axis=1).reindex(row_order)
+                            file = open(self.result_path + 'Latex_bri_' + type_test + '_' + censor_level + '_' + dataset + '_' + info_type_data + '.txt', 'w')
+                            file.write(table.style.to_latex())
+                            file.close()
 
-                # Make table with ci results
-                c_index_mean = cv_results.groupby(['ModelName', 'FtSelectorName'])[['CIndex']].mean().round(2)
-                c_index_std = cv_results.groupby(['ModelName', 'FtSelectorName'])[['CIndex']].std().round(2)
-                col_order = cv_results['FtSelectorName'].unique()
-                row_order = ['(1) CoxPH', '(2) RSF', '(3) CoxBoost', '(4) DeepSurv', '(5) WeibullAFT']
-                results_merged = pd.merge(c_index_mean, c_index_std, left_index=True,
-                                        right_index=True, suffixes=('Mean', 'Std')).reset_index()
-                results_merged = results_merged.fillna("NA")
-                results_merged['CIndex'] = results_merged['CIndexMean'].astype(str) + " ($\pm$"+ results_merged["CIndexStd"].astype(str) + ")"
-                table = results_merged.pivot(index='ModelName', columns=['FtSelectorName'], values=['CIndex']) \
-                            .rename_axis(None, axis=0).set_axis(range(0, len(col_order)), axis=1) \
-                            .set_axis(col_order, axis=1).reindex(row_order)
-                file = open(final_root + 'Latex_CI.txt', 'w')
-                file.write(table.style.to_latex())
-                file.close()
+        # Generate some sample test results and values for three groups
+        test_results = ['CL 30%', 'CL 60%', 'CL 90%']
 
-                # Make table with brier results
-                bri_mean = cv_results.groupby(['ModelName', 'FtSelectorName'])[['BrierScore']].mean().round(2)
-                bri_std = cv_results.groupby(['ModelName', 'FtSelectorName'])[['BrierScore']].std().round(2)
-                col_order = cv_results['FtSelectorName'].unique()
-                row_order = ['(1) CoxPH', '(2) RSF', '(3) CoxBoost', '(4) DeepSurv', '(5) WeibullAFT']
-                results_merged = pd.merge(bri_mean, bri_std, left_index=True,
-                                        right_index=True, suffixes=('Mean', 'Std')).reset_index()
-                results_merged = results_merged.fillna("NA")
-                results_merged['BrierScore'] = results_merged['BrierScoreMean'].astype(str) + " ($\pm$"+ results_merged["BrierScoreStd"].astype(str) + ")"
-                table = results_merged.pivot(index='ModelName', columns=['FtSelectorName'], values=['BrierScore']) \
-                            .rename_axis(None, axis=0).set_axis(range(0, len(col_order)), axis=1) \
-                            .set_axis(col_order, axis=1).reindex(row_order)
-                file = open(final_root + 'Latex_bri.txt', 'w')
-                file.write(table.style.to_latex())
-                file.close()
+        values_group = [[0] * (len(self.condition_types) * len(datasets))]
+        data_types= ["correlated"]
+        
+        subplot_no= 0
+        for i, dataset in enumerate(datasets):
+            for type_test in self.condition_types:
+                index = re.search(r"\d\d", type_test)
+                info_type_data = type_test[index.start():-1]
+                for type_data in data_types:
+                    for w, model in enumerate(models): 
+                        for censor_level in self.censoring_levels:             
+                            match = next((res for res in results if res['dataset'] == dataset and res['type_data'] == info_type_data and res['model'] == model and res['type_test'] == type_test and res['censor_test'] == censor_level), None)
+                            df = match['results']
+                            values_group[w][subplot_no].append(df[df['FtSelectorName'] == 'NoneSelector']['BrierScore'].mean())
+                subplot_no += 1
 
-                # Generate some sample test results and values for three groups
-                np.random.seed(42)
-                test_results = ['CL 30%', 'CL 60%', 'CL 90%']
+        # Calculate means and standard deviations for each group
+        mean_group = [[0] * (len(self.condition_types) * len(datasets))]
+        std_group = [[0] * (len(self.condition_types) * len(datasets))]
 
-                values_group1 =  [0] * len(test_results)
-                values_group2 =  [0] * len(test_results)
-                values_group3 =  [0] * len(test_results)
-                values_group4 =  [0] * len(test_results)
-                values_group5 =  [0] * len(test_results)
+        for i, models in enumerate(values_group):
+            for j, subplot in enumerate(dataset):
+                mean_group[i][j]= np.mean(values_group[i][j])
+        
+        for i, models in enumerate(values_group):
+            for j, subplot in enumerate(dataset):
+                std_group[i][j]= np.std(values_group[i][j])
 
-                # Generate some sample test results and values for three groups
-                np.random.seed(42)
+        # Calculate confidence intervals for each group
+        ci_group = [[0] * (len(self.condition_types) * len(datasets))] * len(models)
+        confidence_level = 0.95
+        n_per_group = len((len(self.condition_types) * len(datasets)))
+        t_value = stats.t.ppf((1 + confidence_level) / 2, n_per_group - 1)
 
-                values_group1[0] = np.random.normal(10, 2, len(test_results))
-                values_group2[0] = np.random.normal(15, 3, len(test_results))
-                values_group3[0] = np.random.normal(8, 1.5, len(test_results))
-                values_group4[0] = np.random.normal(15, 3, len(test_results))
-                values_group5[0] = np.random.normal(8, 1.5, len(test_results))
+        for i, models in enumerate(values_group):
+            for j, subplot in enumerate(dataset):
+                ci_group[i][j]= t_value * (std_group[i][j] / np.sqrt(n_per_group))
 
-                values_group1[1] = np.random.normal(10, 2, len(test_results))
-                values_group2[1] = np.random.normal(15, 3, len(test_results))
-                values_group3[1] = np.random.normal(8, 1.5, len(test_results))
-                values_group4[1] = np.random.normal(15, 3, len(test_results))
-                values_group5[1] = np.random.normal(8, 1.5, len(test_results))
+        # Optionally add confidence intervals as error bars on top of each bar
+        show_confidence_intervals = True
 
-                values_group1[2] = np.random.normal(10, 2, len(test_results))
-                values_group2[2] = np.random.normal(15, 3, len(test_results))
-                values_group3[2] = np.random.normal(8, 1.5, len(test_results))
-                values_group4[2] = np.random.normal(15, 3, len(test_results))
-                values_group5[2] = np.random.normal(8, 1.5, len(test_results))
+        # Create a 2x3 grid of subplots
+        fig, axes = plt.subplots(2, 3, figsize=(15, 8))
+        axes = axes.ravel()  # Flatten the axes for easy iteration
 
-                # Combine all values for calculating overall statistics
-                all_values = np.concatenate((values_group1[0], values_group1[1], values_group1[2], 
-                                            values_group2[0], values_group2[1], values_group2[2], 
-                                            values_group3[0], values_group3[1], values_group3[2], 
-                                            values_group4[0], values_group4[1], values_group4[2], 
-                                            values_group5[0], values_group5[1], values_group5[2]))
+        for i in range(6):
+            ax = axes[i]
+            values = None
+            j = i
 
-                # Calculate means and standard deviations for each group
-                mean_group1 =  [0] * len(test_results)
-                std_group1 =  [0] * len(test_results)
-                mean_group2 =  [0] * len(test_results)
-                std_group2 =  [0] * len(test_results)
-                mean_group3 =  [0] * len(test_results)
-                std_group3 =  [0] * len(test_results)
-                mean_group4 =  [0] * len(test_results)
-                std_group4 =  [0] * len(test_results)
-                mean_group5 =  [0] * len(test_results)
-                std_group5 =  [0] * len(test_results)
+            # Create the bar plot with different colors and black borders for each group
+            bar_width = 0.1
+            ax.bar(np.arange(len(test_results)) - bar_width *2, values_group[0][j], width=bar_width, align='center', label='CoxPH', alpha=0.7, edgecolor='black', linewidth=1)
+            ax.bar(np.arange(len(test_results)) - bar_width, values_group[1][j], width=bar_width, align='center', label='CoxBoost', alpha=0.7, edgecolor='black', linewidth=1)
+            ax.bar(np.arange(len(test_results)) , values_group[2][j], width=bar_width, align='center', label='DeepSruv', alpha=0.7, edgecolor='black', linewidth=1)
+            ax.bar(np.arange(len(test_results)) + bar_width, values_group[3][j], width=bar_width, align='center', label='DSM', alpha=0.7, edgecolor='black', linewidth=1)
+            ax.bar(np.arange(len(test_results)) + bar_width * 2, values_group[4][j], width=bar_width, align='center', label='WeibullAFT', alpha=0.7, edgecolor='black', linewidth=1)
 
-                mean_group1[0] = np.mean(values_group1[0])
-                std_group1[0] = np.std(values_group1[0])
-                mean_group1[1] = np.mean(values_group1[1])
-                std_group1[1] = np.std(values_group1[1])
-                mean_group1[2] = np.mean(values_group1[2])
-                std_group1[2] = np.std(values_group1[2])
+            # Optionally add confidence intervals as error bars on top of each bar
+            show_confidence_intervals = True
+            if show_confidence_intervals:
+                for i in range(len(test_results)):
+                    ax.errorbar(i - bar_width * 2, values_group[0][j][i], yerr=ci_group[0][j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
+                    ax.errorbar(i - bar_width, values_group[1][j][i], yerr=ci_group[1][j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
+                    ax.errorbar(i, values_group[2][j][i], yerr=ci_group[2][j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
+                    ax.errorbar(i + bar_width, values_group[3][j][i], yerr=ci_group[3][j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
+                    ax.errorbar(i + bar_width * 2, values_group[4][j][i], yerr=ci_group[4][j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
 
-                mean_group2[0] = np.mean(values_group2[0])
-                std_group2[0] = np.std(values_group2[0])
-                mean_group2[1] = np.mean(values_group2[1])
-                std_group2[1] = np.std(values_group2[1])
-                mean_group2[2] = np.mean(values_group2[2])
-                std_group2[2] = np.std(values_group2[2])
+            # Add labels and title
+            ax.set_xlabel(None)
+            ax.set_ylabel('Brier score (BS)')
+            ax.set_xticks(np.arange(len(test_results)))
+            ax.set_xticklabels(test_results, rotation=45)
+            ax.legend()
+        
+        plt.savefig(final_root + "bar_plot_brier.png")  
 
-                mean_group3[0] = np.mean(values_group3[0])
-                std_group3[0] = np.std(values_group3[0])
-                mean_group3[1] = np.mean(values_group3[1])
-                std_group3[1] = np.std(values_group3[1])
-                mean_group3[2] = np.mean(values_group3[2])
-                std_group3[2] = np.std(values_group3[2])
+        # # Generate some sample test results and values for three groups
+        # np.random.seed(42)
+        # test_results = ['CL 30%', 'CL 60%', 'CL 90%']
 
-                mean_group4[0] = np.mean(values_group4[0])
-                std_group4[0] = np.std(values_group4[0])
-                mean_group4[1] = np.mean(values_group4[1])
-                std_group4[1] = np.std(values_group4[1])
-                mean_group4[2] = np.mean(values_group4[2])
-                std_group4[2] = np.std(values_group4[2])
+        # values_group1 =  [0] * len(test_results)
+        # values_group2 =  [0] * len(test_results)
+        # values_group3 =  [0] * len(test_results)
+        # values_group4 =  [0] * len(test_results)
+        # values_group5 =  [0] * len(test_results)
 
-                mean_group5[0] = np.mean(values_group5[0])
-                std_group5[0] = np.std(values_group5[0])
-                mean_group5[1] = np.mean(values_group5[1])
-                std_group5[1] = np.std(values_group5[1])
-                mean_group5[2] = np.mean(values_group5[2])
-                std_group5[2] = np.std(values_group5[2])
+        # # Generate some sample test results and values for three groups
+        # np.random.seed(42)
 
-                # Calculate confidence intervals for each group
+        # values_group1[0] = np.random.normal(10, 2, len(test_results))
+        # values_group2[0] = np.random.normal(15, 3, len(test_results))
+        # values_group3[0] = np.random.normal(8, 1.5, len(test_results))
+        # values_group4[0] = np.random.normal(15, 3, len(test_results))
+        # values_group5[0] = np.random.normal(8, 1.5, len(test_results))
 
-                ci_group1 =  [0] * len(test_results)
-                ci_group2 =  [0] * len(test_results)
-                ci_group3 =  [0] * len(test_results)
-                ci_group4 =  [0] * len(test_results)
-                ci_group5 =  [0] * len(test_results)
+        # values_group1[1] = np.random.normal(10, 2, len(test_results))
+        # values_group2[1] = np.random.normal(15, 3, len(test_results))
+        # values_group3[1] = np.random.normal(8, 1.5, len(test_results))
+        # values_group4[1] = np.random.normal(15, 3, len(test_results))
+        # values_group5[1] = np.random.normal(8, 1.5, len(test_results))
 
-                confidence_level = 0.95
-                n_per_group = len(test_results)
-                t_value = stats.t.ppf((1 + confidence_level) / 2, n_per_group - 1)
-                ci_group1[0] = t_value * (std_group1[0] / np.sqrt(n_per_group))
-                ci_group2[0] = t_value * (std_group2[0] / np.sqrt(n_per_group))
-                ci_group3[0] = t_value * (std_group3[0] / np.sqrt(n_per_group))
-                ci_group4[0] = t_value * (std_group4[0] / np.sqrt(n_per_group))
-                ci_group5[0] = t_value * (std_group5[0] / np.sqrt(n_per_group))
+        # values_group1[2] = np.random.normal(10, 2, len(test_results))
+        # values_group2[2] = np.random.normal(15, 3, len(test_results))
+        # values_group3[2] = np.random.normal(8, 1.5, len(test_results))
+        # values_group4[2] = np.random.normal(15, 3, len(test_results))
+        # values_group5[2] = np.random.normal(8, 1.5, len(test_results))
 
-                ci_group1[1]= t_value * (std_group1[1] / np.sqrt(n_per_group))
-                ci_group2[1] = t_value * (std_group2[1] / np.sqrt(n_per_group))
-                ci_group3[1] = t_value * (std_group3[1] / np.sqrt(n_per_group))
-                ci_group4[1] = t_value * (std_group4[1] / np.sqrt(n_per_group))
-                ci_group5[1] = t_value * (std_group5[1] / np.sqrt(n_per_group))
+        # # Combine all values for calculating overall statistics
+        # all_values = np.concatenate((values_group1[0], values_group1[1], values_group1[2], 
+        #                             values_group2[0], values_group2[1], values_group2[2], 
+        #                             values_group3[0], values_group3[1], values_group3[2], 
+        #                             values_group4[0], values_group4[1], values_group4[2], 
+        #                             values_group5[0], values_group5[1], values_group5[2]))
 
-                ci_group1[2] = t_value * (std_group1[2]/ np.sqrt(n_per_group))
-                ci_group2[2] = t_value * (std_group2[2] / np.sqrt(n_per_group))
-                ci_group3[2] = t_value * (std_group3[2] / np.sqrt(n_per_group))
-                ci_group4[2] = t_value * (std_group4[2] / np.sqrt(n_per_group))
-                ci_group5[2] = t_value * (std_group5[2] / np.sqrt(n_per_group))
+        # # Calculate means and standard deviations for each group
+        # mean_group1 =  [0] * len(test_results)
+        # std_group1 =  [0] * len(test_results)
+        # mean_group2 =  [0] * len(test_results)
+        # std_group2 =  [0] * len(test_results)
+        # mean_group3 =  [0] * len(test_results)
+        # std_group3 =  [0] * len(test_results)
+        # mean_group4 =  [0] * len(test_results)
+        # std_group4 =  [0] * len(test_results)
+        # mean_group5 =  [0] * len(test_results)
+        # std_group5 =  [0] * len(test_results)
 
-                # Optionally add confidence intervals as error bars on top of each bar
-                show_confidence_intervals = True
+        # mean_group1[0] = np.mean(values_group1[0])
+        # std_group1[0] = np.std(values_group1[0])
+        # mean_group1[1] = np.mean(values_group1[1])
+        # std_group1[1] = np.std(values_group1[1])
+        # mean_group1[2] = np.mean(values_group1[2])
+        # std_group1[2] = np.std(values_group1[2])
 
-                # Create a 2x3 grid of subplots
-                fig, axes = plt.subplots(2, 3, figsize=(15, 8))
-                axes = axes.ravel()  # Flatten the axes for easy iteration
+        # mean_group2[0] = np.mean(values_group2[0])
+        # std_group2[0] = np.std(values_group2[0])
+        # mean_group2[1] = np.mean(values_group2[1])
+        # std_group2[1] = np.std(values_group2[1])
+        # mean_group2[2] = np.mean(values_group2[2])
+        # std_group2[2] = np.std(values_group2[2])
 
-                for i in range(6):
-                    ax = axes[i]
-                    values = None
+        # mean_group3[0] = np.mean(values_group3[0])
+        # std_group3[0] = np.std(values_group3[0])
+        # mean_group3[1] = np.mean(values_group3[1])
+        # std_group3[1] = np.std(values_group3[1])
+        # mean_group3[2] = np.mean(values_group3[2])
+        # std_group3[2] = np.std(values_group3[2])
 
-                    if i < 3:
-                        j = i
-                    else:
-                        j = i - n_per_group
+        # mean_group4[0] = np.mean(values_group4[0])
+        # std_group4[0] = np.std(values_group4[0])
+        # mean_group4[1] = np.mean(values_group4[1])
+        # std_group4[1] = np.std(values_group4[1])
+        # mean_group4[2] = np.mean(values_group4[2])
+        # std_group4[2] = np.std(values_group4[2])
 
-                    # Create the bar plot with different colors and black borders for each group
-                    bar_width = 0.1
-                    ax.bar(np.arange(len(test_results)) - bar_width *2, values_group1[j], width=bar_width, align='center', label='CoxPH', alpha=0.7, edgecolor='black', linewidth=1)
-                    ax.bar(np.arange(len(test_results)) - bar_width, values_group2[j], width=bar_width, align='center', label='CoxBoost', alpha=0.7, edgecolor='black', linewidth=1)
-                    ax.bar(np.arange(len(test_results)) , values_group3[j], width=bar_width, align='center', label='DeepSruv', alpha=0.7, edgecolor='black', linewidth=1)
-                    ax.bar(np.arange(len(test_results)) + bar_width, values_group4[j], width=bar_width, align='center', label='DSM', alpha=0.7, edgecolor='black', linewidth=1)
-                    ax.bar(np.arange(len(test_results)) + bar_width * 2, values_group5[j], width=bar_width, align='center', label='WeibullAFT', alpha=0.7, edgecolor='black', linewidth=1)
+        # mean_group5[0] = np.mean(values_group5[0])
+        # std_group5[0] = np.std(values_group5[0])
+        # mean_group5[1] = np.mean(values_group5[1])
+        # std_group5[1] = np.std(values_group5[1])
+        # mean_group5[2] = np.mean(values_group5[2])
+        # std_group5[2] = np.std(values_group5[2])
 
-                    # Optionally add confidence intervals as error bars on top of each bar
-                    show_confidence_intervals = True
-                    if show_confidence_intervals:
-                        for i in range(len(test_results)):
-                            ax.errorbar(i - bar_width * 2, values_group1[j][i], yerr=ci_group1[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
-                            ax.errorbar(i - bar_width, values_group2[j][i], yerr=ci_group2[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
-                            ax.errorbar(i, values_group3[j][i], yerr=ci_group3[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
-                            ax.errorbar(i + bar_width, values_group4[j][i], yerr=ci_group4[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
-                            ax.errorbar(i + bar_width * 2, values_group5[j][i], yerr=ci_group5[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
+        # # Calculate confidence intervals for each group
 
-                    # Add labels and title
-                    ax.set_xlabel(f'Test setting {test_type} over {database}')
-                    ax.set_ylabel('Brier score (BS)')
-                    ax.set_xticks(np.arange(len(test_results)))
-                    ax.set_xticklabels(test_results, rotation=45)
-                    ax.legend()
-                
-                plt.savefig(final_root + "bar_plot_brier.png")  
+        # ci_group1 =  [0] * len(test_results)
+        # ci_group2 =  [0] * len(test_results)
+        # ci_group3 =  [0] * len(test_results)
+        # ci_group4 =  [0] * len(test_results)
+        # ci_group5 =  [0] * len(test_results)
 
-                # Generate some sample test results and values for three groups
-                np.random.seed(42)
-                test_results = ['CL 30%', 'CL 60%', 'CL 90%']
+        # confidence_level = 0.95
+        # n_per_group = len(test_results)
+        # t_value = stats.t.ppf((1 + confidence_level) / 2, n_per_group - 1)
+        # ci_group1[0] = t_value * (std_group1[0] / np.sqrt(n_per_group))
+        # ci_group2[0] = t_value * (std_group2[0] / np.sqrt(n_per_group))
+        # ci_group3[0] = t_value * (std_group3[0] / np.sqrt(n_per_group))
+        # ci_group4[0] = t_value * (std_group4[0] / np.sqrt(n_per_group))
+        # ci_group5[0] = t_value * (std_group5[0] / np.sqrt(n_per_group))
 
-                values_group1 =  [0] * len(test_results)
-                values_group2 =  [0] * len(test_results)
-                values_group3 =  [0] * len(test_results)
-                values_group4 =  [0] * len(test_results)
-                values_group5 =  [0] * len(test_results)
+        # ci_group1[1]= t_value * (std_group1[1] / np.sqrt(n_per_group))
+        # ci_group2[1] = t_value * (std_group2[1] / np.sqrt(n_per_group))
+        # ci_group3[1] = t_value * (std_group3[1] / np.sqrt(n_per_group))
+        # ci_group4[1] = t_value * (std_group4[1] / np.sqrt(n_per_group))
+        # ci_group5[1] = t_value * (std_group5[1] / np.sqrt(n_per_group))
 
-                # Generate some sample test results and values for three groups
-                np.random.seed(42)
+        # ci_group1[2] = t_value * (std_group1[2]/ np.sqrt(n_per_group))
+        # ci_group2[2] = t_value * (std_group2[2] / np.sqrt(n_per_group))
+        # ci_group3[2] = t_value * (std_group3[2] / np.sqrt(n_per_group))
+        # ci_group4[2] = t_value * (std_group4[2] / np.sqrt(n_per_group))
+        # ci_group5[2] = t_value * (std_group5[2] / np.sqrt(n_per_group))
 
-                values_group1[0] = np.random.normal(10, 2, len(test_results))
-                values_group2[0] = np.random.normal(15, 3, len(test_results))
-                values_group3[0] = np.random.normal(8, 1.5, len(test_results))
-                values_group4[0] = np.random.normal(15, 3, len(test_results))
-                values_group5[0] = np.random.normal(8, 1.5, len(test_results))
+        # # Optionally add confidence intervals as error bars on top of each bar
+        # show_confidence_intervals = True
 
-                values_group1[1] = np.random.normal(10, 2, len(test_results))
-                values_group2[1] = np.random.normal(15, 3, len(test_results))
-                values_group3[1] = np.random.normal(8, 1.5, len(test_results))
-                values_group4[1] = np.random.normal(15, 3, len(test_results))
-                values_group5[1] = np.random.normal(8, 1.5, len(test_results))
+        # # Create a 2x3 grid of subplots
+        # fig, axes = plt.subplots(2, 3, figsize=(15, 8))
+        # axes = axes.ravel()  # Flatten the axes for easy iteration
 
-                values_group1[2] = np.random.normal(10, 2, len(test_results))
-                values_group2[2] = np.random.normal(15, 3, len(test_results))
-                values_group3[2] = np.random.normal(8, 1.5, len(test_results))
-                values_group4[2] = np.random.normal(15, 3, len(test_results))
-                values_group5[2] = np.random.normal(8, 1.5, len(test_results))
+        # for i in range(6):
+        #     ax = axes[i]
+        #     values = None
 
-                # Combine all values for calculating overall statistics
-                all_values = np.concatenate((values_group1[0], values_group1[1], values_group1[2], 
-                                            values_group2[0], values_group2[1], values_group2[2], 
-                                            values_group3[0], values_group3[1], values_group3[2], 
-                                            values_group4[0], values_group4[1], values_group4[2], 
-                                            values_group5[0], values_group5[1], values_group5[2]))
+        #     if i < 3:
+        #         j = i
+        #     else:
+        #         j = i - n_per_group
 
-                # Calculate means and standard deviations for each group
-                mean_group1 =  [0] * len(test_results)
-                std_group1 =  [0] * len(test_results)
-                mean_group2 =  [0] * len(test_results)
-                std_group2 =  [0] * len(test_results)
-                mean_group3 =  [0] * len(test_results)
-                std_group3 =  [0] * len(test_results)
-                mean_group4 =  [0] * len(test_results)
-                std_group4 =  [0] * len(test_results)
-                mean_group5 =  [0] * len(test_results)
-                std_group5 =  [0] * len(test_results)
+        #     # Create the bar plot with different colors and black borders for each group
+        #     bar_width = 0.1
+        #     ax.bar(np.arange(len(test_results)) - bar_width *2, values_group1[j], width=bar_width, align='center', label='CoxPH', alpha=0.7, edgecolor='black', linewidth=1)
+        #     ax.bar(np.arange(len(test_results)) - bar_width, values_group2[j], width=bar_width, align='center', label='CoxBoost', alpha=0.7, edgecolor='black', linewidth=1)
+        #     ax.bar(np.arange(len(test_results)) , values_group3[j], width=bar_width, align='center', label='DeepSruv', alpha=0.7, edgecolor='black', linewidth=1)
+        #     ax.bar(np.arange(len(test_results)) + bar_width, values_group4[j], width=bar_width, align='center', label='DSM', alpha=0.7, edgecolor='black', linewidth=1)
+        #     ax.bar(np.arange(len(test_results)) + bar_width * 2, values_group5[j], width=bar_width, align='center', label='WeibullAFT', alpha=0.7, edgecolor='black', linewidth=1)
 
-                mean_group1[0] = np.mean(values_group1[0])
-                std_group1[0] = np.std(values_group1[0])
-                mean_group1[1] = np.mean(values_group1[1])
-                std_group1[1] = np.std(values_group1[1])
-                mean_group1[2] = np.mean(values_group1[2])
-                std_group1[2] = np.std(values_group1[2])
+        #     # Optionally add confidence intervals as error bars on top of each bar
+        #     show_confidence_intervals = True
+        #     if show_confidence_intervals:
+        #         for i in range(len(test_results)):
+        #             ax.errorbar(i - bar_width * 2, values_group1[j][i], yerr=ci_group1[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
+        #             ax.errorbar(i - bar_width, values_group2[j][i], yerr=ci_group2[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
+        #             ax.errorbar(i, values_group3[j][i], yerr=ci_group3[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
+        #             ax.errorbar(i + bar_width, values_group4[j][i], yerr=ci_group4[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
+        #             ax.errorbar(i + bar_width * 2, values_group5[j][i], yerr=ci_group5[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
 
-                mean_group2[0] = np.mean(values_group2[0])
-                std_group2[0] = np.std(values_group2[0])
-                mean_group2[1] = np.mean(values_group2[1])
-                std_group2[1] = np.std(values_group2[1])
-                mean_group2[2] = np.mean(values_group2[2])
-                std_group2[2] = np.std(values_group2[2])
+        #     # Add labels and title
+        #     ax.set_xlabel(None)
+        #     ax.set_ylabel('Confidence Interval score (CItd)')
+        #     ax.set_xticks(np.arange(len(test_results)))
+        #     ax.set_xticklabels(test_results, rotation=45)
+        #     ax.legend()
 
-                mean_group3[0] = np.mean(values_group3[0])
-                std_group3[0] = np.std(values_group3[0])
-                mean_group3[1] = np.mean(values_group3[1])
-                std_group3[1] = np.std(values_group3[1])
-                mean_group3[2] = np.mean(values_group3[2])
-                std_group3[2] = np.std(values_group3[2])
-
-                mean_group4[0] = np.mean(values_group4[0])
-                std_group4[0] = np.std(values_group4[0])
-                mean_group4[1] = np.mean(values_group4[1])
-                std_group4[1] = np.std(values_group4[1])
-                mean_group4[2] = np.mean(values_group4[2])
-                std_group4[2] = np.std(values_group4[2])
-
-                mean_group5[0] = np.mean(values_group5[0])
-                std_group5[0] = np.std(values_group5[0])
-                mean_group5[1] = np.mean(values_group5[1])
-                std_group5[1] = np.std(values_group5[1])
-                mean_group5[2] = np.mean(values_group5[2])
-                std_group5[2] = np.std(values_group5[2])
-
-                # Calculate confidence intervals for each group
-
-                ci_group1 =  [0] * len(test_results)
-                ci_group2 =  [0] * len(test_results)
-                ci_group3 =  [0] * len(test_results)
-                ci_group4 =  [0] * len(test_results)
-                ci_group5 =  [0] * len(test_results)
-
-                confidence_level = 0.95
-                n_per_group = len(test_results)
-                t_value = stats.t.ppf((1 + confidence_level) / 2, n_per_group - 1)
-                ci_group1[0] = t_value * (std_group1[0] / np.sqrt(n_per_group))
-                ci_group2[0] = t_value * (std_group2[0] / np.sqrt(n_per_group))
-                ci_group3[0] = t_value * (std_group3[0] / np.sqrt(n_per_group))
-                ci_group4[0] = t_value * (std_group4[0] / np.sqrt(n_per_group))
-                ci_group5[0] = t_value * (std_group5[0] / np.sqrt(n_per_group))
-
-                ci_group1[1]= t_value * (std_group1[1] / np.sqrt(n_per_group))
-                ci_group2[1] = t_value * (std_group2[1] / np.sqrt(n_per_group))
-                ci_group3[1] = t_value * (std_group3[1] / np.sqrt(n_per_group))
-                ci_group4[1] = t_value * (std_group4[1] / np.sqrt(n_per_group))
-                ci_group5[1] = t_value * (std_group5[1] / np.sqrt(n_per_group))
-
-                ci_group1[2] = t_value * (std_group1[2]/ np.sqrt(n_per_group))
-                ci_group2[2] = t_value * (std_group2[2] / np.sqrt(n_per_group))
-                ci_group3[2] = t_value * (std_group3[2] / np.sqrt(n_per_group))
-                ci_group4[2] = t_value * (std_group4[2] / np.sqrt(n_per_group))
-                ci_group5[2] = t_value * (std_group5[2] / np.sqrt(n_per_group))
-
-                # Optionally add confidence intervals as error bars on top of each bar
-                show_confidence_intervals = True
-
-                # Create a 2x3 grid of subplots
-                fig, axes = plt.subplots(2, 3, figsize=(15, 8))
-                axes = axes.ravel()  # Flatten the axes for easy iteration
-
-                for i in range(6):
-                    ax = axes[i]
-                    values = None
-
-                    if i < 3:
-                        j = i
-                    else:
-                        j = i - n_per_group
-
-                    # Create the bar plot with different colors and black borders for each group
-                    bar_width = 0.1
-                    ax.bar(np.arange(len(test_results)) - bar_width *2, values_group1[j], width=bar_width, align='center', label='CoxPH', alpha=0.7, edgecolor='black', linewidth=1)
-                    ax.bar(np.arange(len(test_results)) - bar_width, values_group2[j], width=bar_width, align='center', label='CoxBoost', alpha=0.7, edgecolor='black', linewidth=1)
-                    ax.bar(np.arange(len(test_results)) , values_group3[j], width=bar_width, align='center', label='DeepSruv', alpha=0.7, edgecolor='black', linewidth=1)
-                    ax.bar(np.arange(len(test_results)) + bar_width, values_group4[j], width=bar_width, align='center', label='DSM', alpha=0.7, edgecolor='black', linewidth=1)
-                    ax.bar(np.arange(len(test_results)) + bar_width * 2, values_group5[j], width=bar_width, align='center', label='WeibullAFT', alpha=0.7, edgecolor='black', linewidth=1)
-
-                    # Optionally add confidence intervals as error bars on top of each bar
-                    show_confidence_intervals = True
-                    if show_confidence_intervals:
-                        for i in range(len(test_results)):
-                            ax.errorbar(i - bar_width * 2, values_group1[j][i], yerr=ci_group1[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
-                            ax.errorbar(i - bar_width, values_group2[j][i], yerr=ci_group2[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
-                            ax.errorbar(i, values_group3[j][i], yerr=ci_group3[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
-                            ax.errorbar(i + bar_width, values_group4[j][i], yerr=ci_group4[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
-                            ax.errorbar(i + bar_width * 2, values_group5[j][i], yerr=ci_group5[j], fmt='o', color='black', capsize=2, markersize=4, elinewidth= 1)
-
-                    # Add labels and title
-                    ax.set_xlabel(f'Test setting {test_type} over {database}')
-                    ax.set_ylabel('Confidence Interval score (CItd)')
-                    ax.set_xticks(np.arange(len(test_results)))
-                    ax.set_xticklabels(test_results, rotation=45)
-                    ax.legend()
-
-                plt.savefig(final_root + "bar_plot_CItd.png")  
-
-            pd.set_option('use_inf_as_na',True)  
+        #     plt.savefig(final_root + "bar_plot_CItd.png")  
 
     def compute_vif (self, considered_features):
         x = self.x[considered_features]

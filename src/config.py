@@ -39,7 +39,8 @@ PH_EXCLUSION = {'pronostia_not_corr': ['Fca','Fi','Fo','Fr','Frp', 'rms', 'clear
                 'xjtu_corr': ['Fca','Fi','Fo','Fr','Frp','mean', 'std', 'skew', 'FcaH', 'clearence', 'max', 'kurtosis', 'shape', 'crest'],
                 'xjtu_boot': ['Fca','Fi','Fo','Fr','Frp','entropy', 'FrpH', 'FcaH']}  
 
-PARAMS_CPH = {'tol': 0.1, 
+PARAMS_CPH = {'alpha': 0.0001,
+              'tol': 0.1, 
               'n_iter': 50}
 
 PARAMS_CPH_RIDGE = {'alpha': 0.5,

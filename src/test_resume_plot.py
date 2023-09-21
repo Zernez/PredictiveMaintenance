@@ -57,6 +57,8 @@ def main():
     #Eventually plot and create a table for CV search 
     #Resumer.table_result_hyper()
     #Resumer.presentation(BEARINGS, BOOT_NO)
+    Resumer.table_result_hyper_v2()
+    exit()
 
     #Extract information from the dataset selected from the config file
     cov_group = []

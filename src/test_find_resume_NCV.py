@@ -30,7 +30,7 @@ PLOT = True
 RESUME = True
 NEW_DATASET = True
 N_REPEATS = 1
-N_INTERNAL_SPLITS = 3 
+N_INTERNAL_SPLITS = 5
 N_ITER = 1
 
 
@@ -65,8 +65,8 @@ def main():
     if args.merge:
         MERGE = args.merge
 
-    # DATASET= "xjtu"
-    # TYPE= "correlated"
+    # DATASET= "pronostia"
+    # TYPE= "bootstrap"
     # MERGE= "False"
 
     if DATASET == "xjtu":
