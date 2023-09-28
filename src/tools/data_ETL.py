@@ -513,11 +513,15 @@ class DataETL:
         #If needed less censored data
         if num_censored_actual > num_censored_required:
             censored_indexes = np.random.choice(censored_actual_idx, size= num_censored_actual - num_censored_required , replace=False)
-            X.loc[censored_indexes, "Event"] = 1
+            X.loc[censored_indexes, "Event"] = True
+
         #If needed more censored data
         elif num_censored_actual < num_censored_required:
             not_censored_indexes = np.random.choice(not_censored_actual_idx, size= num_censored_required - num_censored_actual, replace=False)
-            X.loc[not_censored_indexes, "Event"] = 0
+            X.loc[not_censored_indexes, "Event"] = False
+            for index in not_censored_indexes:
+                rnd = random.randint(1, 3)
+                X.loc[index, "Survival_time"] = X.loc[index, "Survival_time"] / rnd         
         X.reset_index(drop= True)
 
         return X

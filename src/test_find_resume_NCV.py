@@ -31,7 +31,7 @@ RESUME = True
 NEW_DATASET = True
 N_REPEATS = 1
 N_INTERNAL_SPLITS = 5
-N_ITER = 1
+N_ITER = 10
 
 
 def main():
@@ -69,25 +69,27 @@ def main():
     # TYPE= "bootstrap"
     # MERGE= "False"
 
+    if TYPE == "bootstrap":
+        cfg.N_BOOT = 8
+
     if DATASET == "xjtu":
         N_CONDITION = len (cfg.RAW_DATA_PATH_XJTU)
         N_BEARING = cfg.N_REAL_BEARING_XJTU
         N_SPLITS = 5
-        TRAIN_SIZE = 0.7
+        TRAIN_SIZE = 1
         CENSORING = cfg.CENSORING_LEVEL  
     elif DATASET == "pronostia":
         N_CONDITION = len (cfg.RAW_DATA_PATH_PRONOSTIA)
         N_BEARING = cfg.N_REAL_BEARING_PRONOSTIA
         N_SPLITS = 2
-        TRAIN_SIZE = 0.5
+        TRAIN_SIZE = 1
         CENSORING = cfg.CENSORING_LEVEL   
     
     #For the first time running, a NEW_DATASET is needed
     if NEW_DATASET== True:
-        Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)
-    
+        Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)   
     #Insert the models and feature name selector for CV hyperparameter search
-    models = [CoxPH, RSF, CoxBoost, DeepSurv, DSM, WeibullAFT]
+    models = [CoxPH, RSF, CoxBoost, DeepSurv, WeibullAFT]
     ft_selectors = [NoneSelector, PHSelector]
     survival = Survival()
     data_util = DataETL(DATASET)
