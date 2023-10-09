@@ -1,3 +1,4 @@
+DATA_TYPE= ["bootstrap", "correlated", "not_correlated"]
 N_BOOT= 3
 N_BOOT_FOLD_XJTU= (2 + N_BOOT) * 2
 N_BOOT_FOLD_UPSAMPLING= N_BOOT_FOLD_XJTU * 20
@@ -10,7 +11,7 @@ N_REAL_BEARING_XJTU= 5
 N_BEARING_TOT_XJTU= N_REAL_BEARING_XJTU * N_BOOT_FOLD_XJTU
 DATASET_PATH_PRONOSTIA= "./data/PRONOSTIA/csv/"
 RAW_DATA_PATH_PRONOSTIA= ["./data/PRONOSTIA/25Hz5kN/", "./data/PRONOSTIA/27.65Hz4.2kN/", "./data/PRONOSTIA/30Hz4kN/"]  
-CENSORING_LEVEL= [0.3, 0.6, 0.9]
+CENSORING_LEVEL= [0.1, 0.2, 0.3]
 N_REAL_BEARING_PRONOSTIA= 2
 N_BEARING_TOT_PRONOSTIA= N_REAL_BEARING_PRONOSTIA * N_BOOT_FOLD_PRONOSTIA
 RESULT_PATH_XJTU= "./data/XJTU-SY/results/"
@@ -32,12 +33,12 @@ FREQUENCY_BANDS5 = {'pronostia_start': [11, 27, 98, 153, 203],
 FREQUENCY_BANDS6 = {'pronostia_start': [12, 29, 107, 167, 216],
                        'pronostia_stop': [14, 31, 109, 169, 218]}
    
-PH_EXCLUSION = {'pronostia_not_corr': ['Fca','Fi','Fo','Fr','Frp', 'rms', 'clearence', 'FcaH', 'FiH', 'kurtosis', 'FoH', 'entropy', 'impulse', 'mean'],
-                'pronostia_corr': ['Fca','Fi','Fo','Fr','Frp','noise', 'mean', 'std', 'kurtosis', 'rms', 'entropy', 'FrH', 'FoH', 'FrpH'],
-                'pronostia_boot': ['Fca','Fi','Fo','Fr','Frp', 'mean', 'skew', 'FcaH', 'FiH', 'FoH', 'FrH', 'std', 'kurtosis', 'entropy', 'rms'],
-                'xjtu_not_corr': ['Fca','Fi','Fo','Fr','Frp', 'kurtosis', 'FoH', 'rms', 'FcaH', 'noise', 'FiH', 'max', 'p2p'],
-                'xjtu_corr': ['Fca','Fi','Fo','Fr','Frp','mean', 'std', 'skew', 'FcaH', 'clearence', 'max', 'kurtosis', 'shape', 'crest'],
-                'xjtu_boot': ['Fca','Fi','Fo','Fr','Frp','entropy', 'FrpH', 'FcaH']}  
+PH_EXCLUSION = {'pronostia_not_corr': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise','impulse','skew','shape','mean','max'],
+                'pronostia_corr': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise','skew', 'clearence', 'mean', 'kurtosis', 'max', 'shape', 'entropy', 'impulse', 'crest', 'p2p'],
+                'pronostia_boot': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise'],
+                'xjtu_not_corr': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise', 'skew', 'shape', 'max', 'p2p', 'entropy', 'kurtosis'],
+                'xjtu_corr': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise', 'entropy', 'p2p', 'impulse','max', 'kurtosis', 'crest', 'shape', 'skew', 'mean'],
+                'xjtu_boot': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise','max','impulse','skew']}  
 
 PARAMS_CPH = {'alpha': 0.0001,
               'tol': 0.1, 

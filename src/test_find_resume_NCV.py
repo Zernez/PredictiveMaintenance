@@ -7,6 +7,7 @@ import warnings
 import config as cfg
 import re
 from pycox.evaluation import EvalSurv
+from scipy.integrate import trapezoid
 from sksurv.util import Surv
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import KFold
@@ -65,12 +66,15 @@ def main():
     if args.merge:
         MERGE = args.merge
 
-    # DATASET= "pronostia"
-    # TYPE= "bootstrap"
+    # DATASET= "xjtu"
+    # TYPE= "correlated"
     # MERGE= "False"
 
     if TYPE == "bootstrap":
         cfg.N_BOOT = 8
+        cfg.DATA_TYPE = "bootstrap"
+    else:
+        cfg.DATA_TYPE = "not_bootstrap"        
 
     if DATASET == "xjtu":
         N_CONDITION = len (cfg.RAW_DATA_PATH_XJTU)
@@ -89,7 +93,7 @@ def main():
     if NEW_DATASET== True:
         Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)   
     #Insert the models and feature name selector for CV hyperparameter search
-    models = [CoxPH, RSF, CoxBoost, DeepSurv, WeibullAFT]
+    models = [CoxPH, RSF, CoxBoost, DeepSurv, WeibullAFT] #CoxPH, RSF, CoxBoost, DeepSurv, WeibullAFT
     ft_selectors = [NoneSelector, PHSelector]
     survival = Survival()
     data_util = DataETL(DATASET)
@@ -208,7 +212,7 @@ def main():
                             get_best_features_time = time() - get_best_features_start_time
 
                             #Set event times
-                            lower, upper = np.percentile(ti_new[1][ti_new[1].dtype.names[1]], [10, 90])
+                            lower, upper = np.percentile(ti_new[1][ti_new[1].dtype.names[1]], [0, 100])
                             times = np.arange(math.ceil(lower), math.floor(upper)).tolist()
 
                             #Get the time of hyperams search
@@ -265,21 +269,35 @@ def main():
 
                             #Get the time for estimate the CIs
                             model_ci_inference_start_time = time()
+                            
+                            #Set the time range for calculate the survivor function 
+                            lower, upper = np.percentile(ti_new[1][ti_new[1].dtype.names[1]], [0, 100])
+                            times_cvi = np.arange(0, math.floor(upper)).tolist()
+                            
+                            #Set the time range for calculate the survivor function for NN
+                            lower_NN, upper_NN = np.percentile(ti_new[1][ti_new[1].dtype.names[1]], [0, 100])
+                            times_cvi_NN = np.arange(0, math.floor(upper_NN)).tolist()
 
                             #Get C-index scores from current CVI fold 
                             if parametric == True:
                                 x_cvi_wf = pd.concat([cvi_new[0].reset_index(drop=True), pd.DataFrame(cvi_new[1]['Survival_time'], columns=['Survival_time'])], axis=1)
                                 x_cvi_wf = pd.concat([x_cvi_wf.reset_index(drop=True), pd.DataFrame(cvi_new[1]['Event'], columns=['Event'])], axis=1)
-                                preds = survival.predict_survival_function(model, x_cvi_wf, times)
+                                preds = survival.predict_survival_function(model, x_cvi_wf, times_cvi)
+                                preds.replace(np.nan, 1e-1000, inplace=True)
+                                preds[math.ceil(upper)] = 1e-1000
                                 ev = EvalSurv(preds.T, cvi[1]['Survival_time'], cvi[1]['Event'], censor_surv="km")
                                 c_index = ev.concordance_td()
                             elif model_name == "DeepSurv" or model_name == "DSM":
                                 xte = cvi_new_NN[0].to_numpy()
-                                preds = survival.predict_survival_function(model, xte, times)
+                                preds = survival.predict_survival_function(model, xte, times_cvi_NN)
+                                preds.replace(np.nan, 1e-1000, inplace=True)
+                                preds[math.ceil(upper)] = 1e-1000
                                 ev = EvalSurv(preds.T, cvi_new[1]['Survival_time'], cvi_new[1]['Event'], censor_surv="km")
                                 c_index = ev.concordance_td()
                             else:
-                                preds = survival.predict_survival_function(model, cvi_new[0], times)
+                                preds = survival.predict_survival_function(model, cvi_new[0], times_cvi)
+                                preds.replace(np.nan, 1e-1000, inplace=True)
+                                preds[math.ceil(upper)] = 1e-1000
                                 ev = EvalSurv(preds.T, cvi_new[1]['Survival_time'], cvi_new[1]['Event'], censor_surv="km")
                                 c_index = ev.concordance_td()
                             model_ci_inference_time = time() - model_ci_inference_start_time
@@ -287,22 +305,34 @@ def main():
                             #Get the time for estimate the BSs
                             model_bs_inference_start_time = time()
 
-                            #Get BS scores from current fold CVI fold
+                            #Get BS NBLL scores from current fold CVI fold and expectation of TtE integration
                             if parametric == True:
                                 brier_score = approx_brier_score(cvi_new[1], preds)
                                 nbll = np.mean(ev.nbll(np.array(times)))
+                                averaged_preds = preds.iloc[:, :-1].mean(axis=0).to_frame().T
+                                averaged_target = cvi[1]['Survival_time'].mean() 
+                                integr_expect= trapezoid(y= averaged_preds.values, x= averaged_preds.columns)[0]
                             elif model_name == "DeepSurv": 
                                 NN_surv_probs = model.predict_survival(xte)
                                 brier_score = approx_brier_score(cvi_new[1], NN_surv_probs)
-                                nbll = np.mean(ev.nbll(np.array(times)))                   
+                                nbll = np.mean(ev.nbll(np.array(times)))  
+                                averaged_preds = preds.iloc[:, :-1].mean(axis=0).to_frame().T
+                                averaged_target = cvi[1]['Survival_time'].mean() 
+                                integr_expect= trapezoid(y= averaged_preds.values, x= averaged_preds.columns)[0]   
                             elif model_name == "DSM":
                                 NN_surv_probs = pd.DataFrame(model.predict_survival(xte, t=times))
                                 brier_score = approx_brier_score(cvi_new[1], NN_surv_probs)
                                 nbll = np.mean(ev.nbll(np.array(times)))
+                                averaged_preds = preds.iloc[:, :-1].mean(axis=0).to_frame().T
+                                averaged_target = cvi[1]['Survival_time'].mean() 
+                                integr_expect= trapezoid(y= averaged_preds.values, x= averaged_preds.columns)[0]
                             else:
                                 surv_probs = pd.DataFrame(preds)
                                 brier_score = approx_brier_score(cvi_new[1], surv_probs)
                                 nbll = np.mean(ev.nbll(np.array(times)))
+                                averaged_preds = preds.iloc[:, :-1].mean(axis=0).to_frame().T
+                                averaged_target = cvi[1]['Survival_time'].mean() 
+                                integr_expect= trapezoid(y= averaged_preds.values, x= averaged_preds.columns)[0]
 
                             model_bs_inference_time = time() - model_bs_inference_start_time
                             t_total_split_time = time() - split_start_time
@@ -311,11 +341,11 @@ def main():
                                 f" - CI={round(c_index, 3)} - BS={round(brier_score, 3)} - NBLL={round(nbll, 3)} - T={round(t_total_split_time, 3)}")
 
                             #Indexing the resul table
-                            res_sr = pd.Series([model_print_name, ft_selector_print_name, n_repeat, c_index, brier_score, nbll,
+                            res_sr = pd.Series([model_print_name, ft_selector_print_name, n_repeat, c_index, brier_score, nbll, integr_expect, averaged_target,
                                                 get_best_features_time, get_best_params_time, model_train_time,
                                                 model_ci_inference_time, model_bs_inference_time, t_total_split_time,
                                                 best_params, selected_fts, y_delta],
-                                                index=["ModelName", "FtSelectorName", "NRepeat", "CIndex", "BrierScore", "NBLL",
+                                                index=["ModelName", "FtSelectorName", "NRepeat", "CIndex", "BrierScore", "NBLL", "IntegrExpect", "AvgTarget",
                                                     "TBestFeatures", "TBestParams", "TModelTrain",
                                                     "TModelCIInference", "TModelBSInference", "TTotalSplit",
                                                     "BestParams", "SelectedFts", "DeltaY"])

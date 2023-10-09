@@ -125,6 +125,8 @@ class DataETL:
         else:
             #Upsample the data from given time split
             while moving_window < time_split:
+                #Set-up a condition for a very low lifetime dataset below the time_split threshold
+                force_stop = False
                 #For each covariates take the all the time values in a column 
                 for column in covariates:
                     columnSeriesObj = covariates[column]
@@ -136,8 +138,11 @@ class DataETL:
                     timepoints= int(self.sur_time_manager(bear_num, set_boot, ref_value))
                     time_window= int(timepoints / time_split)
                     if time_window == 0:
-                        low= moving_window
-                        high= moving_window + 1
+                        if moving_window < timepoints:
+                            low= moving_window
+                            high= moving_window + 1
+                        else:
+                            force_stop= True
                     else:                        
                         low= time_window * moving_window
                         high= time_window * (moving_window + 1)
@@ -198,7 +203,7 @@ class DataETL:
                     label= temp_label_cov
                     
                     #If survival time or event type start to slice the time-series, instead for the others take the mean of time-series                     
-                    if label == "Event" or label == "Survival_time":
+                    if (label == "Event" or label == "Survival_time") and force_stop == False:
                         if label == "Survival_time":
                             #If correlated start to create time-to-event relative to time slice
                             if type == "correlated":
@@ -216,11 +221,11 @@ class DataETL:
                                 row [label]= pd.Series(proportional_value).T  
                         else:
                             row [label]= pd.Series(columnSeriesObj).T   
-                    else:
+                    elif force_stop == False:
                         #If correlated start to slice the time-series data taking the lasts to correlate to the firsts        
                         if type == "correlated":
-                            if high < timepoints:
-                                slice= columnSeriesObj.iloc[- (time_window * (moving_window + 1)): -1] #.iloc[low:high]
+                            if high < timepoints: #and (time_window * (moving_window + 1)) < columnSeriesObj.size:
+                                slice= columnSeriesObj.iloc[- (time_window * (moving_window + 1)):] #.iloc[low:high]
                             else:
                                 slice= columnSeriesObj #.iloc[low:-1]
                         #If not correlated take the nearest slice to the time-to-event                                 
@@ -234,7 +239,7 @@ class DataETL:
                         row [label]= pd.Series(np.mean(slice.values)).T
                     
                     #If survival time column close the row and save it into a proper folder for avoid leaking
-                    if label == "Survival_time":
+                    if label == "Survival_time" and force_stop == False:
                         for i, list in enumerate(type_foldering):
                             if bear_num in list:
                                 data_cov[i] = pd.concat([data_cov[i], row], ignore_index= True)
@@ -519,9 +524,9 @@ class DataETL:
         elif num_censored_actual < num_censored_required:
             not_censored_indexes = np.random.choice(not_censored_actual_idx, size= num_censored_required - num_censored_actual, replace=False)
             X.loc[not_censored_indexes, "Event"] = False
-            for index in not_censored_indexes:
-                rnd = random.randint(1, 3)
-                X.loc[index, "Survival_time"] = X.loc[index, "Survival_time"] / rnd         
+            # for index in not_censored_indexes:
+            #     rnd = random.randint(1, 3)
+            #     X.loc[index, "Survival_time"] = X.loc[index, "Survival_time"] / rnd         
         X.reset_index(drop= True)
 
         return X

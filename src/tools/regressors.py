@@ -81,8 +81,12 @@ class CoxPH (BaseRegressor):
         return CoxPHSurvivalAnalysis(**model_params)
     
     def get_hyperparams (self):
-        return {'n_iter': [50, 100],
-                'tol': [1e-1, 1e-5, 1e-9]}
+        if cfg.DATA_TYPE == "bootstrap":
+            return {'n_iter': [5],
+                    'tol': [1e-1]} 
+        else:
+            return {'n_iter': [10, 20, 40],
+                    'tol': [1e-1, 1e-2, 1e-3]} 
     
     def get_best_hyperparams (self):
         return {'tol': 1e-9,
@@ -149,10 +153,16 @@ class RSF (BaseRegressor):
         return RandomSurvivalForest(**model_params)
     
     def get_hyperparams (self):
-        return {'max_depth': [3, 5, 7],
+        if cfg.DATA_TYPE == "bootstrap":
+            return {'max_depth': [3, 4, 5],
+                    'n_estimators': [15, 30, 45],
+                    'min_samples_split': [2, 4, 8],
+                    'min_samples_leaf': [1, 2, 3]}
+        else:
+            return {'max_depth': [3, 5, 7],
                 'n_estimators': [25, 50, 100],
                 'min_samples_split': [2, 5, 10],
-                'min_samples_leaf': [1, 2, 4]}
+                'min_samples_leaf': [1, 2, 4]}      
     
     def get_best_hyperparams (self):
         return  {'n_estimators': 3, 
@@ -168,11 +178,20 @@ class CoxBoost (BaseRegressor):
         return GradientBoostingSurvivalAnalysis(**model_params)
     
     def get_hyperparams (self):
-        return {'learning_rate': [0.1, 0.05, 0.01],
-                'n_estimators': [100, 200, 300, 400],
-                'max_depth': [3, 5, 7],
-                'min_samples_split': [2, 5, 10],
-                'min_samples_leaf': [1, 2, 4]}
+        if cfg.DATA_TYPE == "bootstrap":
+            return {'learning_rate': [0.1, 0.08, 0.05],
+                    'n_estimators': [50, 100, 200, 300],
+                    'max_depth': [3, 4, 5],
+                    'min_samples_split': [2, 4, 8],
+                    'min_samples_leaf': [1, 2, 3],
+                    'tol': [1e-1]}
+        else:
+            return {'learning_rate': [0.1, 0.05, 0.01],
+                    'n_estimators': [100, 200, 300, 400],
+                    'max_depth': [3, 5, 7],
+                    'min_samples_split': [2, 5, 10],
+                    'min_samples_leaf': [1, 2, 4],
+                    'tol': [1e-1, 1e-2]}
     
     def get_best_hyperparams (self):
         return  {'learning_rate': 0.1,
@@ -196,7 +215,8 @@ class GradientBoostingDART (BaseRegressor):
                 'max_depth': [3, 4, 5],
                 'min_samples_split': [2, 3],
                 'min_samples_leaf': [1, 2],
-                'dropout_rate': [0.2, 0.1]}
+                'dropout_rate': [0.2, 0.1],
+                'tol': [1e-2, 1e-3, 1e-4]}
     
     def get_best_hyperparams (self):
         return  {'learning_rate': 0.1, 
@@ -233,10 +253,16 @@ class DeepSurv(BaseRegressor):
         return DeepCoxPH(layers=[32, 32])
     
     def get_hyperparams(self):
-        return {'batch_size' : [16, 32, 64],
-                'learning_rate' : [1e-4, 1e-3, 1e-2],
-                'iters': [10, 50, 100]
-                }
+        if cfg.DATA_TYPE == "bootstrap":
+            return {'batch_size' : [2, 4, 6],
+                    'learning_rate' : [1e-1, 1e-2],
+                    'iters': [20]
+                    }
+        else:
+            return {'batch_size' : [8, 16, 32],
+                    'learning_rate' : [1e-1, 1e-2, 1e-3],
+                    'iters': [20, 30, 40]
+                    }
     
     def get_best_hyperparams(self):
         return {'batch_size' : 10,
@@ -251,11 +277,17 @@ class DSM(BaseRegressor):
         return DeepSurvivalMachines(layers=[32, 32])
     
     def get_hyperparams(self):
-        return {'batch_size' : [16, 32, 64],
-                'learning_rate' : [1e-4, 1e-3, 1e-2],
-                'iters': [10, 50, 100]
-                }
-    
+        if cfg.DATA_TYPE == "bootstrap":
+            return {'batch_size' : [2, 4, 6],
+                    'learning_rate' : [1e-1, 1e-2],
+                    'iters': [20]
+                    }
+        else:
+            return {'batch_size' : [8, 16, 32],
+                    'learning_rate' : [1e-1, 1e-2, 1e-3],
+                    'iters': [20, 30, 40]
+                    }
+
     def get_best_hyperparams(self):
         return {'batch_size' : 10,
                 'learning_rate' : 1e-4,

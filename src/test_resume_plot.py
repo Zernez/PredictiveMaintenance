@@ -52,13 +52,17 @@ def main():
 
     #Prepare the object needed
     survival = Survival()
-    data_util = DataETL(DATASET) 
+    data_util = DataETL(DATASET)
+
+    resumer = Resume([], [], DATASET)
+            
+    resumer.table_result_hyper_barplot()
+    exit()
     
     #Eventually plot and create a table for CV search 
     #Resumer.table_result_hyper()
     #Resumer.presentation(BEARINGS, BOOT_NO)
-    Resumer.table_result_hyper_v2()
-    exit()
+
 
     #Extract information from the dataset selected from the config file
     cov_group = []
@@ -125,7 +129,10 @@ def main():
             data_y = data_X [["Survival_time", "Event"]]
 
             #Create an object for future plotting using test data
-            Resumer = Resume(data_X_test, data_y_test, DATASET)
+            resumer = Resume(data_X_test, data_y_test, DATASET)
+            
+            resumer.table_result_hyper_v2()
+            exit()
 
             S1, S2 = (data_X_train, data_y_train), (data_X_test, data_y_test)
 
