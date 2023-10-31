@@ -63,10 +63,6 @@ def main():
     
     if args.merge:
         MERGE = args.merge
-    
-    DATASET = "xjtu"
-    TYPE = "correlated"
-    MERGE = False
 
     if DATASET == "xjtu":
         N_CONDITION = len(cfg.RAW_DATA_PATH_XJTU)

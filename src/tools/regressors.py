@@ -46,22 +46,24 @@ class WeibullAFT (BaseRegressor):
         return sklearn_adapter (WeibullAFTFitter, event_col='Event')
     
     def get_hyperparams (self):
-        return {'alpha': [0.1, 0.2, 0.4],
-                'penalizer': [0.02, 0.04, 0.08]}
+        return {'alpha': [0.03, 0.05, 0.07],
+                'penalizer': [0.06, 0.07, 0.08]}
     
     def get_best_hyperparams (self):
-        return {'alpha': 0.4,
-                'penalizer': 0.04}
-    
+        return {'alpha': 0.05,
+                'penalizer': 0.07}
+ 
 class LogNormalAFT (BaseRegressor):
     def make_model (self, params=None):
         return sklearn_adapter (LogNormalAFTFitter, event_col='Event')
     
     def get_hyperparams(self):
-        return {'alpha': [0.03, 0.05, 0.1]}
+        return {'alpha': [0.03, 0.05, 0.07],
+                'penalizer': [0.06, 0.07, 0.08]}
     
     def get_best_hyperparams(self):
-        return {'alpha': 0.03}
+        return {'alpha': 0.05,
+                'penalizer': 0.07}
     
 class LogLogisticAFT (BaseRegressor):
     def make_model (self, params=None):

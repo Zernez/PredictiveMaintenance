@@ -6,6 +6,7 @@ import argparse
 import warnings
 import config as cfg
 import re
+import os
 from pycox.evaluation import EvalSurv
 from scipy.integrate import trapezoid
 from sksurv.util import Surv
@@ -29,11 +30,10 @@ warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 N_BOOT = cfg.N_BOOT
 PLOT = True
 RESUME = True
-NEW_DATASET = True
+NEW_DATASET = False
 N_REPEATS = 1
 N_INTERNAL_SPLITS = 5
 N_ITER = 10
-
 
 def main():
     parser = argparse.ArgumentParser()
@@ -77,13 +77,15 @@ def main():
         cfg.DATA_TYPE = "not_bootstrap"        
 
     if DATASET == "xjtu":
-        N_CONDITION = len (cfg.RAW_DATA_PATH_XJTU)
+        data_path = cfg.RAW_DATA_PATH_XJTU
+        N_CONDITION = len (data_path)
         N_BEARING = cfg.N_REAL_BEARING_XJTU
         N_SPLITS = 5
         TRAIN_SIZE = 1
         CENSORING = cfg.CENSORING_LEVEL  
     elif DATASET == "pronostia":
-        N_CONDITION = len (cfg.RAW_DATA_PATH_PRONOSTIA)
+        data_path = cfg.RAW_DATA_PATH_PRONOSTIA
+        N_CONDITION = len (data_path)
         N_BEARING = cfg.N_REAL_BEARING_PRONOSTIA
         N_SPLITS = 2
         TRAIN_SIZE = 1
@@ -93,11 +95,11 @@ def main():
     if NEW_DATASET== True:
         Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)   
     #Insert the models and feature name selector for CV hyperparameter search
-    models = [CoxPH, RSF, CoxBoost, DeepSurv, WeibullAFT] #CoxPH, RSF, CoxBoost, DeepSurv, WeibullAFT
+    models = [CoxPH, RSF, CoxBoost, DeepSurv, LogNormalAFT]
     ft_selectors = [NoneSelector, PHSelector]
     survival = Survival()
     data_util = DataETL(DATASET)
-    
+
     #Extract information from the dataset selected from the config file
     cov_group = []
     boot_group = []
@@ -144,16 +146,7 @@ def main():
                 data_X.append(data_temp_X)
 
             #Indexing the dataset to avoid train/test leaking
-            dummy_x = list(range(0, int(np.floor(N_BEARING * TRAIN_SIZE)), 1))
-            data_index = dummy_x                            
-
-            #Load the indexed data                
-            data_X_merge = pd.DataFrame()
-            for element in data_index:
-                data_X_merge = pd.concat([data_X_merge, data_X [element]], ignore_index=True)
-            data_X = data_X_merge
-            data_y = Surv.from_dataframe("Event", "Survival_time", data_X)
-            T1 = (data_X, data_y)
+            dummy_x = list(range(0, int(np.floor(N_BEARING * TRAIN_SIZE)), 1))                       
             
             print(f"Started evaluation of {len(models)} models/{len(ft_selectors)} ft selectors. Dataset: {DATASET}. Type: {TYPE}")
             
@@ -177,16 +170,30 @@ def main():
 
                         #For N_SPLITS folds 
                         kf = KFold(n_splits= N_SPLITS, shuffle= False)
-                        for split_idx, (train, test) in enumerate(kf.split(data_X, data_y)):
+                        for split_idx, (train, test) in enumerate(kf.split(dummy_x)):
 
                             print (f"Now is testing the batch #{split_idx}")
 
                             #Start take the time for search the hyperparameters for each fold
                             split_start_time = time()
 
+                            #Load the train data from group indexed Kfold splitting avoiding train/test leaking                
+                            data_X_merge = pd.DataFrame()
+                            for element in train:
+                                data_X_merge = pd.concat([data_X_merge, data_X [element]], ignore_index=True)
+                            data_y = Surv.from_dataframe("Event", "Survival_time", data_X_merge)
+                            T1 = (data_X_merge, data_y)
+
+                            #Load the test data from group indexed Kfold splitting avoiding train/test leaking               
+                            data_X_merge = pd.DataFrame()
+                            for element in test:
+                                data_X_merge = pd.concat([data_X_merge, data_X [element]], ignore_index=True)
+                            data_y = Surv.from_dataframe("Event", "Survival_time", data_X_merge)
+                            T2 = (data_X_merge, data_y)
+
                             #Fromat and center the data     
-                            ti, cvi, ti_NN, cvi_NN = DataETL(DATASET).format_main_data_Kfold(T1, train, test)
-                            ti, cvi, ti_NN, cvi_NN = DataETL(DATASET).centering_main_data(ti, cvi, ti_NN, cvi_NN)
+                            ti, cvi, ti_NN, cvi_NN = DataETL(DATASET).format_main_data (T1, T2)
+                            ti, cvi, ti_NN, cvi_NN = DataETL(DATASET).centering_main_data (ti, cvi, ti_NN, cvi_NN)
 
                             ft_selector_print_name = f"{ft_selector_name}"
                             model_print_name = f"{model_name}"
@@ -285,6 +292,7 @@ def main():
                                 preds = survival.predict_survival_function(model, x_cvi_wf, times_cvi)
                                 preds.replace(np.nan, 1e-1000, inplace=True)
                                 preds[math.ceil(upper)] = 1e-1000
+                                preds.reset_index(drop=True, inplace=True)
                                 ev = EvalSurv(preds.T, cvi[1]['Survival_time'], cvi[1]['Event'], censor_surv="km")
                                 c_index = ev.concordance_td()
                             elif model_name == "DeepSurv" or model_name == "DSM":
@@ -292,12 +300,14 @@ def main():
                                 preds = survival.predict_survival_function(model, xte, times_cvi_NN)
                                 preds.replace(np.nan, 1e-1000, inplace=True)
                                 preds[math.ceil(upper)] = 1e-1000
+                                preds.reset_index(drop=True, inplace=True)
                                 ev = EvalSurv(preds.T, cvi_new[1]['Survival_time'], cvi_new[1]['Event'], censor_surv="km")
                                 c_index = ev.concordance_td()
                             else:
                                 preds = survival.predict_survival_function(model, cvi_new[0], times_cvi)
                                 preds.replace(np.nan, 1e-1000, inplace=True)
                                 preds[math.ceil(upper)] = 1e-1000
+                                preds.reset_index(drop=True, inplace=True)
                                 ev = EvalSurv(preds.T, cvi_new[1]['Survival_time'], cvi_new[1]['Event'], censor_surv="km")
                                 c_index = ev.concordance_td()
                             model_ci_inference_time = time() - model_ci_inference_start_time
@@ -309,52 +319,79 @@ def main():
                             if parametric == True:
                                 brier_score = approx_brier_score(cvi_new[1], preds)
                                 nbll = np.mean(ev.nbll(np.array(times)))
-                                averaged_preds = preds.iloc[:, :-1].mean(axis=0).to_frame().T
-                                averaged_target = cvi[1]['Survival_time'].mean() 
-                                integr_expect= trapezoid(y= averaged_preds.values, x= averaged_preds.columns)[0]
+                                max_preds = preds.loc[preds.iloc[:,-2].idxmax()].T
+                                event_detector_target = max(cvi_new[1]['Survival_time'])
+                                surv_expect= trapezoid(y= max_preds.values, x= max_preds.index.tolist())
                             elif model_name == "DeepSurv": 
                                 NN_surv_probs = model.predict_survival(xte)
                                 brier_score = approx_brier_score(cvi_new[1], NN_surv_probs)
                                 nbll = np.mean(ev.nbll(np.array(times)))  
-                                averaged_preds = preds.iloc[:, :-1].mean(axis=0).to_frame().T
-                                averaged_target = cvi[1]['Survival_time'].mean() 
-                                integr_expect= trapezoid(y= averaged_preds.values, x= averaged_preds.columns)[0]   
+                                max_preds = preds.loc[preds.iloc[:,-2].idxmax()].T
+                                event_detector_target = max(cvi_new[1]['Survival_time'])
+                                surv_expect= trapezoid(y= max_preds.values, x= max_preds.index.tolist())
                             elif model_name == "DSM":
                                 NN_surv_probs = pd.DataFrame(model.predict_survival(xte, t=times))
                                 brier_score = approx_brier_score(cvi_new[1], NN_surv_probs)
                                 nbll = np.mean(ev.nbll(np.array(times)))
-                                averaged_preds = preds.iloc[:, :-1].mean(axis=0).to_frame().T
-                                averaged_target = cvi[1]['Survival_time'].mean() 
-                                integr_expect= trapezoid(y= averaged_preds.values, x= averaged_preds.columns)[0]
+                                max_preds = preds.loc[preds.iloc[:,-2].idxmax()].T
+                                event_detector_target = max(cvi_new[1]['Survival_time']) 
+                                surv_expect= trapezoid(y= max_preds.values, x= max_preds.index.tolist())
                             else:
                                 surv_probs = pd.DataFrame(preds)
                                 brier_score = approx_brier_score(cvi_new[1], surv_probs)
                                 nbll = np.mean(ev.nbll(np.array(times)))
-                                averaged_preds = preds.iloc[:, :-1].mean(axis=0).to_frame().T
-                                averaged_target = cvi[1]['Survival_time'].mean() 
-                                integr_expect= trapezoid(y= averaged_preds.values, x= averaged_preds.columns)[0]
+                                max_preds = preds.loc[preds.iloc[:,-2].idxmax()].T
+                                event_detector_target = max(cvi_new[1]['Survival_time']) 
+                                surv_expect= trapezoid(y= max_preds.values, x= max_preds.index.tolist())
 
                             model_bs_inference_time = time() - model_bs_inference_start_time
                             t_total_split_time = time() - split_start_time
+
+                            #Prepare settings for calculate the target datasheet TtE
+                            if DATASET == 'xjtu':
+                                dataset_tte = DATASET.upper() + '-SY'
+                                type_test = data_path[i]
+                                index = re.search(r"\d\d", type_test)
+                                info_type_test = type_test[index.start():-1]
+                            else:
+                                dataset_tte = DATASET.upper()
+                            
+                            #Calculate the target TtE for the test data from the datasheet
+                            temp_tte = []    
+                            itr_tte = os.walk(f"./data/{dataset_tte}/{info_type_test}")
+                            next(itr_tte)
+                            iter_tte = 0
+                            for next_root, next_dirs, next_files in itr_tte:
+                                if iter_tte == test:
+                                    temp_tte.append(len([f for f in os.listdir(next_root) if os.path.isfile(os.path.join(next_root, f))]))
+                                iter_tte += 1    
+                            #Makes a unique value of TtE for the test data 
+                            datasheet_target = np.mean(temp_tte) 
 
                             print(f"Evaluated {model_print_name} - {ft_selector_print_name}" +
                                 f" - CI={round(c_index, 3)} - BS={round(brier_score, 3)} - NBLL={round(nbll, 3)} - T={round(t_total_split_time, 3)}")
 
                             #Indexing the resul table
-                            res_sr = pd.Series([model_print_name, ft_selector_print_name, n_repeat, c_index, brier_score, nbll, integr_expect, averaged_target,
+                            res_sr = pd.Series([model_print_name, ft_selector_print_name, n_repeat, c_index, brier_score, nbll, 
+                                                surv_expect, event_detector_target, datasheet_target,
                                                 get_best_features_time, get_best_params_time, model_train_time,
                                                 model_ci_inference_time, model_bs_inference_time, t_total_split_time,
                                                 best_params, selected_fts, y_delta],
-                                                index=["ModelName", "FtSelectorName", "NRepeat", "CIndex", "BrierScore", "NBLL", "IntegrExpect", "AvgTarget",
-                                                    "TBestFeatures", "TBestParams", "TModelTrain",
-                                                    "TModelCIInference", "TModelBSInference", "TTotalSplit",
-                                                    "BestParams", "SelectedFts", "DeltaY"])
+                                                index=["ModelName", "FtSelectorName", "NRepeat", "CIndex", "BrierScore", "NBLL", 
+                                                       "SurvExpect", "EDTarget", "DatasheetTarget",
+                                                       "TBestFeatures", "TBestParams", "TModelTrain",
+                                                       "TModelCIInference", "TModelBSInference", "TTotalSplit",
+                                                       "BestParams", "SelectedFts", "DeltaY"])
                             model_results = pd.concat(
                                 [model_results, res_sr.to_frame().T], ignore_index=True)
                 
                 #Indexing the file name linked to the DATASET condition
-                index = re.search(r"\d\d", cfg.RAW_DATA_PATH_PRONOSTIA[i])
-                condition_name = cfg.RAW_DATA_PATH_PRONOSTIA[i][index.start():-1] + "_" + str(int(CENSORING[j] * 100))
+                if DATASET == "xjtu":
+                    index = re.search(r"\d\d", cfg.RAW_DATA_PATH_XJTU[i])
+                    condition_name = cfg.RAW_DATA_PATH_XJTU[i][index.start():-1] + "_" + str(int(CENSORING[j] * 100))
+                elif DATASET == "pronostia":
+                    index = re.search(r"\d\d", cfg.RAW_DATA_PATH_PRONOSTIA[i])
+                    condition_name = cfg.RAW_DATA_PATH_XJTU[i][index.start():-1] + "_" + str(int(CENSORING[j] * 100))                
                 
                 file_name = f"{model_name}_{condition_name}_results.csv"
 
