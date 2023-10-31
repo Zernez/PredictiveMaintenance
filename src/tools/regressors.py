@@ -58,8 +58,13 @@ class LogNormalAFT (BaseRegressor):
         return sklearn_adapter (LogNormalAFTFitter, event_col='Event')
     
     def get_hyperparams(self):
-        return {'alpha': [0.03, 0.05, 0.07],
-                'penalizer': [0.06, 0.07, 0.08]}
+        if cfg.DATASET_NAME == "xjtu":
+            return {'alpha': [0.03, 0.05, 0.07],
+                    'penalizer': [0.06, 0.07, 0.08]}
+        elif cfg.DATASET_NAME == "pronostia":
+            return {'alpha': [0.03, 0.05, 0.07],
+                    'penalizer': [0.17, 0.18, 0.19]}
+
     
     def get_best_hyperparams(self):
         return {'alpha': 0.05,

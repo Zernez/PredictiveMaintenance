@@ -1,4 +1,5 @@
 DATA_TYPE= ["bootstrap", "correlated", "not_correlated"]
+DATASET_NAME= ["xjtu", "pronostia"]
 N_BOOT= 3
 N_BOOT_FOLD_XJTU= (2 + N_BOOT) * 2
 N_BOOT_FOLD_UPSAMPLING= N_BOOT_FOLD_XJTU * 20

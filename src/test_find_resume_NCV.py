@@ -59,6 +59,7 @@ def main():
 
     if args.dataset:
         DATASET = args.dataset
+        cfg.DATASET_NAME = args.dataset
 
     if args.typedata:
         TYPE = args.typedata
@@ -95,7 +96,7 @@ def main():
     if NEW_DATASET== True:
         Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)   
     #Insert the models and feature name selector for CV hyperparameter search
-    models = [CoxPH, RSF, CoxBoost, DeepSurv, LogNormalAFT]
+    models = [LogNormalAFT] #CoxPH, RSF, CoxBoost, DeepSurv,
     ft_selectors = [NoneSelector, PHSelector]
     survival = Survival()
     data_util = DataETL(DATASET)
@@ -355,6 +356,9 @@ def main():
                                 info_type_test = type_test[index.start():-1]
                             else:
                                 dataset_tte = DATASET.upper()
+                                type_test = data_path[i]
+                                index = re.search(r"\d\d", type_test)
+                                info_type_test = type_test[index.start():-1]
                             
                             #Calculate the target TtE for the test data from the datasheet
                             temp_tte = []    
