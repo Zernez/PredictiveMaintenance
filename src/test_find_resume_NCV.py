@@ -30,7 +30,7 @@ warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 N_BOOT = cfg.N_BOOT
 PLOT = True
 RESUME = True
-NEW_DATASET = False
+NEW_DATASET = True
 N_REPEATS = 1
 N_INTERNAL_SPLITS = 5
 N_ITER = 10
@@ -96,7 +96,7 @@ def main():
     if NEW_DATASET== True:
         Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)   
     #Insert the models and feature name selector for CV hyperparameter search
-    models = [LogNormalAFT] #CoxPH, RSF, CoxBoost, DeepSurv,
+    models = [CoxPH, RSF, CoxBoost, DeepSurv, LogNormalAFT] #CoxPH, RSF, CoxBoost, DeepSurv,
     ft_selectors = [NoneSelector, PHSelector]
     survival = Survival()
     data_util = DataETL(DATASET)
