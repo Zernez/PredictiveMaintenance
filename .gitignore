@@ -1,5 +1,6 @@
 .vscode
 data/
+logs/
 __pycache__/
 
 src/PredMan/
@@ -12,3 +13,4 @@ src/dataset
 src/HP_crest_kurtosis.ipynb
 
 *.pt
+data.zip

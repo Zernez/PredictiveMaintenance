@@ -98,7 +98,7 @@ def main():
         Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)   
     #Insert the models and feature name selector for CV hyperparameter search
     models = [BNNmcd] #CoxPH, RSF, CoxBoost, DeepSurv, LogNormalAFT
-    ft_selectors = [NoneSelector, PHSelector]
+    ft_selectors = [NoneSelector]
     survival = Survival()
     data_util = DataETL(DATASET)
 
@@ -243,7 +243,8 @@ def main():
                                 experiment = SurvivalRegressionCV(model='dsm', num_folds=N_INTERNAL_SPLITS, hyperparam_grid=space)
                                 model, best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='brs')
                             elif model_name == "BNNmcd":
-                                param_list = list(ParameterSampler(space, n_iter= N_ITER, random_state=0))
+                                param_list = list(ParameterSampler(space, n_iter=N_ITER, random_state=0))
+                                sample_results = pd.DataFrame()                                
                                 for sample in param_list:
                                     param_results = pd.DataFrame()
                                     kf = KFold(n_splits=N_INTERNAL_SPLITS, random_state=0, shuffle=True)
@@ -268,8 +269,8 @@ def main():
                                     mean_c_index = param_results['CIndex'].mean()
                                     res_sr = pd.Series([str(model_name), param_results.iloc[0]["Params"], mean_c_index],
                                                     index=["ModelName", "Params", "CIndex"])
-                                    model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
-                                best_params = model_results.loc[model_results['CIndex'].astype(float).idxmax()]['Params']
+                                    sample_results = pd.concat([sample_results, res_sr.to_frame().T], ignore_index=True)
+                                best_params = sample_results.loc[sample_results['CIndex'].astype(float).idxmax()]['Params']
                             else:
                                 search = RandomizedSearchCV(model, space, n_iter=N_ITER, cv=N_INTERNAL_SPLITS, random_state=0)
                                 search.fit(ti_new[0], ti_new[1])
