@@ -10,12 +10,13 @@ import os
 from pycox.evaluation import EvalSurv
 from scipy.integrate import trapezoid
 from sksurv.util import Surv
+from sklearn.model_selection import ParameterSampler
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import KFold
 from xgbse.metrics import approx_brier_score
 from sklearn.model_selection import RandomizedSearchCV
 from tools.feature_selectors import NoneSelector, LowVar, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8, UMAP8, VIF4, VIF8, PHSelector
-from tools.regressors import CoxPH, CphRidge, CphLASSO, CphElastic, RSF, CoxBoost, GradientBoostingDART, WeibullAFT, LogNormalAFT, LogLogisticAFT, DeepSurv, DSM
+from tools.regressors import CoxPH, CphRidge, CphLASSO, CphElastic, RSF, CoxBoost, GradientBoostingDART, WeibullAFT, LogNormalAFT, LogLogisticAFT, DeepSurv, DSM, BNNmcd
 from tools.file_reader import FileReader
 from tools.data_ETL import DataETL
 from utility.builder import Builder
@@ -30,23 +31,23 @@ warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 N_BOOT = cfg.N_BOOT
 PLOT = True
 RESUME = True
-NEW_DATASET = True
+NEW_DATASET = False
 N_REPEATS = 1
 N_INTERNAL_SPLITS = 5
-N_ITER = 10
+N_ITER = 1 #10
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str,
-                        required=True,
-                        default=None)
-    parser.add_argument('--typedata', type=str,
-                        required=True,
-                        default=None)
-    parser.add_argument('--merge', type=str,
-                        required=True,
-                        default=None)
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument('--dataset', type=str,
+    #                     required=True,
+    #                     default=None)
+    # parser.add_argument('--typedata', type=str,
+    #                     required=True,
+    #                     default=None)
+    # parser.add_argument('--merge', type=str,
+    #                     required=True,
+    #                     default=None)
+    # args = parser.parse_args()
 
     global DATASET
     global TYPE
@@ -57,19 +58,19 @@ def main():
     global TRAIN_SIZE
     global CENSORING
 
-    if args.dataset:
-        DATASET = args.dataset
-        cfg.DATASET_NAME = args.dataset
+    # if args.dataset:
+    #     DATASET = args.dataset
+    #     cfg.DATASET_NAME = args.dataset
 
-    if args.typedata:
-        TYPE = args.typedata
+    # if args.typedata:
+    #     TYPE = args.typedata
     
-    if args.merge:
-        MERGE = args.merge
+    # if args.merge:
+    #     MERGE = args.merge
 
-    # DATASET= "xjtu"
-    # TYPE= "correlated"
-    # MERGE= "False"
+    DATASET= "xjtu"
+    TYPE= "correlated"
+    MERGE= "False"
 
     if TYPE == "bootstrap":
         cfg.N_BOOT = 8
@@ -96,7 +97,7 @@ def main():
     if NEW_DATASET== True:
         Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)   
     #Insert the models and feature name selector for CV hyperparameter search
-    models = [CoxPH, RSF, CoxBoost, DeepSurv, LogNormalAFT] #CoxPH, RSF, CoxBoost, DeepSurv,
+    models = [BNNmcd] #CoxPH, RSF, CoxBoost, DeepSurv, LogNormalAFT
     ft_selectors = [NoneSelector, PHSelector]
     survival = Survival()
     data_util = DataETL(DATASET)
@@ -240,7 +241,35 @@ def main():
                                 model, best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='brs')
                             elif model_name == "DSM":
                                 experiment = SurvivalRegressionCV(model='dsm', num_folds=N_INTERNAL_SPLITS, hyperparam_grid=space)
-                                model, best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='brs')                
+                                model, best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='brs')
+                            elif model_name == "BNNmcd":
+                                param_list = list(ParameterSampler(space, n_iter= N_ITER, random_state=0))
+                                for sample in param_list:
+                                    param_results = pd.DataFrame()
+                                    kf = KFold(n_splits=N_INTERNAL_SPLITS, random_state=0, shuffle=True)
+                                    for split_idx, (train_in, test_in) in enumerate(kf.split(ti_new_NN[0], ti_new_NN[1])):
+                                        t_train = np.array(ti_new_NN[1].iloc[train_in]["time"])
+                                        e_train = np.array(ti_new_NN[1].iloc[train_in]["event"])
+                                        t_test = np.array(ti_new_NN[1].iloc[test_in]["time"])
+                                        e_test = np.array(ti_new_NN[1].iloc[test_in]["event"])
+                                        f_train =  np.array(ti_new_NN[0].iloc[train_in])
+                                        f_test =  np.array(ti_new_NN[0].iloc[test_in])
+                                        model = model_builder().make_model(sample)
+                                        model.fit(f_train, t_train, e_train)
+                                        lower, upper = np.percentile(t_train, [0, 100])
+                                        times = np.arange(math.ceil(lower), math.floor(upper)).tolist()                                    
+                                        preds = model.predict_survival(f_test, times)
+                                        preds = pd.DataFrame(np.mean(preds, axis=0))
+                                        ev = EvalSurv(preds.T, t_test, e_test, censor_surv="km")
+                                        c_index = ev.concordance_td()
+                                        res_sr = pd.Series([str(model_name), split_idx, sample, c_index],
+                                                        index=["ModelName", "SplitIdx", "Params", "CIndex"])
+                                        param_results = pd.concat([param_results, res_sr.to_frame().T], ignore_index=True)
+                                    mean_c_index = param_results['CIndex'].mean()
+                                    res_sr = pd.Series([str(model_name), param_results.iloc[0]["Params"], mean_c_index],
+                                                    index=["ModelName", "Params", "CIndex"])
+                                    model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
+                                best_params = model_results.loc[model_results['CIndex'].astype(float).idxmax()]['Params']
                             else:
                                 search = RandomizedSearchCV(model, space, n_iter=N_ITER, cv=N_INTERNAL_SPLITS, random_state=0)
                                 search.fit(ti_new[0], ti_new[1])
@@ -269,6 +298,12 @@ def main():
                                 t = ti_new_NN[1].loc[:, "time"].to_numpy()
                                 e = ti_new_NN[1].loc[:, "event"].to_numpy()
                                 model = model.fit(x, t, e, vsize=0.3, **best_params)
+                            elif model_name == "BNNmcd":
+                                model = model_builder().make_model(best_params)
+                                x = ti_new_NN[0].to_numpy()
+                                t = ti_new_NN[1].loc[:, "time"].to_numpy()
+                                e = ti_new_NN[1].loc[:, "event"].to_numpy()
+                                model.fit(x, t, e)
                             else:
                                 model = search.best_estimator_
                                 model.fit(ti_new[0], ti_new[1])
@@ -292,6 +327,7 @@ def main():
                                 x_cvi_wf = pd.concat([x_cvi_wf.reset_index(drop=True), pd.DataFrame(cvi_new[1]['Event'], columns=['Event'])], axis=1)
                                 preds = survival.predict_survival_function(model, x_cvi_wf, times_cvi)
                                 preds.replace(np.nan, 1e-1000, inplace=True)
+                                #The value 1e-1000 is for monotonize the survival line
                                 preds[math.ceil(upper)] = 1e-1000
                                 preds.reset_index(drop=True, inplace=True)
                                 ev = EvalSurv(preds.T, cvi[1]['Survival_time'], cvi[1]['Event'], censor_surv="km")
@@ -303,6 +339,14 @@ def main():
                                 preds[math.ceil(upper)] = 1e-1000
                                 preds.reset_index(drop=True, inplace=True)
                                 ev = EvalSurv(preds.T, cvi_new[1]['Survival_time'], cvi_new[1]['Event'], censor_surv="km")
+                                c_index = ev.concordance_td()
+                            elif model_name == "BNNmcd":
+                                xte = cvi_new_NN[0].to_numpy()       
+                                preds = survival.predict_survival_function(model, xte, times_cvi_NN)
+                                preds.replace(np.nan, 1e-1000, inplace=True)
+                                preds[math.ceil(upper)] = 1e-1000
+                                preds.reset_index(drop=True, inplace=True)
+                                ev = EvalSurv(preds.T, cvi_new_NN[1]['time'].to_numpy(), cvi_new_NN[1]['event'].to_numpy(), censor_surv="km")
                                 c_index = ev.concordance_td()
                             else:
                                 preds = survival.predict_survival_function(model, cvi_new[0], times_cvi)
@@ -316,34 +360,53 @@ def main():
                             #Get the time for estimate the BSs
                             model_bs_inference_start_time = time()
 
-                            #Get BS NBLL scores from current fold CVI fold and expectation of TtE integration
+                            #Get BS NBLL scores from current fold CVI fold and expectation of TtE integration by the median of all test set
                             if parametric == True:
                                 brier_score = approx_brier_score(cvi_new[1], preds)
                                 nbll = np.mean(ev.nbll(np.array(times)))
-                                max_preds = preds.loc[preds.iloc[:,-2].idxmax()].T
-                                event_detector_target = max(cvi_new[1]['Survival_time'])
-                                surv_expect= trapezoid(y= max_preds.values, x= max_preds.index.tolist())
+                                sd_preds = np.std(preds)
+                                n_preds = len(preds)
+                                preds = preds.median()
+                                event_detector_target = np.median(cvi_new[1]['Survival_time'])
+                                surv_expect= trapezoid(y= preds.values, x= preds.index)
+                                # max_preds = preds.loc[preds.iloc[:,-2].idxmax()].T
+                                # event_detector_target = max(cvi_new[1]['Survival_time'])
+                                # surv_expect= trapezoid(y= max_preds.values, x= max_preds.index.tolist())
                             elif model_name == "DeepSurv": 
                                 NN_surv_probs = model.predict_survival(xte)
                                 brier_score = approx_brier_score(cvi_new[1], NN_surv_probs)
-                                nbll = np.mean(ev.nbll(np.array(times)))  
-                                max_preds = preds.loc[preds.iloc[:,-2].idxmax()].T
-                                event_detector_target = max(cvi_new[1]['Survival_time'])
-                                surv_expect= trapezoid(y= max_preds.values, x= max_preds.index.tolist())
+                                nbll = np.mean(ev.nbll(np.array(times_cvi_NN)))
+                                sd_preds = np.std(preds)
+                                n_preds = len(preds)  
+                                preds = preds.median()
+                                event_detector_target = np.median(cvi_new[1]['Survival_time'])
+                                surv_expect= trapezoid(y= preds.values, x= preds.index)
                             elif model_name == "DSM":
-                                NN_surv_probs = pd.DataFrame(model.predict_survival(xte, t=times))
+                                NN_surv_probs = pd.DataFrame(model.predict_survival(xte, t= times_cvi_NN))
                                 brier_score = approx_brier_score(cvi_new[1], NN_surv_probs)
+                                nbll = np.mean(ev.nbll(np.array( times_cvi_NN)))
+                                sd_preds = np.std(preds)
+                                n_preds = len(preds)
+                                preds = preds.median()
+                                event_detector_target = np.median(cvi_new[1]['Survival_time'])
+                                surv_expect= trapezoid(y= preds.values, x= preds.index)
+                            elif model_name == "BNNmcd":
+                                brier_score = approx_brier_score(cvi_new[1], preds)
                                 nbll = np.mean(ev.nbll(np.array(times)))
-                                max_preds = preds.loc[preds.iloc[:,-2].idxmax()].T
-                                event_detector_target = max(cvi_new[1]['Survival_time']) 
-                                surv_expect= trapezoid(y= max_preds.values, x= max_preds.index.tolist())
+                                sd_preds = np.std(preds)
+                                n_preds = len(preds)
+                                preds = preds.median()
+                                event_detector_target = np.median(cvi_new[1]['Survival_time'])
+                                surv_expect= trapezoid(y= preds.values, x= preds.index)                                
                             else:
                                 surv_probs = pd.DataFrame(preds)
                                 brier_score = approx_brier_score(cvi_new[1], surv_probs)
                                 nbll = np.mean(ev.nbll(np.array(times)))
-                                max_preds = preds.loc[preds.iloc[:,-2].idxmax()].T
-                                event_detector_target = max(cvi_new[1]['Survival_time']) 
-                                surv_expect= trapezoid(y= max_preds.values, x= max_preds.index.tolist())
+                                sd_preds = np.std(preds)
+                                n_preds = len(preds)
+                                preds = preds.median()
+                                event_detector_target = np.median(cvi_new[1]['Survival_time'])
+                                surv_expect= trapezoid(y= preds.values, x= preds.index)
 
                             model_bs_inference_time = time() - model_bs_inference_start_time
                             t_total_split_time = time() - split_start_time
@@ -366,23 +429,23 @@ def main():
                             next(itr_tte)
                             iter_tte = 0
                             for next_root, next_dirs, next_files in itr_tte:
-                                if iter_tte == test:
+                                if iter_tte in test:
                                     temp_tte.append(len([f for f in os.listdir(next_root) if os.path.isfile(os.path.join(next_root, f))]))
                                 iter_tte += 1    
                             #Makes a unique value of TtE for the test data 
-                            datasheet_target = np.mean(temp_tte) 
+                            datasheet_target = np.median(temp_tte) 
 
                             print(f"Evaluated {model_print_name} - {ft_selector_print_name}" +
                                 f" - CI={round(c_index, 3)} - BS={round(brier_score, 3)} - NBLL={round(nbll, 3)} - T={round(t_total_split_time, 3)}")
 
                             #Indexing the resul table
                             res_sr = pd.Series([model_print_name, ft_selector_print_name, n_repeat, c_index, brier_score, nbll, 
-                                                surv_expect, event_detector_target, datasheet_target,
+                                                surv_expect, event_detector_target, datasheet_target, preds, sd_preds, n_preds,
                                                 get_best_features_time, get_best_params_time, model_train_time,
                                                 model_ci_inference_time, model_bs_inference_time, t_total_split_time,
                                                 best_params, selected_fts, y_delta],
                                                 index=["ModelName", "FtSelectorName", "NRepeat", "CIndex", "BrierScore", "NBLL", 
-                                                       "SurvExpect", "EDTarget", "DatasheetTarget",
+                                                       "SurvExpect", "EDTarget", "DatasheetTarget", "TtESurvLine", "SDTtE", "Npreds",
                                                        "TBestFeatures", "TBestParams", "TModelTrain",
                                                        "TModelCIInference", "TModelBSInference", "TTotalSplit",
                                                        "BestParams", "SelectedFts", "DeltaY"])

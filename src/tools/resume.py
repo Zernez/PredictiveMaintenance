@@ -1396,7 +1396,7 @@ class Resume:
         selector = "NoneSelector" 
 
         #Initialize the data grouping container
-        values_group = [[[[[0 for col in range(0,3,1)] for col in range(len(test_results))] for col in range(len(test_results)*len(datasets))] for col in range(len(models))] for row in range(len(data_types))]
+        values_group = [[[[[0 for col in range(0,6,1)] for col in range(len(test_results))] for col in range(len(test_results)*len(datasets))] for col in range(len(models))] for row in range(len(data_types))]
         
         #ETL of the result and excluding not valid results from the cross-validated test
         subplot_no= 0
@@ -1413,21 +1413,43 @@ class Resume:
                         for j, censor_level in enumerate(self.censoring_levels):       
                                 match = next((res for res in results if res['dataset'] == dataset and res['type_data'] == type_data and res['model'] == model and res['type_test'] == info_type_data and res['censor_test'] == censor_level), None)
                                 df = match['results']
-                                temp= np.mean(df[df['FtSelectorName'] == selector]['SurvExpect'])
-                                temp_t= np.mean(df[df['FtSelectorName'] == selector]['EDTarget'])
-                                temp_tte= np.mean(df[df['FtSelectorName'] == selector]['DatasheetTarget'])
+                                temp= np.median(df[df['FtSelectorName'] == selector]['SurvExpect'])
+                                temp_t= np.median(df[df['FtSelectorName'] == selector]['EDTarget'])
+                                temp_tte= np.median(df[df['FtSelectorName'] == selector]['DatasheetTarget'])
+                                tte_line= np.median(df[df['FtSelectorName'] == selector]['TtESurvLine'])
+                                sd_line= np.median(df[df['FtSelectorName'] == selector]['SDTtE'])
+                                len_line= np.median(df[df['FtSelectorName'] == selector]['Npreds'])
                                 temp.replace('inf', np.nan, inplace=True)
                                 temp.dropna(inplace=True)
                                 values_group[z][w][subplot_no][j][0] = temp
                                 values_group[z][w][subplot_no][j][1] = temp_t
-                                values_group[z][w][subplot_no][j][2] = temp_tte                                   
+                                values_group[z][w][subplot_no][j][2] = temp_tte
+                                values_group[z][w][subplot_no][j][3] = tte_line
+                                values_group[z][w][subplot_no][j][4] = sd_line
+                                values_group[z][w][subplot_no][j][5] = len_line                                                
                 subplot_no += 1
 
-        #Calculate means and standard deviations for each group
-        mean_group = [[[[0 for col in range(len(test_results))] for col in range(len(test_results)*len(datasets))] for col in range(len(models))] for row in range(len(data_types))]
-        std_group = [[[[0 for col in range(len(test_results))] for col in range(len(test_results)*len(datasets))] for col in range(len(models))] for row in range(len(data_types))]
+        #Locating the array for the confidence interval
+        tte_group = [[[[0 for col in range(len(test_results))] for col in range(len(test_results)*len(datasets))] for col in range(len(models))] for row in range(len(data_types))]
+        confidence_level = 0.95
 
+        #Calculating the confidence interval with Normal Distribution assumption
+        for i, model in enumerate(models):
+            for j in range(0, len(test_results) * len(datasets), 1):
+                for w, censor_level in enumerate(self.censoring_levels):
+                    for z, type_data in enumerate(data_types):   
+                        confidence_intervals = []
 
+                        for point in range(len(values_group[z][i][j][w][3])):   # Quantity of the survival lines
+                            sample_mean = values_group[z][i][j][w][3][point] 
+                            std_dev = values_group[z][i][j][w][4][point]
+
+                            # Calculate the margin of error
+                            margin_of_error = stats.norm.ppf((1 + confidence_level) / 2) * (std_dev / (values_group[z][i][j][w][5][point] ** 0.5))
+
+                            # Calculate the confidence interval
+                            confidence_interval = (sample_mean - margin_of_error, sample_mean + margin_of_error)
+                            confidence_intervals.append(confidence_interval)
 
     def compute_vif (self, considered_features):
         x = self.x[considered_features]

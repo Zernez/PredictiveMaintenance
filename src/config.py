@@ -95,9 +95,11 @@ PARAMS_DEEPSURV = {'batch_size' : 16,
                    'learning_rate' : 0.01,
                    'iters': 50}
 
-PARAMS_DSM = {'learning_rate': 0.01, 
-              'iters': 50, 
-              'batch_size': 64}
+PARAMS_DSM = {'batch_size' : 16,
+              'learning_rate' : 0.01,
+              'iters': 50}
+
+PARAMS_BNN = {'layers' : [32, 32]}
 
 PARAMS_WEIBULL = {'penalizer': 0.02, 
                   'alpha': 0.4}

@@ -8,6 +8,7 @@ from lifelines.utils.sklearn_adapter import sklearn_adapter
 from sksurv.svm import FastSurvivalSVM
 from auton_survival import DeepCoxPH
 from auton_survival import DeepSurvivalMachines
+from bnnsurv import models
 
 class BaseRegressor (ABC):
     """
@@ -295,7 +296,30 @@ class DSM(BaseRegressor):
                     'iters': [20, 30, 40]
                     }
 
+class BNNmcd(BaseRegressor):
+    def make_model(self, params=None):
+        model_params = cfg.PARAMS_BNN
+        if params:
+            model_params.update(params)
+        return models.MCD(**model_params)
+    
+    def get_hyperparams(self):
+        if cfg.DATA_TYPE == "bootstrap":
+            return {'batch_size' : [2, 4, 6],
+                    'learning_rate' : [1e-1, 1e-2],
+                    'num_epochs': [5]
+                    }
+        else:
+            return {'batch_size' : [8, 16],
+                    'learning_rate' : [1e-1, 1e-3],
+                    'num_epochs': [5, 8]
+                    }
+            # return {'batch_size' : [8, 16, 32],
+            #         'learning_rate' : [1e-1, 1e-2, 1e-3],
+            #         'num_epochs': [5, 8, 10]
+            #         }
+
     def get_best_hyperparams(self):
         return {'batch_size' : 10,
                 'learning_rate' : 1e-4,
-                'iters': 100}
+                'num_epochs': 100}
