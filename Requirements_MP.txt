@@ -16,3 +16,4 @@ holoviews==1.17.0
 scikit-image==0.21.0
 colorcet==3.0.1
 seaborn==0.12.2
+bnnsurv==0.1.3
