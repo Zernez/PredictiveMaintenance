@@ -295,7 +295,12 @@ class DSM(BaseRegressor):
                     'learning_rate' : [1e-1, 1e-2, 1e-3],
                     'iters': [20, 30, 40]
                     }
-
+            
+    def get_best_hyperparams(self):
+        return {'batch_size' : 32,
+                'learning_rate' : 1e-4,
+                'iters': 100}
+    
 class BNNmcd(BaseRegressor):
     def make_model(self, params=None):
         model_params = cfg.PARAMS_BNN
