@@ -24,7 +24,7 @@ class DataETL:
             self.boot_folder_size=  cfg.N_BOOT_FOLD_PRONOSTIA
             self.folder_size= cfg.N_BOOT_FOLD_UPSAMPLING
 
-    def make_surv_data_sklS (self, covariates, set_boot, info_pack, bootstrap, type):
+    def make_surv_data_sklS (self, covariates, set_boot, info_pack, bootstrap, typeD):
         #Prepare the empty data and folders of grouped bearings to fill for avoid leaking
         row = pd.DataFrame()
         ref_value= {}
@@ -45,7 +45,7 @@ class DataETL:
         time_split= 20
 
         #If test is for boostrap only dataset, start transform from time-series to survival data
-        if type == 'bootstrap':
+        if typeD == 'bootstrap':
             #For each covariates take the all the time values in a column 
             for column in covariates:
                 columnSeriesObj = covariates[column]
@@ -206,7 +206,7 @@ class DataETL:
                     if (label == "Event" or label == "Survival_time") and force_stop == False:
                         if label == "Survival_time":
                             #If correlated start to create time-to-event relative to time slice
-                            if type == "correlated":
+                            if typeD == "correlated" or typeD == "not_correlated":
                                 if high < timepoints:
                                     if columnSeriesObj > high:
                                         proportional_value= columnSeriesObj - high
@@ -223,7 +223,7 @@ class DataETL:
                             row [label]= pd.Series(columnSeriesObj).T   
                     elif force_stop == False:
                         #If correlated start to slice the time-series data taking the lasts to correlate to the firsts        
-                        if type == "correlated":
+                        if typeD == "correlated":
                             if high < timepoints: #and (time_window * (moving_window + 1)) < columnSeriesObj.size:
                                 slice= columnSeriesObj.iloc[- (time_window * (moving_window + 1)):] #.iloc[low:high]
                             else:

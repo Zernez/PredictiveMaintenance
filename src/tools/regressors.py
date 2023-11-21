@@ -315,14 +315,10 @@ class BNNmcd(BaseRegressor):
                     'num_epochs': [5]
                     }
         else:
-            return {'batch_size' : [8, 16],
-                    'learning_rate' : [1e-1, 1e-3],
-                    'num_epochs': [5, 8]
+            return {'batch_size' : [8, 16, 32],
+                    'learning_rate' : [1e-1, 1e-2, 1e-3],
+                    'num_epochs': [5, 8, 10]
                     }
-            # return {'batch_size' : [8, 16, 32],
-            #         'learning_rate' : [1e-1, 1e-2, 1e-3],
-            #         'num_epochs': [5, 8, 10]
-            #         }
 
     def get_best_hyperparams(self):
         return {'batch_size' : 10,

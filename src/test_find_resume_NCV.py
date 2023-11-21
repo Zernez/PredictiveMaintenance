@@ -31,23 +31,23 @@ warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 N_BOOT = cfg.N_BOOT
 PLOT = True
 RESUME = True
-NEW_DATASET = False
+NEW_DATASET = True
 N_REPEATS = 1
 N_INTERNAL_SPLITS = 5
-N_ITER = 1 #10
+N_ITER = 10
 
 def main():
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument('--dataset', type=str,
-    #                     required=True,
-    #                     default=None)
-    # parser.add_argument('--typedata', type=str,
-    #                     required=True,
-    #                     default=None)
-    # parser.add_argument('--merge', type=str,
-    #                     required=True,
-    #                     default=None)
-    # args = parser.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dataset', type=str,
+                        required=True,
+                        default=None)
+    parser.add_argument('--typedata', type=str,
+                        required=True,
+                        default=None)
+    parser.add_argument('--merge', type=str,
+                        required=True,
+                        default=None)
+    args = parser.parse_args()
 
     global DATASET
     global TYPE
@@ -58,19 +58,19 @@ def main():
     global TRAIN_SIZE
     global CENSORING
 
-    # if args.dataset:
-    #     DATASET = args.dataset
-    #     cfg.DATASET_NAME = args.dataset
+    if args.dataset:
+        DATASET = args.dataset
+        cfg.DATASET_NAME = args.dataset
 
-    # if args.typedata:
-    #     TYPE = args.typedata
+    if args.typedata:
+        TYPE = args.typedata
     
-    # if args.merge:
-    #     MERGE = args.merge
+    if args.merge:
+        MERGE = args.merge
 
-    DATASET= "xjtu"
-    TYPE= "correlated"
-    MERGE= "False"
+    # DATASET= "xjtu"
+    # TYPE= "correlated"
+    # MERGE= "False"
 
     if TYPE == "bootstrap":
         cfg.N_BOOT = 8
@@ -97,8 +97,8 @@ def main():
     if NEW_DATASET== True:
         Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)   
     #Insert the models and feature name selector for CV hyperparameter search
-    models = [BNNmcd] #CoxPH, RSF, CoxBoost, DeepSurv, LogNormalAFT
-    ft_selectors = [NoneSelector]
+    models = [CoxPH, RSF, DeepSurv, DSM, BNNmcd]
+    ft_selectors = [NoneSelector, PHSelector]
     survival = Survival()
     data_util = DataETL(DATASET)
 
@@ -385,7 +385,7 @@ def main():
                             elif model_name == "DSM":
                                 NN_surv_probs = pd.DataFrame(model.predict_survival(xte, t= times_cvi_NN))
                                 brier_score = approx_brier_score(cvi_new[1], NN_surv_probs)
-                                nbll = np.mean(ev.nbll(np.array( times_cvi_NN)))
+                                nbll = np.mean(ev.nbll(np.array(times_cvi_NN)))
                                 sd_preds = np.std(preds)
                                 n_preds = len(preds)
                                 preds = preds.median()
