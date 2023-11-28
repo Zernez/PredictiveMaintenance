@@ -240,7 +240,8 @@ def main():
                                         model.fit(f_train, t_train, e_train)
                                     lower, upper = np.percentile(t_train, [0, 100])
                                     times = np.arange(math.ceil(lower), math.floor(upper)).tolist()
-                                    preds = model.predict_survival(f_test, times)
+                                    with Suppressor():
+                                        preds = model.predict_survival(f_test, times)
                                     preds = pd.DataFrame(np.mean(preds, axis=0))
                                     ev = EvalSurv(preds.T, t_test, e_test, censor_surv="km")
                                     c_index_ti = ev.concordance_td()
@@ -290,7 +291,8 @@ def main():
                         #Get C-index scores from current CVI fold 
                         if model_name == "DeepSurv" or model_name == "DSM":
                             xte = cvi_new_NN[0].to_numpy()
-                            surv_preds = survival.predict_survival_function(model, xte, times_cvi_NN)
+                            with Suppressor():
+                                surv_preds = survival.predict_survival_function(model, xte, times_cvi_NN)
                             surv_preds.replace(np.nan, 1e-1000, inplace=True)
                             surv_preds[math.ceil(upper)] = 1e-1000
                             surv_preds.reset_index(drop=True, inplace=True)
@@ -298,14 +300,16 @@ def main():
                             c_index_cvi = ev.concordance_td()
                         elif model_name == "BNNmcd":
                             xte = cvi_new_NN[0].to_numpy()       
-                            surv_preds = survival.predict_survival_function(model, xte, times_cvi_NN)
+                            with Suppressor():
+                                surv_preds = survival.predict_survival_function(model, xte, times_cvi_NN)
                             surv_preds.replace(np.nan, 1e-1000, inplace=True)
                             surv_preds[math.ceil(upper)] = 1e-1000
                             surv_preds.reset_index(drop=True, inplace=True)
                             ev = EvalSurv(surv_preds.T, cvi_new_NN[1]['time'].to_numpy(), cvi_new_NN[1]['event'].to_numpy(), censor_surv="km")
                             c_index_cvi = ev.concordance_td()
                         else:
-                            surv_preds = survival.predict_survival_function(model, cvi_new[0], times_cvi)
+                            with Suppressor():
+                                surv_preds = survival.predict_survival_function(model, cvi_new[0], times_cvi)
                             surv_preds.replace(np.nan, 1e-1000, inplace=True)
                             surv_preds[math.ceil(upper)] = 1e-1000
                             surv_preds.reset_index(drop=True, inplace=True)
@@ -314,7 +318,8 @@ def main():
 
                         #Get BS and NBLL scores from current fold CVI fold and expectation of TtE integration by the median of all test set
                         if model_name == "DeepSurv":
-                            NN_surv_probs = model.predict_survival(xte)
+                            with Suppressor():
+                                NN_surv_probs = model.predict_survival(xte)
                             brier_score_cvi = approx_brier_score(cvi_new[1], NN_surv_probs)
                             nbll_cvi = np.mean(ev.nbll(np.array(times_cvi_NN)))
                             sd_preds = np.std(surv_preds)
@@ -323,7 +328,8 @@ def main():
                             event_detector_target = np.median(cvi_new[1]['Survival_time'])
                             surv_expect= trapezoid(y= med_surv_preds.values, x= med_surv_preds.index)
                         elif model_name == "DSM":
-                            NN_surv_probs = pd.DataFrame(model.predict_survival(xte, t= times_cvi_NN))
+                            with Suppressor():
+                                NN_surv_probs = pd.DataFrame(model.predict_survival(xte, t= times_cvi_NN))
                             brier_score_cvi = approx_brier_score(cvi_new[1], NN_surv_probs)
                             nbll_cvi = np.mean(ev.nbll(np.array(times_cvi_NN)))
                             sd_preds = np.std(surv_preds)
@@ -332,7 +338,7 @@ def main():
                             event_detector_target = np.median(cvi_new[1]['Survival_time'])
                             surv_expect= trapezoid(y= med_surv_preds.values, x= med_surv_preds.index)
                         elif model_name == "BNNmcd":
-                            brier_score_cvi = approx_brier_score(cvi_new[1], surv_probs)
+                            brier_score_cvi = approx_brier_score(cvi_new[1], surv_preds)
                             nbll_cvi = np.mean(ev.nbll(np.array(times)))
                             sd_preds = np.std(surv_preds)
                             n_preds = len(surv_preds)

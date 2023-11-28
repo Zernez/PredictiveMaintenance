@@ -166,7 +166,8 @@ class SurvivalRegressionCV:
         with Suppressor():
           model.fit(features.loc[self.folds!=fold], outcomes.loc[self.folds!=fold])
         max_time = int(outcomes.loc[self.folds!=fold]['time'].max())
-        predictions = model.predict_survival(features.loc[self.folds==fold], times=max_time).flatten()
+        with Suppressor():
+          predictions = model.predict_survival(features.loc[self.folds==fold], times=max_time).flatten()
       
         try:
           score = survival_regression_metric(metric=self.metric,
