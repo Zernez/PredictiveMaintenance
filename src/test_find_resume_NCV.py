@@ -38,7 +38,6 @@ N_INTERNAL_SPLITS = 5
 N_ITER = 10
 
 def main():
-    '''
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str,
                         required=True,
@@ -50,7 +49,6 @@ def main():
                         required=True,
                         default=None)
     args = parser.parse_args()
-    '''
 
     global DATASET
     global TYPE
@@ -61,7 +59,6 @@ def main():
     global TRAIN_SIZE
     global CENSORING
 
-    '''
     if args.dataset:
         DATASET = args.dataset
         cfg.DATASET_NAME = args.dataset
@@ -71,11 +68,10 @@ def main():
     
     if args.merge:
         MERGE = args.merge
-    '''
 
-    DATASET= "xjtu"
-    TYPE= "correlated"
-    MERGE= "False"
+    #DATASET= "xjtu"
+    #TYPE= "correlated"
+    #MERGE= "False"
 
     if TYPE == "bootstrap":
         cfg.N_BOOT = 8
