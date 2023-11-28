@@ -204,7 +204,7 @@ def main():
                         cvi_new[0].reset_index(inplace=True, drop=True)
                         ti_new_NN =  (ti_NN[0].loc[:, selected_fts], ti_NN[1])
                         ti_new_NN[0].reset_index(inplace=True, drop=True)
-                        cvi_new_NN = (cvi_NN[0].loc[:, selected_fts], cvi_NN[1])     
+                        cvi_new_NN = (cvi_NN[0].loc[:, selected_fts], cvi_NN[1])
                         cvi_new_NN[0].reset_index(inplace=True, drop=True)
 
                         #Set event times
@@ -215,10 +215,14 @@ def main():
                         space = model_builder().get_tuneable_params()
                         if model_name == "DeepSurv":
                             experiment = SurvivalRegressionCV(model='dcph', num_folds=N_INTERNAL_SPLITS, hyperparam_grid=space)
-                            model, best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='ctd')
+                            with open(os.devnull, 'w') as devnull:
+                                with contextlib.redirect_stdout(devnull):
+                                    model, best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='ctd')
                         elif model_name == "DSM":
                             experiment = SurvivalRegressionCV(model='dsm', num_folds=N_INTERNAL_SPLITS, hyperparam_grid=space)
-                            model, best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='ctd')
+                            with open(os.devnull, 'w') as devnull:
+                                with contextlib.redirect_stdout(devnull):
+                                    model, best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='ctd')
                         elif model_name == "BNNmcd":
                             param_list = list(ParameterSampler(space, n_iter=N_ITER, random_state=0))
                             sample_results = pd.DataFrame()
@@ -252,7 +256,9 @@ def main():
                             best_params = sample_results.loc[sample_results['CIndex'].astype(float).idxmax()]['Params']
                         else:
                             search = RandomizedSearchCV(model, space, n_iter=N_ITER, cv=N_INTERNAL_SPLITS, random_state=0)
-                            search.fit(ti_new[0], ti_new[1])
+                            with open(os.devnull, 'w') as devnull:
+                                with contextlib.redirect_stdout(devnull):
+                                    search.fit(ti_new[0], ti_new[1])
                             best_params = search.best_params_
 
                         #Train on train set TI with new parameters
@@ -276,7 +282,9 @@ def main():
                                     model.fit(x, t, e)
                         else:
                             model = search.best_estimator_
-                            model.fit(ti_new[0], ti_new[1])
+                            with open(os.devnull, 'w') as devnull:
+                                with contextlib.redirect_stdout(devnull):
+                                    model.fit(ti_new[0], ti_new[1])
                         
                         #Set the time range for calculate the survivor function 
                         lower, upper = np.percentile(ti_new[1][ti_new[1].dtype.names[1]], [0, 100])

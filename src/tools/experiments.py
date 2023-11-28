@@ -168,7 +168,7 @@ class SurvivalRegressionCV:
         predictions = model.predict_survival(features.loc[self.folds==fold], times=max_time).flatten()
       
         try:
-          score = survival_regression_metric(metric=self.metric, 
+          score = survival_regression_metric(metric=self.metric,
                                             outcomes=outcomes.loc[self.folds==fold],
                                             predictions=predictions,
                                             times=max_time)
@@ -183,9 +183,9 @@ class SurvivalRegressionCV:
     elif self.metric in ['auc', 'ctd']:
       best_hyper_param = self.hyperparam_grid[np.argmax(hyper_param_scores)]
 
-    model = SurvivalModel(self.model,
-                          random_seed=self.random_seed,
-                          **best_hyper_param).fit(features, outcomes)
+    with open(os.devnull, 'w') as devnull:  
+      with contextlib.redirect_stdout(devnull):
+        model = SurvivalModel(self.model, random_seed=self.random_seed, **best_hyper_param).fit(features, outcomes)
     return model, best_hyper_param
 
   def _get_stratified_folds(self, dataset, event_label, n_folds, random_seed):
