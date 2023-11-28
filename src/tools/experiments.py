@@ -40,6 +40,8 @@ import warnings
 import contextlib
 import os
 
+from utility.printer import Suppressor
+
 class SurvivalRegressionCV:
   """Universal interface to train Survival Analysis models in a cross-
   validation fashion.
@@ -161,9 +163,8 @@ class SurvivalRegressionCV:
       fold_scores = []
       for fold in set(self.folds):
         model = SurvivalModel(self.model, random_seed=self.random_seed, **hyper_param)
-        with open(os.devnull, 'w') as devnull:
-          with contextlib.redirect_stdout(devnull):
-            model.fit(features.loc[self.folds!=fold], outcomes.loc[self.folds!=fold])
+        with Suppressor():
+          model.fit(features.loc[self.folds!=fold], outcomes.loc[self.folds!=fold])
         max_time = int(outcomes.loc[self.folds!=fold]['time'].max())
         predictions = model.predict_survival(features.loc[self.folds==fold], times=max_time).flatten()
       
@@ -183,9 +184,8 @@ class SurvivalRegressionCV:
     elif self.metric in ['auc', 'ctd']:
       best_hyper_param = self.hyperparam_grid[np.argmax(hyper_param_scores)]
 
-    with open(os.devnull, 'w') as devnull:  
-      with contextlib.redirect_stdout(devnull):
-        model = SurvivalModel(self.model, random_seed=self.random_seed, **best_hyper_param).fit(features, outcomes)
+    with Suppressor():
+      model = SurvivalModel(self.model, random_seed=self.random_seed, **best_hyper_param).fit(features, outcomes)
     return model, best_hyper_param
 
   def _get_stratified_folds(self, dataset, event_label, n_folds, random_seed):

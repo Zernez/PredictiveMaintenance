@@ -27,6 +27,7 @@ from auton_survival import DeepSurvivalMachines
 from lifelines import WeibullAFTFitter
 import logging
 import contextlib
+from utility.printer import Suppressor
 
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
@@ -215,14 +216,12 @@ def main():
                         space = model_builder().get_tuneable_params()
                         if model_name == "DeepSurv":
                             experiment = SurvivalRegressionCV(model='dcph', num_folds=N_INTERNAL_SPLITS, hyperparam_grid=space)
-                            with open(os.devnull, 'w') as devnull:
-                                with contextlib.redirect_stdout(devnull):
-                                    model, best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='ctd')
+                            with Suppressor():
+                                model, best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='ctd')
                         elif model_name == "DSM":
                             experiment = SurvivalRegressionCV(model='dsm', num_folds=N_INTERNAL_SPLITS, hyperparam_grid=space)
-                            with open(os.devnull, 'w') as devnull:
-                                with contextlib.redirect_stdout(devnull):
-                                    model, best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='ctd')
+                            with Suppressor():
+                                model, best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='ctd')
                         elif model_name == "BNNmcd":
                             param_list = list(ParameterSampler(space, n_iter=N_ITER, random_state=0))
                             sample_results = pd.DataFrame()
@@ -237,9 +236,8 @@ def main():
                                     f_train =  np.array(ti_new_NN[0].iloc[train_in])
                                     f_test =  np.array(ti_new_NN[0].iloc[test_in])
                                     model = model_builder().make_model(sample)
-                                    with open(os.devnull, 'w') as devnull:
-                                        with contextlib.redirect_stdout(devnull):
-                                            model.fit(f_train, t_train, e_train)
+                                    with Suppressor():
+                                        model.fit(f_train, t_train, e_train)
                                     lower, upper = np.percentile(t_train, [0, 100])
                                     times = np.arange(math.ceil(lower), math.floor(upper)).tolist()
                                     preds = model.predict_survival(f_test, times)
@@ -256,9 +254,8 @@ def main():
                             best_params = sample_results.loc[sample_results['CIndex'].astype(float).idxmax()]['Params']
                         else:
                             search = RandomizedSearchCV(model, space, n_iter=N_ITER, cv=N_INTERNAL_SPLITS, random_state=0)
-                            with open(os.devnull, 'w') as devnull:
-                                with contextlib.redirect_stdout(devnull):
-                                    search.fit(ti_new[0], ti_new[1])
+                            with Suppressor():
+                                search.fit(ti_new[0], ti_new[1])
                             best_params = search.best_params_
 
                         #Train on train set TI with new parameters
@@ -267,24 +264,20 @@ def main():
                         e = ti_new_NN[1].loc[:, "event"].to_numpy()
                         if model_name == "DeepSurv":
                             model = DeepCoxPH(layers=[32])
-                            with open(os.devnull, 'w') as devnull:
-                                with contextlib.redirect_stdout(devnull):
-                                    model = model.fit(x, t, e, vsize=0.3, **best_params)
+                            with Suppressor():
+                                model = model.fit(x, t, e, vsize=0.3, **best_params)
                         elif model_name == "DSM":
                             model = DeepSurvivalMachines(layers=[32])
-                            with open(os.devnull, 'w') as devnull:
-                                with contextlib.redirect_stdout(devnull):
-                                    model = model.fit(x, t, e, vsize=0.3, **best_params)
+                            with Suppressor():
+                                model = model.fit(x, t, e, vsize=0.3, **best_params)
                         elif model_name == "BNNmcd":
                             model = model_builder().make_model(best_params)
-                            with open(os.devnull, 'w') as devnull:
-                                with contextlib.redirect_stdout(devnull):
-                                    model.fit(x, t, e)
+                            with Suppressor():
+                                model.fit(x, t, e)
                         else:
                             model = search.best_estimator_
-                            with open(os.devnull, 'w') as devnull:
-                                with contextlib.redirect_stdout(devnull):
-                                    model.fit(ti_new[0], ti_new[1])
+                            with Suppressor():
+                                model.fit(ti_new[0], ti_new[1])
                         
                         #Set the time range for calculate the survivor function 
                         lower, upper = np.percentile(ti_new[1][ti_new[1].dtype.names[1]], [0, 100])
