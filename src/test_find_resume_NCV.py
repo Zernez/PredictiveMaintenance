@@ -233,7 +233,9 @@ def main():
                                     f_train =  np.array(ti_new_NN[0].iloc[train_in])
                                     f_test =  np.array(ti_new_NN[0].iloc[test_in])
                                     model = model_builder().make_model(sample)
-                                    model.fit(f_train, t_train, e_train)
+                                    with open(os.devnull, 'w') as devnull:
+                                        with contextlib.redirect_stdout(devnull):
+                                            model.fit(f_train, t_train, e_train)
                                     lower, upper = np.percentile(t_train, [0, 100])
                                     times = np.arange(math.ceil(lower), math.floor(upper)).tolist()
                                     preds = model.predict_survival(f_test, times)
@@ -269,7 +271,9 @@ def main():
                                     model = model.fit(x, t, e, vsize=0.3, **best_params)
                         elif model_name == "BNNmcd":
                             model = model_builder().make_model(best_params)
-                            model.fit(x, t, e)
+                            with open(os.devnull, 'w') as devnull:
+                                with contextlib.redirect_stdout(devnull):
+                                    model.fit(x, t, e)
                         else:
                             model = search.best_estimator_
                             model.fit(ti_new[0], ti_new[1])
