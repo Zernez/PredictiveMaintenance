@@ -371,7 +371,7 @@ def main():
                         #Makes a unique value of TtE for the test data
                         datasheet_target = np.median(temp_tte)
 
-                        print(f"Evaluated {model_print_name} - {ft_selector_print_name}" +
+                        print(f"Evaluated {model_print_name} - {ft_selector_print_name} - {percentage}" +
                             f" - CI={round(c_index_cvi, 3)} - BS={round(brier_score_cvi, 3)}" +
                             f" - NBLL={round(nbll_cvi, 3)} - T={round(t_total_split_time, 3)}")
 
