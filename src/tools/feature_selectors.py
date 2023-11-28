@@ -85,7 +85,6 @@ class BaseFeatureSelector (ABC):
         else:
             ft_selector.fit(self.X, self.y)
             new_features = ft_selector.get_feature_names_out()
-            print (new_features)
         return new_features
 
 class NoneSelector (BaseFeatureSelector):

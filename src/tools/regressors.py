@@ -168,9 +168,9 @@ class RSF (BaseRegressor):
                     'min_samples_leaf': [1, 2, 3]}
         else:
             return {'max_depth': [3, 5, 7],
-                'n_estimators': [25, 50, 100],
-                'min_samples_split': [2, 5, 10],
-                'min_samples_leaf': [1, 2, 4]}      
+                    'n_estimators': [25, 50, 100],
+                    'min_samples_split': [2, 5, 10],
+                    'min_samples_leaf': [1, 2, 4]}      
     
     def get_best_hyperparams (self):
         return  {'n_estimators': 3, 
@@ -258,7 +258,7 @@ class DeepSurv(BaseRegressor):
         model_params = cfg.PARAMS_DEEPSURV
         if params:
             model_params.update(params)
-        return DeepCoxPH(layers=[32, 32])
+        return DeepCoxPH(layers=[32])
     
     def get_hyperparams(self):
         if cfg.DATA_TYPE == "bootstrap":
@@ -267,8 +267,8 @@ class DeepSurv(BaseRegressor):
                     'iters': [20]
                     }
         else:
-            return {'batch_size' : [8, 16, 32],
-                    'learning_rate' : [1e-1, 1e-2, 1e-3],
+            return {'batch_size' : [16, 32],
+                    'learning_rate' : [1e-2, 1e-3],
                     'iters': [20, 30, 40]
                     }
     
@@ -282,7 +282,7 @@ class DSM(BaseRegressor):
         model_params = cfg.PARAMS_DSM
         if params:
             model_params.update(params)
-        return DeepSurvivalMachines(layers=[32, 32])
+        return DeepSurvivalMachines(layers=[32])
     
     def get_hyperparams(self):
         if cfg.DATA_TYPE == "bootstrap":
@@ -291,8 +291,8 @@ class DSM(BaseRegressor):
                     'iters': [20]
                     }
         else:
-            return {'batch_size' : [8, 16, 32],
-                    'learning_rate' : [1e-1, 1e-2, 1e-3],
+            return {'batch_size' : [16, 32],
+                    'learning_rate' : [1e-2, 1e-3],
                     'iters': [20, 30, 40]
                     }
             
@@ -316,7 +316,7 @@ class BNNmcd(BaseRegressor):
                     }
         else:
             return {'batch_size' : [8, 16, 32],
-                    'learning_rate' : [1e-1, 1e-2, 1e-3],
+                    'learning_rate' : [1e-2, 1e-3],
                     'num_epochs': [5, 8, 10]
                     }
 
