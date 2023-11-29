@@ -388,10 +388,10 @@ def main():
 
                         #Indexing the resul table
                         res_sr = pd.Series([model_print_name, ft_selector_print_name, c_index_cvi, brier_score_cvi, nbll_cvi, 
-                                            surv_expect, event_detector_target, datasheet_target, sd_preds, n_preds, t_total_split_time,
-                                            best_params, selected_fts, y_delta],
+                                            surv_expect, event_detector_target, datasheet_target, n_preds, t_total_split_time,
+                                            best_params, list(selected_fts), y_delta],
                                             index=["ModelName", "FtSelectorName", "CIndex", "BrierScore", "NBLL",
-                                                    "SurvExpect", "EDTarget", "DatasheetTarget", "SDTtE", "Npreds", "TTotalSplit",
+                                                    "SurvExpect", "EDTarget", "DatasheetTarget", "Npreds", "TTotalSplit",
                                                     "BestParams", "SelectedFts", "DeltaY"])
                         model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
                 
