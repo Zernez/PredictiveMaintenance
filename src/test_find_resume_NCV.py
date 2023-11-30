@@ -50,7 +50,7 @@ def main():
                         required=True,
                         default=None)
     args = parser.parse_args()
-
+    
     global DATASET
     global TYPE
     global MERGE
@@ -70,7 +70,7 @@ def main():
     if args.merge:
         MERGE = args.merge
 
-    #DATASET= "xjtu"
+    #DATASET= "pronostia"
     #TYPE= "correlated"
     #MERGE= "False"
 
@@ -99,7 +99,7 @@ def main():
     if NEW_DATASET== True:
         Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)   
     #Insert the models and feature name selector for CV hyperparameter search
-    models = [CoxPH, RSF, DeepSurv, DSM, BNNmcd]
+    models = [CoxPH]
     ft_selectors = [NoneSelector]
     survival = Survival()
     data_util = DataETL(DATASET)
@@ -244,7 +244,10 @@ def main():
                                         preds = model.predict_survival(f_test, times)
                                     preds = pd.DataFrame(np.mean(preds, axis=0))
                                     ev = EvalSurv(preds.T, t_test, e_test, censor_surv="km")
-                                    c_index_ti = ev.concordance_td()
+                                    try:
+                                        c_index_ti = ev.concordance_td()
+                                    except:
+                                        c_index_ti = np.nan
                                     res_sr = pd.Series([str(model_name), split_idx, sample, c_index_ti],
                                                     index=["ModelName", "SplitIdx", "Params", "CIndex"])
                                     param_results = pd.concat([param_results, res_sr.to_frame().T], ignore_index=True)
@@ -306,7 +309,10 @@ def main():
                             surv_preds[math.ceil(upper)] = 1e-1000
                             surv_preds.reset_index(drop=True, inplace=True)
                             ev = EvalSurv(surv_preds.T, cvi_new_NN[1]['time'].to_numpy(), cvi_new_NN[1]['event'].to_numpy(), censor_surv="km")
-                            c_index_cvi = ev.concordance_td()
+                            try:
+                                c_index_cvi = ev.concordance_td()
+                            except:
+                                c_index_cvi = np.nan
                         else:
                             with Suppressor():
                                 surv_preds = survival.predict_survival_function(model, cvi_new[0], times_cvi)
@@ -391,8 +397,8 @@ def main():
                                             surv_expect, event_detector_target, datasheet_target, n_preds, t_total_split_time,
                                             best_params, list(selected_fts), y_delta],
                                             index=["ModelName", "FtSelectorName", "CIndex", "BrierScore", "NBLL",
-                                                    "SurvExpect", "EDTarget", "DatasheetTarget", "Npreds", "TTotalSplit",
-                                                    "BestParams", "SelectedFts", "DeltaY"])
+                                                   "SurvExpect", "EDTarget", "DatasheetTarget", "Npreds", "TTotalSplit",
+                                                   "BestParams", "SelectedFts", "DeltaY"])
                         model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
                 
                 #Indexing the file name linked to the DATASET condition
@@ -401,7 +407,7 @@ def main():
                     condition_name = cfg.RAW_DATA_PATH_XJTU[i][index.start():-1] + "_" + str(int(CENSORING[j] * 100))
                 elif DATASET == "pronostia":
                     index = re.search(r"\d\d", cfg.RAW_DATA_PATH_PRONOSTIA[i])
-                    condition_name = cfg.RAW_DATA_PATH_XJTU[i][index.start():-1] + "_" + str(int(CENSORING[j] * 100))                
+                    condition_name = cfg.RAW_DATA_PATH_PRONOSTIA[i][index.start():-1] + "_" + str(int(CENSORING[j] * 100))
                 
                 file_name = f"{model_name}_{condition_name}_results.csv"
 
