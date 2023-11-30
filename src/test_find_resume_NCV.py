@@ -99,7 +99,7 @@ def main():
     if NEW_DATASET== True:
         Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)   
     #Insert the models and feature name selector for CV hyperparameter search
-    models = [CoxPH]
+    models = [CoxPH, RSF, DeepSurv, DSM, BNNmcd]
     ft_selectors = [NoneSelector]
     survival = Survival()
     data_util = DataETL(DATASET)
