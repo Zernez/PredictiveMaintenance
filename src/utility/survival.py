@@ -9,10 +9,10 @@ class Survival:
     
     def sanitize_survival_data(self, surv_preds, cvi, upper):
         # Remove NaN's
-        surv_preds.replace(np.nan, 1e-1000, inplace=True)
-        surv_preds[math.ceil(upper)] = 1e-1000
-        surv_preds.reset_index(drop=True, inplace=True)
-        surv_preds[~np.isfinite(surv_preds)] = 0
+        #surv_preds.replace(np.nan, 1e-1000, inplace=True)
+        #surv_preds[math.ceil(upper)] = 1e-1000
+        #surv_preds.reset_index(drop=True, inplace=True)
+        #surv_preds[~np.isfinite(surv_preds)] = 0
 
         # Remove rows where first pred is <0.5
         bad_idx = surv_preds[surv_preds.iloc[:,0] < 0.5].index
