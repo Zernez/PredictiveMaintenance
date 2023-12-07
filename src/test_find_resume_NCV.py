@@ -28,6 +28,8 @@ from lifelines import WeibullAFTFitter
 import logging
 import contextlib
 from utility.printer import Suppressor
+from tools.evaluator import LifelinesEvaluator
+from tools.Evaluations.util import predict_median_survival_time, predict_mean_survival_time
 
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
@@ -70,7 +72,7 @@ def main():
     if args.merge:
         MERGE = args.merge
 
-    #DATASET= "pronostia"
+    #DATASET= "xjtu"
     #TYPE= "correlated"
     #MERGE= "False"
 
@@ -287,80 +289,27 @@ def main():
                         lower, upper = np.percentile(ti_new[1][ti_new[1].dtype.names[1]], [0, 100])
                         times_cvi = np.arange(0, math.floor(upper)).tolist()
                         
-                        #Set the time range for calculate the survivor function for NN
-                        lower_NN, upper_NN = np.percentile(ti_new[1][ti_new[1].dtype.names[1]], [0, 100])
-                        times_cvi_NN = np.arange(0, math.floor(upper_NN)).tolist()
-
-                        #Get C-index scores from current CVI fold 
-                        if model_name == "DeepSurv" or model_name == "DSM":
+                        # Get survival predictions for CVI
+                        if model_name == "DeepSurv" or model_name == "DSM" or model_name == "BNNmcd":
                             xte = cvi_new_NN[0].to_numpy()
                             with Suppressor():
-                                surv_preds = survival.predict_survival_function(model, xte, times_cvi_NN)
-                            surv_preds.replace(np.nan, 1e-1000, inplace=True)
-                            surv_preds[math.ceil(upper)] = 1e-1000
-                            surv_preds.reset_index(drop=True, inplace=True)
-                            ev = EvalSurv(surv_preds.T, cvi_new[1]['Survival_time'], cvi_new[1]['Event'], censor_surv="km")
-                            c_index_cvi = ev.concordance_td()
-                        elif model_name == "BNNmcd":
-                            xte = cvi_new_NN[0].to_numpy()       
-                            with Suppressor():
-                                surv_preds = survival.predict_survival_function(model, xte, times_cvi_NN)
-                            surv_preds.replace(np.nan, 1e-1000, inplace=True)
-                            surv_preds[math.ceil(upper)] = 1e-1000
-                            surv_preds.reset_index(drop=True, inplace=True)
-                            ev = EvalSurv(surv_preds.T, cvi_new_NN[1]['time'].to_numpy(), cvi_new_NN[1]['event'].to_numpy(), censor_surv="km")
-                            try:
-                                c_index_cvi = ev.concordance_td()
-                            except:
-                                c_index_cvi = np.nan
+                                surv_preds = survival.predict_survival_function(model, xte, times_cvi)
                         else:
                             with Suppressor():
                                 surv_preds = survival.predict_survival_function(model, cvi_new[0], times_cvi)
-                            surv_preds.replace(np.nan, 1e-1000, inplace=True)
-                            surv_preds[math.ceil(upper)] = 1e-1000
-                            surv_preds.reset_index(drop=True, inplace=True)
-                            ev = EvalSurv(surv_preds.T, cvi_new[1]['Survival_time'], cvi_new[1]['Event'], censor_surv="km")
-                            c_index_cvi = ev.concordance_td()
+                        surv_preds, cvi_new_sanitized = survival.sanitize_survival_data(surv_preds, cvi_new[1], upper)
 
-                        #Get BS and NBLL scores from current fold CVI fold and expectation of TtE integration by the median of all test set
-                        if model_name == "DeepSurv":
-                            with Suppressor():
-                                NN_surv_probs = model.predict_survival(xte)
-                            brier_score_cvi = approx_brier_score(cvi_new[1], NN_surv_probs)
-                            nbll_cvi = np.mean(ev.nbll(np.array(times_cvi_NN)))
-                            sd_preds = np.std(surv_preds)
-                            n_preds = len(surv_preds)
-                            med_surv_preds = surv_preds.median()
-                            event_detector_target = np.median(cvi_new[1]['Survival_time'])
-                            surv_expect= trapezoid(y= med_surv_preds.values, x= med_surv_preds.index)
-                        elif model_name == "DSM":
-                            with Suppressor():
-                                NN_surv_probs = pd.DataFrame(model.predict_survival(xte, t= times_cvi_NN))
-                            brier_score_cvi = approx_brier_score(cvi_new[1], NN_surv_probs)
-                            nbll_cvi = np.mean(ev.nbll(np.array(times_cvi_NN)))
-                            sd_preds = np.std(surv_preds)
-                            n_preds = len(surv_preds)
-                            med_surv_preds = surv_preds.median()
-                            event_detector_target = np.median(cvi_new[1]['Survival_time'])
-                            surv_expect= trapezoid(y= med_surv_preds.values, x= med_surv_preds.index)
-                        elif model_name == "BNNmcd":
-                            brier_score_cvi = approx_brier_score(cvi_new[1], surv_preds)
-                            nbll_cvi = np.mean(ev.nbll(np.array(times)))
-                            sd_preds = np.std(surv_preds)
-                            n_preds = len(surv_preds)
-                            med_surv_preds = surv_preds.median()
-                            event_detector_target = np.median(cvi_new[1]['Survival_time'])
-                            surv_expect= trapezoid(y= med_surv_preds.values, x= med_surv_preds.index)                                
-                        else:
-                            surv_probs = pd.DataFrame(surv_preds)
-                            brier_score_cvi = approx_brier_score(cvi_new[1], surv_probs)
-                            nbll_cvi = np.mean(ev.nbll(np.array(times)))
-                            sd_preds = np.std(surv_preds)
-                            n_preds = len(surv_preds)
-                            med_surv_preds = surv_preds.median()
-                            event_detector_target = np.median(cvi_new[1]['Survival_time'])
-                            surv_expect= trapezoid(y= med_surv_preds.values, x= med_surv_preds.index)
-
+                        # Calculate scores
+                        pycox_eval = EvalSurv(surv_preds.T, cvi_new_sanitized['Survival_time'], cvi_new_sanitized['Event'], censor_surv="km")
+                        lifelines_eval = LifelinesEvaluator(surv_preds.T, cvi_new_sanitized['Survival_time'], cvi_new_sanitized['Event'],
+                                                            ti_new[1]['Survival_time'], ti_new[1]['Event'])
+                        median_survival_time = lifelines_eval.predict_time_from_curve(predict_median_survival_time)
+                        mae_hinge_cvi = lifelines_eval.mae(method="Hinge")
+                        brier_score_cvi = lifelines_eval.integrated_brier_score()
+                        c_index_cvi = pycox_eval.concordance_td()
+                        nbll_cvi = np.mean(pycox_eval.nbll(np.array(times_cvi)))
+                        n_preds = len(surv_preds)
+                        event_detector_target = np.median(cvi_new_sanitized['Survival_time'])
                         t_total_split_time = time() - split_start_time
 
                         #Prepare settings for calculate the target datasheet TtE
@@ -389,16 +338,16 @@ def main():
                         datasheet_target = np.median(temp_tte)
 
                         print(f"Evaluated {model_print_name} - {ft_selector_print_name} - {percentage}" +
-                            f" - CI={round(c_index_cvi, 3)} - BS={round(brier_score_cvi, 3)}" +
-                            f" - NBLL={round(nbll_cvi, 3)} - T={round(t_total_split_time, 3)}")
+                            f" - CI={round(c_index_cvi, 3)} - IBS={round(brier_score_cvi, 3)}" +
+                            f" - MAE={round(mae_hinge_cvi, 3)} - NBLL={round(nbll_cvi, 3)} - T={round(t_total_split_time, 3)}")
 
                         #Indexing the resul table
-                        res_sr = pd.Series([model_print_name, ft_selector_print_name, c_index_cvi, brier_score_cvi, nbll_cvi, 
-                                            surv_expect, event_detector_target, datasheet_target, n_preds, t_total_split_time,
-                                            best_params, list(selected_fts), y_delta],
+                        res_sr = pd.Series([model_print_name, ft_selector_print_name, c_index_cvi, brier_score_cvi, nbll_cvi,
+                                            median_survival_time, mae_hinge_cvi, event_detector_target, datasheet_target,
+                                            n_preds, t_total_split_time, best_params, list(selected_fts), y_delta],
                                             index=["ModelName", "FtSelectorName", "CIndex", "BrierScore", "NBLL",
-                                                   "SurvExpect", "EDTarget", "DatasheetTarget", "Npreds", "TTotalSplit",
-                                                   "BestParams", "SelectedFts", "DeltaY"])
+                                                   "MedianSurvTime", "MAEHinge", "EDTarget", "DatasheetTarget",
+                                                   "Npreds", "TTotalSplit", "BestParams", "SelectedFts", "DeltaY"])
                         model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
                 
                 #Indexing the file name linked to the DATASET condition

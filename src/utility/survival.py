@@ -1,10 +1,25 @@
 import numpy as np
 import pandas as pd
+import math
 
 class Survival:
 
     def __init__(self):
         pass    
+    
+    def sanitize_survival_data(self, surv_preds, cvi, upper):
+        # Remove NaN's
+        surv_preds.replace(np.nan, 1e-1000, inplace=True)
+        surv_preds[math.ceil(upper)] = 1e-1000
+        surv_preds.reset_index(drop=True, inplace=True)
+        surv_preds[~np.isfinite(surv_preds)] = 0
+
+        # Remove rows where first pred is <0.5
+        bad_idx = surv_preds[surv_preds.iloc[:,0] < 0.5].index
+        sanitized_surv_preds = surv_preds.drop(bad_idx).reset_index(drop=True)
+        sanitized_cvi = np.delete(cvi, bad_idx)
+        
+        return sanitized_surv_preds, sanitized_cvi
 
     def predict_survival_function(self, model, X_test, times):
         # lower, upper = np.percentile(y_test[y_test.dtype.names[1]], [10, 90])
