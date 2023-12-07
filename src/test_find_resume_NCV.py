@@ -41,6 +41,7 @@ N_INTERNAL_SPLITS = 5
 N_ITER = 10
 
 def main():
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str,
                         required=True,
@@ -52,6 +53,7 @@ def main():
                         required=True,
                         default=None)
     args = parser.parse_args()
+    """
     
     global DATASET
     global TYPE
@@ -61,7 +63,8 @@ def main():
     global N_SPLITS
     global TRAIN_SIZE
     global CENSORING
-
+    
+    """
     if args.dataset:
         DATASET = args.dataset
         cfg.DATASET_NAME = args.dataset
@@ -71,10 +74,11 @@ def main():
     
     if args.merge:
         MERGE = args.merge
-
-    #DATASET= "xjtu"
-    #TYPE= "correlated"
-    #MERGE= "False"
+    """
+    
+    DATASET= "xjtu"
+    TYPE= "correlated"
+    MERGE= "False"
 
     if TYPE == "bootstrap":
         cfg.N_BOOT = 8
@@ -101,7 +105,7 @@ def main():
     if NEW_DATASET== True:
         Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)   
     #Insert the models and feature name selector for CV hyperparameter search
-    models = [CoxPH, RSF, DeepSurv, DSM, BNNmcd]
+    models = [CphLASSO, RSF, DeepSurv, DSM, BNNmcd]
     ft_selectors = [NoneSelector]
     survival = Survival()
     data_util = DataETL(DATASET)
@@ -303,11 +307,26 @@ def main():
                         pycox_eval = EvalSurv(surv_preds.T, cvi_new_sanitized['Survival_time'], cvi_new_sanitized['Event'], censor_surv="km")
                         lifelines_eval = LifelinesEvaluator(surv_preds.T, cvi_new_sanitized['Survival_time'], cvi_new_sanitized['Event'],
                                                             ti_new[1]['Survival_time'], ti_new[1]['Event'])
-                        median_survival_time = lifelines_eval.predict_time_from_curve(predict_median_survival_time)
-                        mae_hinge_cvi = lifelines_eval.mae(method="Hinge")
-                        brier_score_cvi = lifelines_eval.integrated_brier_score()
-                        c_index_cvi = pycox_eval.concordance_td()
-                        nbll_cvi = np.mean(pycox_eval.nbll(np.array(times_cvi)))
+                        try:
+                            median_survival_time = lifelines_eval.predict_time_from_curve(predict_median_survival_time)
+                        except:
+                            median_survival_time = np.nan
+                        try:
+                            mae_hinge_cvi = lifelines_eval.mae(method="Hinge")
+                        except:
+                            mae_hinge_cvi = np.nan
+                        try:
+                            brier_score_cvi = lifelines_eval.integrated_brier_score()
+                        except:
+                            brier_score_cvi = np.nan
+                        try:
+                            c_index_cvi = pycox_eval.concordance_td()
+                        except:
+                            c_index_cvi = np.nan
+                        try:    
+                            nbll_cvi = np.mean(pycox_eval.nbll(np.array(times_cvi)))
+                        except:
+                            nbll_cvi = np.nan
                         n_preds = len(surv_preds)
                         event_detector_target = np.median(cvi_new_sanitized['Survival_time'])
                         t_total_split_time = time() - split_start_time
@@ -368,7 +387,7 @@ def main():
                     address = 'bootstrap'
                 
                 #Save the results to the proper DATASET type folder
-                model_results.to_csv(f"data/logs/{DATASET}/{address}/" + file_name)
+                #model_results.to_csv(f"data/logs/{DATASET}/{address}/" + file_name)
 
 if __name__ == "__main__":
     main()
