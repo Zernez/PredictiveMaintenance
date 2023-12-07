@@ -36,7 +36,7 @@ warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 N_BOOT = cfg.N_BOOT
 PLOT = True
 RESUME = True
-NEW_DATASET = False
+NEW_DATASET = True
 N_INTERNAL_SPLITS = 5
 N_ITER = 10
 
@@ -383,7 +383,7 @@ def main():
                     address = 'bootstrap'
                 
                 #Save the results to the proper DATASET type folder
-                model_results.to_csv(f"data/logs/{DATASET}/{address}/" + file_name)
+                model_results.to_csv(f"data/logs/{DATASET}/{address}/" + file_name) 
 
 if __name__ == "__main__":
     main()
