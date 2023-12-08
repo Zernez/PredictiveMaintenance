@@ -300,12 +300,8 @@ def main():
                         surv_preds, cvi_new_sanitized = survival.sanitize_survival_data(surv_preds, cvi_new[1])
 
                         # Calculate scores
-                        pycox_surv_preds = surv_preds.replace(np.nan, 1e-1000) # for brier score, make sure it is closed
-                        pycox_surv_preds[math.ceil(upper)] = 1e-1000
-                        pycox_surv_preds.reset_index(drop=True, inplace=True)
-                        pycox_eval = EvalSurv(pycox_surv_preds.T, cvi_new_sanitized['Survival_time'], cvi_new_sanitized['Event'], censor_surv="km")
                         lifelines_eval = LifelinesEvaluator(surv_preds.T, cvi_new_sanitized['Survival_time'], cvi_new_sanitized['Event'],
-                                                            ti_new[1]['Survival_time'], ti_new[1]['Event'])
+                                                            ti_new[1]['Survival_time'], ti_new[1]['Event'])                        
                         try:
                             median_survival_time = lifelines_eval.predict_time_from_curve(predict_median_survival_time)
                         except:
@@ -319,7 +315,7 @@ def main():
                         except:
                             brier_score_cvi = np.nan
                         try:
-                            c_index_cvi = pycox_eval.concordance_td()
+                            c_index_cvi = approx_brier_score(cvi_new_sanitized, surv_preds)
                         except:
                             c_index_cvi = np.nan
                         n_preds = len(surv_preds)
