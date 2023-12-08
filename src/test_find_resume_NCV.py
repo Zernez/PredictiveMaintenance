@@ -300,24 +300,31 @@ def main():
                         surv_preds, cvi_new_sanitized = survival.sanitize_survival_data(surv_preds, cvi_new[1])
 
                         # Calculate scores
-                        lifelines_eval = LifelinesEvaluator(surv_preds.T, cvi_new_sanitized['Survival_time'], cvi_new_sanitized['Event'],
-                                                            ti_new[1]['Survival_time'], ti_new[1]['Event'])                        
                         try:
-                            median_survival_time = lifelines_eval.predict_time_from_curve(predict_median_survival_time)
+                            pycox_eval = EvalSurv(surv_preds.T, cvi_new_sanitized['Survival_time'], cvi_new_sanitized['Event'], censor_surv="km")
+                            c_index_cvi = pycox_eval.concordance_td()
                         except:
+                            print("Failed to evaluate CTD, setting to NaN")
+                            c_index_cvi = np.nan
+                            
+                        lifelines_eval = LifelinesEvaluator(surv_preds.T, cvi_new_sanitized['Survival_time'], cvi_new_sanitized['Event'],
+                                                            ti_new[1]['Survival_time'], ti_new[1]['Event'])
+                        try:
+                            median_survival_time = np.median(lifelines_eval.predict_time_from_curve(predict_median_survival_time))
+                        except:
+                            print("Failed to evaluate median survival time, setting to NaN")
                             median_survival_time = np.nan
                         try:
                             mae_hinge_cvi = lifelines_eval.mae(method="Hinge")
                         except:
+                            print("Failed to evaluate MAE, setting to NaN")
                             mae_hinge_cvi = np.nan
                         try:
                             brier_score_cvi = lifelines_eval.integrated_brier_score()
                         except:
+                            print("Failed to evaluate IBS, setting to NaN")
                             brier_score_cvi = np.nan
-                        try:
-                            c_index_cvi = approx_brier_score(cvi_new_sanitized, surv_preds)
-                        except:
-                            c_index_cvi = np.nan
+                            
                         n_preds = len(surv_preds)
                         event_detector_target = np.median(cvi_new_sanitized['Survival_time'])
                         t_total_split_time = time() - split_start_time
