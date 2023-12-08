@@ -7,7 +7,13 @@ class Survival:
     def __init__(self):
         pass    
     
-    def sanitize_survival_data(self, surv_preds, cvi):
+    def sanitize_survival_data(self, surv_preds, cvi, upper, fix_ending=False):
+        # Fix ending of surv function
+        if fix_ending:
+            surv_preds.replace(np.nan, 1e-1000, inplace=True)
+            surv_preds[math.ceil(upper)] = 1e-1000
+            surv_preds.reset_index(drop=True, inplace=True)
+        
         # Replace infs with 0
         surv_preds[~np.isfinite(surv_preds)] = 0
 

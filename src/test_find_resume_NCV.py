@@ -101,7 +101,7 @@ def main():
     if NEW_DATASET== True:
         Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)
     #Insert the models and feature name selector for CV hyperparameter search
-    models = [CoxPH, RSF, DeepSurv, DSM, BNNmcd]
+    models = [CphLASSO, RSF, DeepSurv, DSM, BNNmcd]
     ft_selectors = [NoneSelector]
     survival = Survival()
     data_util = DataETL(DATASET)
@@ -297,17 +297,18 @@ def main():
                         else:
                             with Suppressor():
                                 surv_preds = survival.predict_survival_function(model, cvi_new[0], times_cvi)
-                        surv_preds, cvi_new_sanitized = survival.sanitize_survival_data(surv_preds, cvi_new[1])
-
+                        surv_preds_pycox, cvi_new_sanitized = survival.sanitize_survival_data(surv_preds, cvi_new[1], upper, fix_ending=True)
+                        surv_preds_lifelines, _ = survival.sanitize_survival_data(surv_preds, cvi_new[1], upper)
+                        
                         # Calculate scores
                         try:
-                            pycox_eval = EvalSurv(surv_preds.T, cvi_new_sanitized['Survival_time'], cvi_new_sanitized['Event'], censor_surv="km")
+                            pycox_eval = EvalSurv(surv_preds_pycox.T, cvi_new_sanitized['Survival_time'], cvi_new_sanitized['Event'], censor_surv="km")
                             c_index_cvi = pycox_eval.concordance_td()
                         except:
                             print("Failed to evaluate CTD, setting to NaN")
                             c_index_cvi = np.nan
                             
-                        lifelines_eval = LifelinesEvaluator(surv_preds.T, cvi_new_sanitized['Survival_time'], cvi_new_sanitized['Event'],
+                        lifelines_eval = LifelinesEvaluator(surv_preds_lifelines.T, cvi_new_sanitized['Survival_time'], cvi_new_sanitized['Event'],
                                                             ti_new[1]['Survival_time'], ti_new[1]['Event'])
                         try:
                             median_survival_time = np.median(lifelines_eval.predict_time_from_curve(predict_median_survival_time))
@@ -325,7 +326,7 @@ def main():
                             print("Failed to evaluate IBS, setting to NaN")
                             brier_score_cvi = np.nan
                             
-                        n_preds = len(surv_preds)
+                        n_preds = len(surv_preds_lifelines)
                         event_detector_target = np.median(cvi_new_sanitized['Survival_time'])
                         t_total_split_time = time() - split_start_time
 
