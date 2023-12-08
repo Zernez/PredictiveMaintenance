@@ -99,9 +99,9 @@ def main():
     
     #For the first time running, a NEW_DATASET is needed
     if NEW_DATASET== True:
-        Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)   
+        Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)
     #Insert the models and feature name selector for CV hyperparameter search
-    models = [CphLASSO, RSF, DeepSurv, DSM, BNNmcd]
+    models = [CoxPH, RSF, DeepSurv, DSM, BNNmcd]
     ft_selectors = [NoneSelector]
     survival = Survival()
     data_util = DataETL(DATASET)
@@ -297,10 +297,13 @@ def main():
                         else:
                             with Suppressor():
                                 surv_preds = survival.predict_survival_function(model, cvi_new[0], times_cvi)
-                        surv_preds, cvi_new_sanitized = survival.sanitize_survival_data(surv_preds, cvi_new[1], upper)
+                        surv_preds, cvi_new_sanitized = survival.sanitize_survival_data(surv_preds, cvi_new[1])
 
                         # Calculate scores
-                        pycox_eval = EvalSurv(surv_preds.T, cvi_new_sanitized['Survival_time'], cvi_new_sanitized['Event'], censor_surv="km")
+                        pycox_surv_preds = surv_preds.replace(np.nan, 1e-1000) # for brier score, make sure it is closed
+                        pycox_surv_preds[math.ceil(upper)] = 1e-1000
+                        pycox_surv_preds.reset_index(drop=True, inplace=True)
+                        pycox_eval = EvalSurv(pycox_surv_preds.T, cvi_new_sanitized['Survival_time'], cvi_new_sanitized['Event'], censor_surv="km")
                         lifelines_eval = LifelinesEvaluator(surv_preds.T, cvi_new_sanitized['Survival_time'], cvi_new_sanitized['Event'],
                                                             ti_new[1]['Survival_time'], ti_new[1]['Event'])
                         try:
@@ -319,10 +322,6 @@ def main():
                             c_index_cvi = pycox_eval.concordance_td()
                         except:
                             c_index_cvi = np.nan
-                        try:    
-                            nbll_cvi = np.mean(pycox_eval.nbll(np.array(times_cvi)))
-                        except:
-                            nbll_cvi = np.nan
                         n_preds = len(surv_preds)
                         event_detector_target = np.median(cvi_new_sanitized['Survival_time'])
                         t_total_split_time = time() - split_start_time
@@ -354,13 +353,13 @@ def main():
 
                         print(f"Evaluated {model_print_name} - {ft_selector_print_name} - {percentage}" +
                             f" - CI={round(c_index_cvi, 3)} - IBS={round(brier_score_cvi, 3)}" +
-                            f" - MAE={round(mae_hinge_cvi, 3)} - NBLL={round(nbll_cvi, 3)} - T={round(t_total_split_time, 3)}")
+                            f" - MAE={round(mae_hinge_cvi, 3)} - T={round(t_total_split_time, 3)}")
 
                         #Indexing the resul table
-                        res_sr = pd.Series([model_print_name, ft_selector_print_name, c_index_cvi, brier_score_cvi, nbll_cvi,
+                        res_sr = pd.Series([model_print_name, ft_selector_print_name, c_index_cvi, brier_score_cvi,
                                             median_survival_time, mae_hinge_cvi, event_detector_target, datasheet_target,
                                             n_preds, t_total_split_time, best_params, list(selected_fts), y_delta],
-                                            index=["ModelName", "FtSelectorName", "CIndex", "BrierScore", "NBLL",
+                                            index=["ModelName", "FtSelectorName", "CIndex", "BrierScore",
                                                    "MedianSurvTime", "MAEHinge", "EDTarget", "DatasheetTarget",
                                                    "Npreds", "TTotalSplit", "BestParams", "SelectedFts", "DeltaY"])
                         model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
