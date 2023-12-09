@@ -93,11 +93,13 @@ PARAMS_SVM = {'alpha': 1,
 
 PARAMS_DEEPSURV = {'batch_size' : 16,
                    'learning_rate' : 0.01,
-                   'iters': 50}
+                   'iters': 50,
+                   'layers': [32]}
 
 PARAMS_DSM = {'batch_size' : 16,
               'learning_rate' : 0.01,
-              'iters': 50}
+              'iters': 50,
+              'layers': [32]}
 
 PARAMS_BNN = {'layers' : [32]}
 

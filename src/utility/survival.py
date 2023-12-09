@@ -1,6 +1,94 @@
 import numpy as np
 import pandas as pd
 import math
+import torch
+from typing import Optional
+
+def convert_to_structured(T, E):
+    default_dtypes = {"names": ("event", "time"), "formats": ("bool", "f8")}
+    concat = list(zip(E, T))
+    return np.array(concat, dtype=default_dtypes)
+
+def make_event_times(t_train, e_train):
+    unique_times = compute_unique_counts(torch.Tensor(e_train), torch.Tensor(t_train))[0]
+    if 0 not in unique_times:
+        unique_times = torch.cat([torch.tensor([0]).to(unique_times.device), unique_times], 0)
+    return unique_times.numpy() 
+
+def compute_unique_counts(
+        event: torch.Tensor,
+        time: torch.Tensor,
+        order: Optional[torch.Tensor] = None):
+    """Count right censored and uncensored samples at each unique time point.
+
+    Parameters
+    ----------
+    event : array
+        Boolean event indicator.
+
+    time : array
+        Survival time or time of censoring.
+
+    order : array or None
+        Indices to order time in ascending order.
+        If None, order will be computed.
+
+    Returns
+    -------
+    times : array
+        Unique time points.
+
+    n_events : array
+        Number of events at each time point.
+
+    n_at_risk : array
+        Number of samples that have not been censored or have not had an event at each time point.
+
+    n_censored : array
+        Number of censored samples at each time point.
+    """
+    n_samples = event.shape[0]
+
+    if order is None:
+        order = torch.argsort(time)
+
+    uniq_times = torch.empty(n_samples, dtype=time.dtype, device=time.device)
+    uniq_events = torch.empty(n_samples, dtype=torch.int, device=time.device)
+    uniq_counts = torch.empty(n_samples, dtype=torch.int, device=time.device)
+
+    i = 0
+    prev_val = time[order[0]]
+    j = 0
+    while True:
+        count_event = 0
+        count = 0
+        while i < n_samples and prev_val == time[order[i]]:
+            if event[order[i]]:
+                count_event += 1
+
+            count += 1
+            i += 1
+
+        uniq_times[j] = prev_val
+        uniq_events[j] = count_event
+        uniq_counts[j] = count
+        j += 1
+
+        if i == n_samples:
+            break
+
+        prev_val = time[order[i]]
+
+    uniq_times = uniq_times[:j]
+    uniq_events = uniq_events[:j]
+    uniq_counts = uniq_counts[:j]
+    n_censored = uniq_counts - uniq_events
+
+    # offset cumulative sum by one
+    total_count = torch.cat([torch.tensor([0], device=uniq_counts.device), uniq_counts], dim=0)
+    n_at_risk = n_samples - torch.cumsum(total_count, dim=0)
+
+    return uniq_times, uniq_events, n_at_risk[:-1], n_censored
 
 class Survival:
 

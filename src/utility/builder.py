@@ -22,7 +22,7 @@ class Builder:
             self.real_bearing= cfg.N_REAL_BEARING_PRONOSTIA
         self.dataset= dataset 
 
-    def build_new_dataset (self,bootstrap= 0):            
+    def build_new_dataset (self,bootstrap=0):            
         self.from_raw_to_csv(bootstrap)
         self.aggregate_and_refine()
 

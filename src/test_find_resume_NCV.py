@@ -1,42 +1,35 @@
 import numpy as np
 import pandas as pd
 from time import time
-import math
-import argparse
 import warnings
 import config as cfg
 import re
-import os
 from pycox.evaluation import EvalSurv
-from scipy.integrate import trapezoid
 from sksurv.util import Surv
 from sklearn.model_selection import ParameterSampler
-from sklearn.model_selection import train_test_split
 from sklearn.model_selection import KFold
-from xgbse.metrics import approx_brier_score
-from sklearn.model_selection import RandomizedSearchCV
-from tools.feature_selectors import NoneSelector, LowVar, SelectKBest4, SelectKBest8, RegMRMR4, RegMRMR8, UMAP8, VIF4, VIF8, PHSelector
-from tools.regressors import CoxPH, CphRidge, CphLASSO, CphElastic, RSF, CoxBoost, GradientBoostingDART, WeibullAFT, LogNormalAFT, LogLogisticAFT, DeepSurv, DSM, BNNmcd
+from tools.feature_selectors import PHSelector
+from tools.regressors import CoxPH, CphLASSO, RSF, DeepSurv, DSM, BNNmcd
 from tools.file_reader import FileReader
 from tools.data_ETL import DataETL
 from utility.builder import Builder
-from tools.experiments import SurvivalRegressionCV
 from utility.survival import Survival
 from auton_survival import DeepCoxPH
 from auton_survival import DeepSurvivalMachines
-from lifelines import WeibullAFTFitter
-import logging
-import contextlib
 from utility.printer import Suppressor
 from tools.evaluator import LifelinesEvaluator
-from tools.Evaluations.util import predict_median_survival_time, predict_mean_survival_time
+from tools.Evaluations.util import predict_median_survival_time
+from utility.survival import make_event_times
+from tools.cross_validator import run_cross_validation
+from xgbse.metrics import approx_brier_score
+import os
+import argparse
 
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
-N_BOOT = cfg.N_BOOT
 PLOT = True
 RESUME = True
-NEW_DATASET = True
+NEW_DATASET = False
 N_INTERNAL_SPLITS = 5
 N_ITER = 10
 
@@ -73,14 +66,15 @@ def main():
         MERGE = args.merge
     
     #DATASET= "xjtu"
-    #TYPE= "correlated"
+    #TYPE= "bootstrap"
     #MERGE= "False"
 
     if TYPE == "bootstrap":
-        cfg.N_BOOT = 8
+        cfg.N_BOOT = 3
         cfg.DATA_TYPE = "bootstrap"
     else:
-        cfg.DATA_TYPE = "not_bootstrap"        
+        cfg.N_BOOT = 3
+        cfg.DATA_TYPE = "not_bootstrap"
 
     if DATASET == "xjtu":
         data_path = cfg.RAW_DATA_PATH_XJTU
@@ -99,10 +93,10 @@ def main():
     
     #For the first time running, a NEW_DATASET is needed
     if NEW_DATASET== True:
-        Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)
+        Builder(DATASET).build_new_dataset(bootstrap=cfg.N_BOOT)
     #Insert the models and feature name selector for CV hyperparameter search
     models = [CphLASSO, RSF, DeepSurv, DSM, BNNmcd]
-    ft_selectors = [NoneSelector]
+    ft_selectors = [PHSelector]
     survival = Survival()
     data_util = DataETL(DATASET)
 
@@ -122,7 +116,7 @@ def main():
     if MERGE == True:
         data_X_merge = pd.DataFrame()
         for i, (cov, boot, info_pack) in enumerate(zip(cov_group, boot_group, info_group)):
-            data_temp_X, deltaref_temp_y = data_util.make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
+            data_temp_X, deltaref_temp_y = data_util.make_surv_data_sklS(cov, boot, info_pack, cfg.N_BOOT, TYPE)
             if i== 0:
                 deltaref_y_merge =  deltaref_temp_y
             else:
@@ -132,7 +126,7 @@ def main():
         data_container_y.append(deltaref_y_merge)
     else:
         for i, (cov, boot, info_pack) in enumerate(zip(cov_group, boot_group, info_group)):
-            data_temp_X, deltaref_y = data_util.make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
+            data_temp_X, deltaref_y = data_util.make_surv_data_sklS(cov, boot, info_pack, cfg.N_BOOT, TYPE)
             data_container_X.append(data_temp_X)
             data_container_y.append(deltaref_y)
 
@@ -186,8 +180,8 @@ def main():
                         T2 = (data_X_merge, data_y)
 
                         #Fromat and center the data     
-                        ti, cvi, ti_NN, cvi_NN = DataETL(DATASET).format_main_data (T1, T2)
-                        ti, cvi, ti_NN, cvi_NN = DataETL(DATASET).centering_main_data (ti, cvi, ti_NN, cvi_NN)
+                        ti, cvi, ti_NN, cvi_NN = DataETL(DATASET).format_main_data(T1, T2)
+                        ti, cvi, ti_NN, cvi_NN = DataETL(DATASET).centering_main_data(ti, cvi, ti_NN, cvi_NN)
 
                         ft_selector_print_name = f"{ft_selector_name}"
                         model_print_name = f"{model_name}"
@@ -211,105 +205,65 @@ def main():
                         cvi_new_NN[0].reset_index(inplace=True, drop=True)
 
                         #Set event times
-                        lower, upper = np.percentile(ti_new[1][ti_new[1].dtype.names[1]], [0, 100])
-                        times = np.arange(math.ceil(lower), math.floor(upper)).tolist()
+                        times = make_event_times(ti_new_NN[1]['time'], ti_new_NN[1]['event']).astype(int)
+                        times = np.unique(times)
 
-                        #Find hyperparams via CV from hyperparamters' space
+                        #Find hyperparams via inner CV from hyperparamters' space
                         space = model_builder().get_tuneable_params()
-                        if model_name == "DeepSurv":
-                            experiment = SurvivalRegressionCV(model='dcph', num_folds=N_INTERNAL_SPLITS, hyperparam_grid=space)
-                            with Suppressor():
-                                model, best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='ctd')
-                        elif model_name == "DSM":
-                            experiment = SurvivalRegressionCV(model='dsm', num_folds=N_INTERNAL_SPLITS, hyperparam_grid=space)
-                            with Suppressor():
-                                model, best_params = experiment.fit(ti_new_NN[0], ti_new_NN[1], times, metric='ctd')
-                        elif model_name == "BNNmcd":
-                            param_list = list(ParameterSampler(space, n_iter=N_ITER, random_state=0))
-                            sample_results = pd.DataFrame()
-                            for sample in param_list:
-                                param_results = pd.DataFrame()
-                                kf = KFold(n_splits=N_INTERNAL_SPLITS, random_state=0, shuffle=True)
-                                for split_idx, (train_in, test_in) in enumerate(kf.split(ti_new_NN[0], ti_new_NN[1])):
-                                    t_train = np.array(ti_new_NN[1].iloc[train_in]["time"])
-                                    e_train = np.array(ti_new_NN[1].iloc[train_in]["event"])
-                                    t_test = np.array(ti_new_NN[1].iloc[test_in]["time"])
-                                    e_test = np.array(ti_new_NN[1].iloc[test_in]["event"])
-                                    f_train =  np.array(ti_new_NN[0].iloc[train_in])
-                                    f_test =  np.array(ti_new_NN[0].iloc[test_in])
-                                    model = model_builder().make_model(sample)
-                                    with Suppressor():
-                                        model.fit(f_train, t_train, e_train)
-                                    lower, upper = np.percentile(t_train, [0, 100])
-                                    times = np.arange(math.ceil(lower), math.floor(upper)).tolist()
-                                    with Suppressor():
-                                        preds = model.predict_survival(f_test, times)
-                                    preds = pd.DataFrame(np.mean(preds, axis=0))
-                                    ev = EvalSurv(preds.T, t_test, e_test, censor_surv="km")
-                                    try:
-                                        c_index_ti = ev.concordance_td()
-                                    except:
-                                        c_index_ti = np.nan
-                                    res_sr = pd.Series([str(model_name), split_idx, sample, c_index_ti],
-                                                    index=["ModelName", "SplitIdx", "Params", "CIndex"])
-                                    param_results = pd.concat([param_results, res_sr.to_frame().T], ignore_index=True)
-                                mean_c_index_ti = param_results['CIndex'].mean()
-                                res_sr = pd.Series([str(model_name), param_results.iloc[0]["Params"], mean_c_index_ti],
-                                                index=["ModelName", "Params", "CIndex"])
-                                sample_results = pd.concat([sample_results, res_sr.to_frame().T], ignore_index=True)
-                            best_params = sample_results.loc[sample_results['CIndex'].astype(float).idxmax()]['Params']
-                        else:
-                            search = RandomizedSearchCV(model, space, n_iter=N_ITER, cv=N_INTERNAL_SPLITS, random_state=0)
-                            with Suppressor():
-                                search.fit(ti_new[0], ti_new[1])
-                            best_params = search.best_params_
-
+                        param_list = list(ParameterSampler(space, n_iter=N_ITER, random_state=0))
+                        best_params = run_cross_validation(model_builder, ti_new_NN,
+                                                           param_list, N_INTERNAL_SPLITS)
+                        
                         #Train on train set TI with new parameters
                         x = ti_new_NN[0].to_numpy()
                         t = ti_new_NN[1].loc[:, "time"].to_numpy()
                         e = ti_new_NN[1].loc[:, "event"].to_numpy()
                         if model_name == "DeepSurv":
-                            model = DeepCoxPH(layers=[32])
+                            model = DeepCoxPH(layers=best_params['layers'])
                             with Suppressor():
-                                model = model.fit(x, t, e, vsize=0.3, **best_params)
+                                model = model.fit(x, t, e, vsize=0.3, iters=best_params['iters'],
+                                                  learning_rate=best_params['learning_rate'],
+                                                  batch_size=best_params['batch_size'])
                         elif model_name == "DSM":
-                            model = DeepSurvivalMachines(layers=[32])
+                            model = DeepSurvivalMachines(layers=best_params['layers'])
                             with Suppressor():
-                                model = model.fit(x, t, e, vsize=0.3, **best_params)
+                                model = model.fit(x, t, e, vsize=0.3, iters=best_params['iters'],
+                                                  learning_rate=best_params['learning_rate'],
+                                                  batch_size=best_params['batch_size'])
                         elif model_name == "BNNmcd":
                             model = model_builder().make_model(best_params)
                             with Suppressor():
                                 model.fit(x, t, e)
                         else:
-                            model = search.best_estimator_
+                            model = model_builder().make_model(best_params)
                             with Suppressor():
                                 model.fit(ti_new[0], ti_new[1])
                         
-                        #Set the time range for calculate the survivor function 
-                        lower, upper = np.percentile(ti_new[1][ti_new[1].dtype.names[1]], [0, 100])
-                        times_cvi = np.arange(0, math.floor(upper)).tolist()
-                        
-                        # Get survival predictions for CVI
+                        #Get survival predictions for CVI
                         if model_name == "DeepSurv" or model_name == "DSM" or model_name == "BNNmcd":
                             xte = cvi_new_NN[0].to_numpy()
                             with Suppressor():
-                                surv_preds = survival.predict_survival_function(model, xte, times_cvi)
+                                surv_preds = survival.predict_survival_function(model, xte, times)
                         else:
                             with Suppressor():
-                                surv_preds = survival.predict_survival_function(model, cvi_new[0], times_cvi)
-                        surv_preds_pycox, cvi_new_sanitized = survival.sanitize_survival_data(surv_preds, cvi_new[1], upper, fix_ending=True)
-                        surv_preds_lifelines, _ = survival.sanitize_survival_data(surv_preds, cvi_new[1], upper)
+                                surv_preds = survival.predict_survival_function(model, cvi_new[0], times)
+                            
+                        # Sanitize
+                        surv_preds = surv_preds.fillna(0)
+                        bad_idx = surv_preds[surv_preds.iloc[:,0] < 0.5].index # check we have a median
+                        sanitized_surv_preds = surv_preds.drop(bad_idx).reset_index(drop=True)
+                        sanitized_cvi = np.delete(cvi_new[1], bad_idx)
                         
-                        # Calculate scores
+                        #Calculate scores
+                        pycox_eval = EvalSurv(sanitized_surv_preds.T, sanitized_cvi['Survival_time'], sanitized_cvi['Event'], censor_surv="km")
+                        lifelines_eval = LifelinesEvaluator(sanitized_surv_preds.T, sanitized_cvi['Survival_time'], sanitized_cvi['Event'],
+                                                            ti_new[1]['Survival_time'], ti_new[1]['Event'])
+
                         try:
-                            pycox_eval = EvalSurv(surv_preds_pycox.T, cvi_new_sanitized['Survival_time'], cvi_new_sanitized['Event'], censor_surv="km")
                             c_index_cvi = pycox_eval.concordance_td()
                         except:
                             print("Failed to evaluate CTD, setting to NaN")
                             c_index_cvi = np.nan
-                            
-                        lifelines_eval = LifelinesEvaluator(surv_preds_lifelines.T, cvi_new_sanitized['Survival_time'], cvi_new_sanitized['Event'],
-                                                            ti_new[1]['Survival_time'], ti_new[1]['Event'])
                         try:
                             median_survival_time = np.median(lifelines_eval.predict_time_from_curve(predict_median_survival_time))
                         except:
@@ -321,13 +275,13 @@ def main():
                             print("Failed to evaluate MAE, setting to NaN")
                             mae_hinge_cvi = np.nan
                         try:
-                            brier_score_cvi = lifelines_eval.integrated_brier_score()
+                            brier_score_cvi = approx_brier_score(sanitized_cvi, sanitized_surv_preds)
                         except:
                             print("Failed to evaluate IBS, setting to NaN")
                             brier_score_cvi = np.nan
                             
-                        n_preds = len(surv_preds_lifelines)
-                        event_detector_target = np.median(cvi_new_sanitized['Survival_time'])
+                        n_preds = len(sanitized_surv_preds)
+                        event_detector_target = np.median(sanitized_cvi['Survival_time'])
                         t_total_split_time = time() - split_start_time
 
                         #Prepare settings for calculate the target datasheet TtE
@@ -351,7 +305,7 @@ def main():
                             if iter_tte in test:
                                 temp_tte.append(len([f for f in os.listdir(next_root) if os.path.isfile(os.path.join(next_root, f))]))
                             iter_tte += 1
-                            
+                        
                         #Makes a unique value of TtE for the test data
                         datasheet_target = np.median(temp_tte)
 
@@ -386,7 +340,7 @@ def main():
                     address = 'bootstrap'
                 
                 #Save the results to the proper DATASET type folder
-                model_results.to_csv(f"data/logs/{DATASET}/{address}/" + file_name) 
+                model_results.to_csv(f"data/logs/{DATASET}/{address}/" + file_name)
 
 if __name__ == "__main__":
     main()
