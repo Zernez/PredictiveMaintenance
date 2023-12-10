@@ -262,10 +262,10 @@ class DeepSurv(BaseRegressor):
     
     def get_hyperparams(self):
         if cfg.DATA_TYPE == "bootstrap":
-            return {'batch_size' : [8],
+            return {'batch_size' : [4],
                     'learning_rate' : [1e-1, 1e-2],
                     'iters': [50, 100],
-                    'layers': [[32]]
+                    'layers': [[16]]
                     }
         else:
             return {'batch_size' : [16, 32],
@@ -289,10 +289,10 @@ class DSM(BaseRegressor):
     
     def get_hyperparams(self):
         if cfg.DATA_TYPE == "bootstrap":
-            return {'batch_size' : [8],
+            return {'batch_size' : [4],
                     'learning_rate' : [1e-1, 1e-2],
                     'iters': [20],
-                    'layers': [[32]]
+                    'layers': [[16]]
                     }
         else:
             return {'batch_size' : [16, 32],
@@ -316,10 +316,10 @@ class BNNmcd(BaseRegressor):
     
     def get_hyperparams(self):
         if cfg.DATA_TYPE == "bootstrap":
-            return {'batch_size' : [8],
+            return {'batch_size' : [4],
                     'learning_rate' : [1e-1, 1e-2],
                     'num_epochs': [5],
-                    'layers': [[32]]
+                    'layers': [[16]]
                     }
         else:
             return {'batch_size' : [16, 32],
