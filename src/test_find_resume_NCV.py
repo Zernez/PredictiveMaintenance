@@ -66,7 +66,7 @@ def main():
         MERGE = args.merge
     
     #DATASET= "xjtu"
-    #TYPE= "bootstrap"
+    #TYPE= "not_correlated"
     #MERGE= "False"
 
     if TYPE == "bootstrap":
@@ -255,29 +255,22 @@ def main():
                         sanitized_cvi = np.delete(cvi_new[1], bad_idx)
                         
                         #Calculate scores
-                        pycox_eval = EvalSurv(sanitized_surv_preds.T, sanitized_cvi['Survival_time'], sanitized_cvi['Event'], censor_surv="km")
-                        lifelines_eval = LifelinesEvaluator(sanitized_surv_preds.T, sanitized_cvi['Survival_time'], sanitized_cvi['Event'],
-                                                            ti_new[1]['Survival_time'], ti_new[1]['Event'])
-
                         try:
+                            pycox_eval = EvalSurv(sanitized_surv_preds.T, sanitized_cvi['Survival_time'], sanitized_cvi['Event'], censor_surv="km")
                             c_index_cvi = pycox_eval.concordance_td()
-                        except:
-                            print("Failed to evaluate CTD, setting to NaN")
+                        except:    
                             c_index_cvi = np.nan
                         try:
+                            lifelines_eval = LifelinesEvaluator(sanitized_surv_preds.T, sanitized_cvi['Survival_time'], sanitized_cvi['Event'],
+                                                                ti_new[1]['Survival_time'], ti_new[1]['Event'])
                             median_survival_time = np.median(lifelines_eval.predict_time_from_curve(predict_median_survival_time))
-                        except:
-                            print("Failed to evaluate median survival time, setting to NaN")
-                            median_survival_time = np.nan
-                        try:
                             mae_hinge_cvi = lifelines_eval.mae(method="Hinge")
                         except:
-                            print("Failed to evaluate MAE, setting to NaN")
+                            median_survival_time = np.nan
                             mae_hinge_cvi = np.nan
                         try:
                             brier_score_cvi = approx_brier_score(sanitized_cvi, sanitized_surv_preds)
                         except:
-                            print("Failed to evaluate IBS, setting to NaN")
                             brier_score_cvi = np.nan
                             
                         n_preds = len(sanitized_surv_preds)
