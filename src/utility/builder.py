@@ -7,19 +7,20 @@ import config as cfg
 
 class Builder:
 
-    def __init__ (self, dataset):
+    def __init__ (self, dataset, bootstrap):
         if dataset == "xjtu":
-            self.total_bearings= cfg.N_BEARING_TOT_XJTU
-            self.bootstrapped_fold= cfg.N_BOOT_FOLD_XJTU
+            self.real_bearing = cfg.N_REAL_BEARING_XJTU
+            boot_folder_size = (2 + bootstrap) * 2
+            self.total_bearings= self.real_bearing * boot_folder_size
             self.raw_main_path= cfg.RAW_DATA_PATH_XJTU
             self.aggregate_main_path= cfg.DATASET_PATH_XJTU
-            self.real_bearing= cfg.N_REAL_BEARING_XJTU
+
         elif dataset == "pronostia":
-            self.total_bearings= cfg.N_BEARING_TOT_PRONOSTIA
-            self.bootstrapped_fold= cfg.N_BOOT_FOLD_PRONOSTIA
+            self.real_bearing = cfg.N_REAL_BEARING_PRONOSTIA
+            boot_folder_size = (2 + bootstrap) * 2
+            self.total_bearings= self.real_bearing * boot_folder_size
             self.raw_main_path= cfg.RAW_DATA_PATH_PRONOSTIA
             self.aggregate_main_path= cfg.DATASET_PATH_PRONOSTIA
-            self.real_bearing= cfg.N_REAL_BEARING_PRONOSTIA
         self.dataset= dataset 
 
     def build_new_dataset (self,bootstrap=0):            
@@ -96,18 +97,18 @@ class Builder:
 
                     datafile = pd.read_csv(os.path.join(self.aggregate_main_path, filename))
                     set_analytic_aux= datafile.iloc[:, 12: 17]
-                    set_cov_aux= datafile.iloc[:, 0: 23]
+                    set_cov_aux= datafile.iloc[:, 0: 25]
                     set_analytic= pd.concat([set_analytic, set_analytic_aux], axis= 1)
                     set_covariates= pd.concat([set_covariates, set_cov_aux], axis= 1)
-                    set_cov_aux= datafile.iloc[:, 23: 25]     
-                    set_covariates= pd.concat([set_covariates, set_cov_aux], axis= 1)   
+                    # set_cov_aux= datafile.iloc[:, 23: 25]     
+                    # set_covariates= pd.concat([set_covariates, set_cov_aux], axis= 1)   
 
                     set_analytic_aux= datafile.iloc[:, 37: 42]
-                    set_cov_aux= datafile.iloc[:, 25: 48]
+                    set_cov_aux= datafile.iloc[:, 25: 52]
                     set_analytic= pd.concat([set_analytic, set_analytic_aux], axis= 1)
                     set_covariates= pd.concat([set_covariates, set_cov_aux], axis= 1)
-                    set_cov_aux= datafile.iloc[:, 48: 51]     
-                    set_covariates= pd.concat([set_covariates, set_cov_aux], axis= 1)
+                    # set_cov_aux= datafile.iloc[:, 48: 51]     
+                    # set_covariates= pd.concat([set_covariates, set_cov_aux], axis= 1)
 
                 elif re.search('^Bearing.*bootstrap_' + str(i), filename):
                     col_label = re.findall("_\d", filename)[0][1]      

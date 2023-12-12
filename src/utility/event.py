@@ -7,11 +7,13 @@ import config as cfg
 
 class Event:
         
-    def __init__ (self, dataset):
-        if dataset == "xjtu": 
-            self.total_bearings = cfg.N_BEARING_TOT_XJTU
+    def __init__ (self, dataset, bootstrap):
+        if dataset == "xjtu":
+            self.real_bearings = cfg.N_REAL_BEARING_XJTU
+            self.total_bearings = self.real_bearings * (2 + bootstrap) * 2
         elif dataset == "pronostia":
-            self.total_bearings = cfg.N_BEARING_TOT_PRONOSTIA          
+            self.real_bearings = cfg.N_BEARING_TOT_PRONOSTIA
+            self.total_bearings = self.real_bearings * (2 + bootstrap) * 2          
         self.window= 10
         self.percentage_error = 10
         self.break_in_percentage= 40
@@ -252,15 +254,15 @@ class Event:
     
 
     def make_events (self, set_analytic):
-        window= self.window
-        eval_KL= []
-        eval_t= []
-        eval_SD= []
-        eval_chi= []
-        event_kl= []
-        event_sd= []
-        event_t= []
-        event_chi= []         
+        window = self.window
+        eval_KL = []
+        eval_t = []
+        eval_SD = []
+        eval_chi = []
+        event_kl = []
+        event_sd = []
+        event_t = []
+        event_chi = []         
 
         for b_num in range (1, self.total_bearings + 1, 1):
             set= set_analytic[["B{}_FoH".format(b_num), "B{}_FiH".format(b_num), "B{}_FrH".format(b_num), "B{}_FrpH".format(b_num), "B{}_FcaH".format(b_num)]]   

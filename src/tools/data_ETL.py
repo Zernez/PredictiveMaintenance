@@ -10,19 +10,21 @@ import config as cfg
 
 class DataETL:
 
-    def __init__ (self, dataset):
+    def __init__ (self, dataset, bootstrap):
         if dataset == "xjtu":
-            self.total_bearings= cfg.N_BEARING_TOT_XJTU
-            self.real_bearings= cfg.N_REAL_BEARING_XJTU
-            self.total_signals= cfg.N_SIGNALS_XJTU
-            self.boot_folder_size=  cfg.N_BOOT_FOLD_XJTU
-            self.folder_size= cfg.N_BOOT_FOLD_UPSAMPLING
+            self.real_bearings = cfg.N_REAL_BEARING_XJTU
+            self.boot_folder_size = (2 + bootstrap) * 2
+            self.total_bearings = self.real_bearings * self.boot_folder_size
+            self.total_signals = cfg.N_SIGNALS_XJTU
+            self.time_split = 20
+            self.folder_size = self.total_bearings * self.time_split
         elif dataset == "pronostia":
-            self.total_bearings= cfg.N_BEARING_TOT_PRONOSTIA
-            self.real_bearings= cfg.N_REAL_BEARING_PRONOSTIA
-            self.total_signals= cfg.N_SIGNALS_PRONOSTIA
-            self.boot_folder_size=  cfg.N_BOOT_FOLD_PRONOSTIA
-            self.folder_size= cfg.N_BOOT_FOLD_UPSAMPLING
+            self.real_bearings = cfg.N_REAL_BEARING_PRONOSTIA
+            self.boot_folder_size = (2 + bootstrap) * 2
+            self.total_bearings = self.real_bearings * self.boot_folder_size
+            self.total_signals = cfg.N_SIGNALS_PRONOSTIA
+            self.time_split = 20
+            self.folder_size = self.total_bearings * self.time_split
 
     def make_surv_data_sklS (self, covariates, set_boot, info_pack, bootstrap, typeD):
         #Prepare the empty data and folders of grouped bearings to fill for avoid leaking
@@ -42,7 +44,7 @@ class DataETL:
         
         #Set up the time slices
         moving_window= 0
-        time_split= 20
+        time_split= self.time_split
 
         #If test is for boostrap only dataset, start transform from time-series to survival data
         if typeD == 'bootstrap':

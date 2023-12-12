@@ -26,7 +26,7 @@ class FileReader:
         
         return [set1, set2, set3]
     
-    def read_data (self, fileno, from_pickle= False):
+    def read_data (self, fileno, bootstrap, from_pickle= False):
         set_covariates= pd.read_csv(self.dataset_path + 'covariates_' + str(fileno) + '.csv')
         set_boot= pd.read_csv(self.dataset_path + 'boot_' + str(fileno) + '.csv')
         set_analytic= pd.read_csv(self.dataset_path + 'analytic_'  + str(fileno) + '.csv')
@@ -35,7 +35,7 @@ class FileReader:
             event_kl= self.read_pickle(self.dataset_path + "event_kl")
             event_sd= self.read_pickle(self.dataset_path + "event_sd")
         else:
-            event_kl, event_sd, event_t = Event(self.dataset).make_events(set_analytic) 
+            event_kl, event_sd, event_t = Event(self.dataset, bootstrap).make_events(set_analytic) 
         
         info_pack= {'KL': event_kl, 'SD': event_sd}
 

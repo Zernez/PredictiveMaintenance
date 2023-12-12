@@ -8,7 +8,7 @@ from pycox.evaluation import EvalSurv
 from sksurv.util import Surv
 from sklearn.model_selection import ParameterSampler
 from sklearn.model_selection import KFold
-from tools.feature_selectors import PHSelector
+from tools.feature_selectors import PHSelector, NoneSelector
 from tools.regressors import CoxPH, CphLASSO, RSF, DeepSurv, DSM, BNNmcd
 from tools.file_reader import FileReader
 from tools.data_ETL import DataETL
@@ -34,6 +34,7 @@ N_INTERNAL_SPLITS = 5
 N_ITER = 10
 
 def main():
+    
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str,
                         required=True,
@@ -54,7 +55,9 @@ def main():
     global N_SPLITS
     global TRAIN_SIZE
     global CENSORING
+    global N_BOOT
     
+
     if args.dataset:
         DATASET = args.dataset
         cfg.DATASET_NAME = args.dataset
@@ -65,15 +68,15 @@ def main():
     if args.merge:
         MERGE = args.merge
     
-    #DATASET= "xjtu"
-    #TYPE= "not_correlated"
-    #MERGE= "False"
+    # DATASET= "xjtu"
+    # TYPE= "bootstrap"
+    # MERGE= "False"
 
     if TYPE == "bootstrap":
-        cfg.N_BOOT = 3
+        N_BOOT = 8
         cfg.DATA_TYPE = "bootstrap"
     else:
-        cfg.N_BOOT = 3
+        N_BOOT = 3
         cfg.DATA_TYPE = "not_bootstrap"
 
     if DATASET == "xjtu":
@@ -93,19 +96,19 @@ def main():
     
     #For the first time running, a NEW_DATASET is needed
     if NEW_DATASET== True:
-        Builder(DATASET).build_new_dataset(bootstrap=cfg.N_BOOT)
+        Builder(DATASET, N_BOOT).build_new_dataset(bootstrap= N_BOOT)
     #Insert the models and feature name selector for CV hyperparameter search
-    models = [CphLASSO, RSF, DeepSurv, DSM, BNNmcd]
-    ft_selectors = [PHSelector]
+    models = [CoxPH, RSF, DeepSurv, DSM, BNNmcd]
+    ft_selectors = [NoneSelector, PHSelector]
     survival = Survival()
-    data_util = DataETL(DATASET)
+    data_util = DataETL(DATASET, N_BOOT)
 
     #Extract information from the dataset selected from the config file
     cov_group = []
     boot_group = []
     info_group = []
     for i in range (0, N_CONDITION):
-        cov, boot, info_pack = FileReader(DATASET).read_data(i)
+        cov, boot, info_pack = FileReader(DATASET).read_data(i, N_BOOT)
         cov_group.append(cov)
         boot_group.append(boot)
         info_group.append(info_pack)
@@ -116,7 +119,7 @@ def main():
     if MERGE == True:
         data_X_merge = pd.DataFrame()
         for i, (cov, boot, info_pack) in enumerate(zip(cov_group, boot_group, info_group)):
-            data_temp_X, deltaref_temp_y = data_util.make_surv_data_sklS(cov, boot, info_pack, cfg.N_BOOT, TYPE)
+            data_temp_X, deltaref_temp_y = data_util.make_surv_data_sklS(cov, boot, info_pack, N_BOOT)
             if i== 0:
                 deltaref_y_merge =  deltaref_temp_y
             else:
@@ -126,7 +129,7 @@ def main():
         data_container_y.append(deltaref_y_merge)
     else:
         for i, (cov, boot, info_pack) in enumerate(zip(cov_group, boot_group, info_group)):
-            data_temp_X, deltaref_y = data_util.make_surv_data_sklS(cov, boot, info_pack, cfg.N_BOOT, TYPE)
+            data_temp_X, deltaref_y = data_util.make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
             data_container_X.append(data_temp_X)
             data_container_y.append(deltaref_y)
 
@@ -180,8 +183,8 @@ def main():
                         T2 = (data_X_merge, data_y)
 
                         #Fromat and center the data     
-                        ti, cvi, ti_NN, cvi_NN = DataETL(DATASET).format_main_data(T1, T2)
-                        ti, cvi, ti_NN, cvi_NN = DataETL(DATASET).centering_main_data(ti, cvi, ti_NN, cvi_NN)
+                        ti, cvi, ti_NN, cvi_NN = DataETL(DATASET, N_BOOT).format_main_data(T1, T2)
+                        ti, cvi, ti_NN, cvi_NN = DataETL(DATASET, N_BOOT).centering_main_data(ti, cvi, ti_NN, cvi_NN)
 
                         ft_selector_print_name = f"{ft_selector_name}"
                         model_print_name = f"{model_name}"

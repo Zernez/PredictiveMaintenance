@@ -21,7 +21,7 @@ from lifelines import KaplanMeierFitter
 import warnings
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
-N_BOOT = cfg.N_BOOT
+N_BOOT = 8
 N_REPEATS = 1
 NEW_DATASET = False
 DATASET = "pronostia"
@@ -32,6 +32,7 @@ SPLIT_THRESHOLD = [] # [2] Only for xjtu
 N_CONDITION = len (cfg.RAW_DATA_PATH_PRONOSTIA)
 MERGE= False
 THREE_D= False
+TIMESPLIT = 20
 ONLY_SHOW_RESULT = True
 
 def main():
@@ -39,22 +40,30 @@ def main():
     global BOOT_NO
     global TEST_SIZE
 
+
     if DATASET == "pronostia":
         BEARINGS = 2
-        BOOT_NO = cfg.N_BOOT_FOLD_UPSAMPLING
+        if TYPE == "bootstrap":
+            N_BOOT = 8
+        else:
+            N_BOOT = 3
+        BOOT_NO = BEARINGS * N_BOOT
         TEST_SIZE = 0.5 
     elif DATASET == "xjtu":
-        BEARINGS = 5
-        BOOT_NO = cfg.N_BOOT_FOLD_UPSAMPLING
+        if TYPE == "bootstrap":
+            N_BOOT = 8
+        else:
+            N_BOOT = 3
+        BOOT_NO = BEARINGS * N_BOOT 
         TEST_SIZE = 0.3
 
     #For the first time running, a NEW_DATASET is needed
     if NEW_DATASET == True:
-        Builder(DATASET).build_new_dataset(bootstrap=N_BOOT)
+        Builder(DATASET, N_BOOT).build_new_dataset(bootstrap=N_BOOT)
 
     #Prepare the object needed
     survival = Survival()
-    data_util = DataETL(DATASET)
+    data_util = DataETL(DATASET, N_BOOT)
 
     resumer = Resume([], [], DATASET)
             
