@@ -93,7 +93,31 @@ def compute_unique_counts(
 class Survival:
 
     def __init__(self):
-        pass    
+        pass
+    
+    def pred_sanitize_surv_function(self, model, X_test, times, y_test):
+        surv_probs = model.predict_survival(X_test, event_times= times)
+        sanitized_probs = []
+        exclusor = []
+        y_test_sanitized = y_test
+
+        for counter, surv_prob in enumerate(surv_probs):
+            second_layer_probs = []
+            for num, singleton in enumerate(surv_prob):
+                if singleton [0] < 0.5 and num not in exclusor:
+                    exclusor.append(num)
+
+        for counter, surv_prob in enumerate(surv_probs):
+            second_layer_probs = []
+            for num, singleton in enumerate(surv_prob):
+                if num not in exclusor:
+                    second_layer_probs.append(singleton)
+            sanitized_probs.append(second_layer_probs)
+
+        for idx in exclusor:
+            y_test_sanitized = np.delete(y_test_sanitized, idx)
+
+        return sanitized_probs, y_test_sanitized    
     
     def sanitize_survival_data(self, surv_preds, cvi, upper, fix_ending=False):
         # Fix ending of surv function
