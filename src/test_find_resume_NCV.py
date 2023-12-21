@@ -34,7 +34,6 @@ N_INTERNAL_SPLITS = 5
 N_ITER = 10
 
 def main():
-    
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str,
                         required=True,
@@ -57,7 +56,6 @@ def main():
     global CENSORING
     global N_BOOT
     
-
     if args.dataset:
         DATASET = args.dataset
         cfg.DATASET_NAME = args.dataset
@@ -268,9 +266,11 @@ def main():
                                                                 ti_new[1]['Survival_time'], ti_new[1]['Event'])
                             median_survival_time = np.median(lifelines_eval.predict_time_from_curve(predict_median_survival_time))
                             mae_hinge_cvi = lifelines_eval.mae(method="Hinge")
+                            d_calib = 1 if lifelines_eval.d_calibration()[0] > 0.05 else 0
                         except:
                             median_survival_time = np.nan
                             mae_hinge_cvi = np.nan
+                            d_calib = np.nan
                         try:
                             brier_score_cvi = approx_brier_score(sanitized_cvi, sanitized_surv_preds)
                         except:
@@ -307,14 +307,14 @@ def main():
 
                         print(f"Evaluated {model_print_name} - {ft_selector_print_name} - {percentage}" +
                             f" - CI={round(c_index_cvi, 3)} - IBS={round(brier_score_cvi, 3)}" +
-                            f" - MAE={round(mae_hinge_cvi, 3)} - T={round(t_total_split_time, 3)}")
+                            f" - MAE={round(mae_hinge_cvi, 3)} - DCalib={d_calib} - T={round(t_total_split_time, 3)}")
 
                         #Indexing the resul table
                         res_sr = pd.Series([model_print_name, ft_selector_print_name, c_index_cvi, brier_score_cvi,
-                                            median_survival_time, mae_hinge_cvi, event_detector_target, datasheet_target,
+                                            median_survival_time, mae_hinge_cvi, d_calib, event_detector_target, datasheet_target,
                                             n_preds, t_total_split_time, best_params, list(selected_fts), y_delta],
                                             index=["ModelName", "FtSelectorName", "CIndex", "BrierScore",
-                                                   "MedianSurvTime", "MAEHinge", "EDTarget", "DatasheetTarget",
+                                                   "MedianSurvTime", "MAEHinge", "DCalib", "EDTarget", "DatasheetTarget",
                                                    "Npreds", "TTotalSplit", "BestParams", "SelectedFts", "DeltaY"])
                         model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
                 
