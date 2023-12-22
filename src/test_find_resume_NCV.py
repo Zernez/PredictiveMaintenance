@@ -180,7 +180,7 @@ def main():
                         data_y = Surv.from_dataframe("Event", "Survival_time", data_X_merge)
                         T2 = (data_X_merge, data_y)
 
-                        #Fromat and center the data     
+                        #Fromat and center the data
                         ti, cvi, ti_NN, cvi_NN = DataETL(DATASET, N_BOOT).format_main_data(T1, T2)
                         ti, cvi, ti_NN, cvi_NN = DataETL(DATASET, N_BOOT).centering_main_data(ti, cvi, ti_NN, cvi_NN)
 

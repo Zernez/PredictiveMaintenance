@@ -80,7 +80,7 @@ class LogLogisticAFT (BaseRegressor):
     
     def get_best_hyperparams (self):
         return {'alpha': 0.03}
-
+    
 class CoxPH (BaseRegressor):
     def make_model (self, params=None):
         model_params = cfg.PARAMS_CPH
@@ -278,7 +278,7 @@ class DeepSurv(BaseRegressor):
         return {'batch_size' : 10,
                 'learning_rate' : 1e-4,
                 'iters': 100,
-                'layers': 32}
+                'layers': [32]}
     
 class DSM(BaseRegressor):
     def make_model(self, params=None):
@@ -305,7 +305,7 @@ class DSM(BaseRegressor):
         return {'batch_size' : 32,
                 'learning_rate' : 1e-4,
                 'iters': 100,
-                'layers': 32}
+                'layers': [32]}
     
 class BNNmcd(BaseRegressor):
     def make_model(self, params=None):
@@ -332,4 +332,4 @@ class BNNmcd(BaseRegressor):
         return {'batch_size' : 10,
                 'learning_rate' : 1e-4,
                 'num_epochs': 10,
-                'layers': 32}
+                'layers': [32]}
