@@ -3,11 +3,14 @@ data/
 logs/
 __pycache__/
 
+src/test_find_resume_CV.py
+src/test_resume_plot.py
 src/PredMan/
 src/utility/config.py
 src/__pycache__/
 src/utility/__pycache__/
 src/tools/__pycache__/
+src/tools/resume.py
 src/plotter.ipynb
 src/dataset
 src/HP_crest_kurtosis.ipynb

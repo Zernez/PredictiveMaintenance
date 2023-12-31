@@ -17,8 +17,11 @@ from utility.survival import Survival
 from auton_survival import DeepCoxPH
 from auton_survival import DeepSurvivalMachines
 from utility.printer import Suppressor
+from tools.formatter import Formatter
 from tools.evaluator import LifelinesEvaluator
 from tools.Evaluations.util import predict_median_survival_time
+from tools.Evaluations.TargetRUL import estimate_target_rul_xjtu
+from tools.Evaluations.TargetRUL import estimate_target_rul_pronostia
 from utility.survival import make_event_times
 from tools.cross_validator import run_cross_validation
 from xgbse.metrics import approx_brier_score
@@ -29,22 +32,22 @@ warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
 PLOT = True
 RESUME = True
-NEW_DATASET = True
+NEW_DATASET = False
 N_INTERNAL_SPLITS = 5
-N_ITER = 10
+N_ITER = 1 #10
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str,
-                        required=True,
-                        default=None)
-    parser.add_argument('--typedata', type=str,
-                        required=True,
-                        default=None)
-    parser.add_argument('--merge', type=str,
-                        required=True,
-                        default=None)
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument('--dataset', type=str,
+    #                     required=True,
+    #                     default=None)
+    # parser.add_argument('--typedata', type=str,
+    #                     required=True,
+    #                     default=None)
+    # parser.add_argument('--merge', type=str,
+    #                     required=True,
+    #                     default=None)
+    # args = parser.parse_args()
     
     global DATASET
     global TYPE
@@ -56,19 +59,19 @@ def main():
     global CENSORING
     global N_BOOT
     
-    if args.dataset:
-        DATASET = args.dataset
-        cfg.DATASET_NAME = args.dataset
+    # if args.dataset:
+    #     DATASET = args.dataset
+    #     cfg.DATASET_NAME = args.dataset
 
-    if args.typedata:
-        TYPE = args.typedata
+    # if args.typedata:
+    #     TYPE = args.typedata
     
-    if args.merge:
-        MERGE = args.merge
+    # if args.merge:
+    #     MERGE = args.merge
     
-    # DATASET= "xjtu"
-    # TYPE= "bootstrap"
-    # MERGE= "False"
+    DATASET= "xjtu"
+    TYPE= "correlated"
+    MERGE= "False"
 
     if TYPE == "bootstrap":
         N_BOOT = 8
@@ -92,33 +95,38 @@ def main():
         TRAIN_SIZE = 1
         CENSORING = cfg.CENSORING_LEVEL
     
-    #For the first time running, a NEW_DATASET is needed
+    # For the first time running, a NEW_DATASET is needed
     if NEW_DATASET== True:
         Builder(DATASET, N_BOOT).build_new_dataset(bootstrap= N_BOOT)
-    #Insert the models and feature name selector for CV hyperparameter search
-    models = [CoxPH, RSF, DeepSurv, DSM, BNNmcd]
-    ft_selectors = [NoneSelector, PHSelector]
-    survival = Survival()
+
+    # Insert the models and feature name selector for CV hyperparameter search and initialize the DataETL instance
+    models = [CoxPH] #, RSF, DeepSurv, DSM, BNNmcd
+    ft_selectors = [NoneSelector] #, PHSelector
     data_util = DataETL(DATASET, N_BOOT)
 
-    #Extract information from the dataset selected from the config file
+    # Extract information from the dataset selected from the config file
     cov_group = []
     boot_group = []
     info_group = []
-    for i in range (0, N_CONDITION):
-        cov, boot, info_pack = FileReader(DATASET).read_data(i, N_BOOT)
+    for TEST_CONDITION in range (0, N_CONDITION):
+        cov, boot, info_pack = FileReader(DATASET).read_data(TEST_CONDITION, N_BOOT)
         cov_group.append(cov)
         boot_group.append(boot)
         info_group.append(info_pack)
 
-    #Transform information from the dataset selected from the config file
+    # Transform information from the dataset selected from the config file
     data_container_X = []
     data_container_y= []
     if MERGE == True:
         data_X_merge = pd.DataFrame()
-        for i, (cov, boot, info_pack) in enumerate(zip(cov_group, boot_group, info_group)):
-            data_temp_X, deltaref_temp_y = data_util.make_surv_data_sklS(cov, boot, info_pack, N_BOOT)
-            if i== 0:
+        for TEST_CONDITION, (cov, boot, info_pack) in enumerate(zip(cov_group, boot_group, info_group)):
+            # Create different data for bootstrap and not bootstrap
+            if TYPE == "bootstrap":
+                data_temp_X, deltaref_temp_y = data_util.make_surv_data_bootstrap(cov, boot, info_pack, N_BOOT)
+            else:
+                data_temp_X, deltaref_temp_y = data_util.make_surv_data_upsampling(cov, boot, info_pack, N_BOOT, TYPE)
+
+            if TEST_CONDITION== 0:
                 deltaref_y_merge =  deltaref_temp_y
             else:
                 deltaref_y_merge =  deltaref_y_merge.update(deltaref_temp_y)
@@ -126,75 +134,80 @@ def main():
         data_container_X.append(data_X_merge)
         data_container_y.append(deltaref_y_merge)
     else:
-        for i, (cov, boot, info_pack) in enumerate(zip(cov_group, boot_group, info_group)):
-            data_temp_X, deltaref_y = data_util.make_surv_data_sklS(cov, boot, info_pack, N_BOOT, TYPE)
+        for TEST_CONDITION, (cov, boot, info_pack) in enumerate(zip(cov_group, boot_group, info_group)):
+            # Create different data for bootstrap and not bootstrap
+            if TYPE == "bootstrap":
+                data_temp_X, deltaref_temp_y = data_util.make_surv_data_bootstrap(cov, boot, info_pack, N_BOOT)
+            else:
+                data_temp_X, deltaref_temp_y = data_util.make_surv_data_upsampling(cov, boot, info_pack, N_BOOT, TYPE)
             data_container_X.append(data_temp_X)
-            data_container_y.append(deltaref_y)
+            data_container_y.append(deltaref_temp_y)
 
-    #Load information from the dataset selected in the config file                                                                          
-    for i, (data, data_y) in enumerate(zip(data_container_X, data_container_y)):
+    # Load information from the dataset selected in the config file                                                                          
+    for TEST_CONDITION, (data, data_y) in enumerate(zip(data_container_X, data_container_y)):
 
-        #Information about the event estimation in event detector
+        # Information about the event estimation in event detector
         y_delta = data_y
 
-        #Iteration for each censored condition
-        for j, percentage in enumerate(CENSORING):
+        # Iteration for each censored condition
+        for CENSOR_CONDITION, percentage in enumerate(CENSORING):
 
-            #Eventually control the censored data by CENSORING
+            # Eventually control the censored data by CENSORING
             data_X= []
             for data_group in data:   
-                data_temp_X  = data_util.control_censored_data(data_group, percentage= percentage)
+                data_temp_X = Formatter.control_censored_data(data_group, percentage= percentage)
                 data_X.append(data_temp_X)
 
-            #Indexing the dataset to avoid train/test leaking
+            # Indexing by the original bearing number the dataset to avoid train/test leaking. 
+            # The data will be splitted in chunks of bearings bootrastrapped from the original bearing.
             dummy_x = list(range(0, int(np.floor(N_BEARING * TRAIN_SIZE)), 1))                       
             
             print(f"Started evaluation of {len(models)} models/{len(ft_selectors)} ft selectors. Dataset: {DATASET}. Type: {TYPE}")
             
-            #For all models selected
+            # For all models selected
             for model_builder in models:
                 model_name = model_builder.__name__
                 model_results = pd.DataFrame()
 
-                #For all feature selector selected
+                # For all feature selector selected
                 for ft_selector_builder in ft_selectors:
                     ft_selector_name = ft_selector_builder.__name__
                     
-                    #For N_SPLITS folds 
+                    # For N_SPLITS folds 
                     kf = KFold(n_splits= N_SPLITS, shuffle= False)
                     for split_idx, (train, test) in enumerate(kf.split(dummy_x)):
-                        #Start take the time for search the hyperparameters for each fold
+                        # Start take the time for search the hyperparameters for each fold
                         split_start_time = time()
 
-                        #Load the train data from group indexed Kfold splitting avoiding train/test leaking                
+                        # Load the train data from group indexed Kfold splitting avoiding train/test leaking                
                         data_X_merge = pd.DataFrame()
                         for element in train:
                             data_X_merge = pd.concat([data_X_merge, data_X [element]], ignore_index=True)
                         data_y = Surv.from_dataframe("Event", "Survival_time", data_X_merge)
                         T1 = (data_X_merge, data_y)
 
-                        #Load the test data from group indexed Kfold splitting avoiding train/test leaking               
+                        # Load the test data from group indexed Kfold splitting avoiding train/test leaking               
                         data_X_merge = pd.DataFrame()
                         for element in test:
                             data_X_merge = pd.concat([data_X_merge, data_X [element]], ignore_index=True)
                         data_y = Surv.from_dataframe("Event", "Survival_time", data_X_merge)
                         T2 = (data_X_merge, data_y)
 
-                        #Fromat and center the data
-                        ti, cvi, ti_NN, cvi_NN = DataETL(DATASET, N_BOOT).format_main_data(T1, T2)
-                        ti, cvi, ti_NN, cvi_NN = DataETL(DATASET, N_BOOT).centering_main_data(ti, cvi, ti_NN, cvi_NN)
+                        # Fromat and center the data
+                        ti, cvi, ti_NN, cvi_NN = Formatter.format_main_data(T1, T2)
+                        ti, cvi, ti_NN, cvi_NN = Formatter.centering_main_data(ti, cvi, ti_NN, cvi_NN)
 
                         ft_selector_print_name = f"{ft_selector_name}"
                         model_print_name = f"{model_name}"
                         
-                        #Create model instance and find best features
+                        # Create model instance and find best features
                         model = model_builder().get_estimator()
                         if ft_selector_name == "PHSelector":
                             ft_selector = ft_selector_builder(ti[0], ti[1], estimator=[DATASET, TYPE])
                         else:
                             ft_selector = ft_selector_builder(ti[0], ti[1], estimator=model)
                         
-                        #Format the data with the feature selected
+                        # Format the data with the feature selected
                         selected_fts = ft_selector.get_features()
                         ti_new =  (ti[0].loc[:, selected_fts], ti[1])
                         ti_new[0].reset_index(inplace=True, drop=True)
@@ -205,17 +218,17 @@ def main():
                         cvi_new_NN = (cvi_NN[0].loc[:, selected_fts], cvi_NN[1])
                         cvi_new_NN[0].reset_index(inplace=True, drop=True)
 
-                        #Set event times
+                        # Set event times
                         times = make_event_times(ti_new_NN[1]['time'], ti_new_NN[1]['event']).astype(int)
                         times = np.unique(times)
 
-                        #Find hyperparams via inner CV from hyperparamters' space
+                        # Find hyperparams via inner CV from hyperparamters' space
                         space = model_builder().get_tuneable_params()
                         param_list = list(ParameterSampler(space, n_iter=N_ITER, random_state=0))
                         best_params = run_cross_validation(model_builder, ti_new_NN,
                                                            param_list, N_INTERNAL_SPLITS)
                         
-                        #Train on train set TI with new parameters
+                        # Train on train set TI with new parameters
                         x = ti_new_NN[0].to_numpy()
                         t = ti_new_NN[1].loc[:, "time"].to_numpy()
                         e = ti_new_NN[1].loc[:, "event"].to_numpy()
@@ -240,14 +253,14 @@ def main():
                             with Suppressor():
                                 model.fit(ti_new[0], ti_new[1])
                         
-                        #Get survival predictions for CVI
+                        # Get survival predictions for CVI
                         if model_name == "DeepSurv" or model_name == "DSM" or model_name == "BNNmcd":
                             xte = cvi_new_NN[0].to_numpy()
                             with Suppressor():
-                                surv_preds = survival.predict_survival_function(model, xte, times)
+                                surv_preds = Survival.predict_survival_function(model, xte, times)
                         else:
                             with Suppressor():
-                                surv_preds = survival.predict_survival_function(model, cvi_new[0], times)
+                                surv_preds = Survival.predict_survival_function(model, cvi_new[0], times)
                             
                         # Sanitize
                         surv_preds = surv_preds.fillna(0)
@@ -255,7 +268,7 @@ def main():
                         sanitized_surv_preds = surv_preds.drop(bad_idx).reset_index(drop=True)
                         sanitized_cvi = np.delete(cvi_new[1], bad_idx)
                         
-                        #Calculate scores
+                        # Calculate scores
                         try:
                             pycox_eval = EvalSurv(sanitized_surv_preds.T, sanitized_cvi['Survival_time'], sanitized_cvi['Event'], censor_surv="km")
                             c_index_cvi = pycox_eval.concordance_td()
@@ -280,36 +293,17 @@ def main():
                         event_detector_target = np.median(sanitized_cvi['Survival_time'])
                         t_total_split_time = time() - split_start_time
 
-                        #Prepare settings for calculate the target datasheet TtE
+                        # Calculate the target datasheet TtE
                         if DATASET == 'xjtu':
-                            dataset_tte = DATASET.upper() + '-SY'
-                            type_test = data_path[i]
-                            index = re.search(r"\d\d", type_test)
-                            info_type_test = type_test[index.start():-1]
-                        else:
-                            dataset_tte = DATASET.upper()
-                            type_test = data_path[i]
-                            index = re.search(r"\d\d", type_test)
-                            info_type_test = type_test[index.start():-1]
-                        
-                        #Calculate the target TtE for the test data from the datasheet
-                        temp_tte = []
-                        itr_tte = os.walk(f"./data/{dataset_tte}/{info_type_test}")
-                        next(itr_tte)
-                        iter_tte = 0
-                        for next_root, next_dirs, next_files in itr_tte:
-                            if iter_tte in test:
-                                temp_tte.append(len([f for f in os.listdir(next_root) if os.path.isfile(os.path.join(next_root, f))]))
-                            iter_tte += 1
-                        
-                        #Makes a unique value of TtE for the test data
-                        datasheet_target = np.median(temp_tte)
+                            datasheet_target = estimate_target_rul_xjtu (data_path, test, TEST_CONDITION)
+                        elif DATASET == 'pronostia':
+                            datasheet_target = estimate_target_rul_pronostia (data_path, test, TEST_CONDITION)
 
                         print(f"Evaluated {model_print_name} - {ft_selector_print_name} - {percentage}" +
                             f" - CI={round(c_index_cvi, 3)} - IBS={round(brier_score_cvi, 3)}" +
                             f" - MAE={round(mae_hinge_cvi, 3)} - DCalib={d_calib} - T={round(t_total_split_time, 3)}")
 
-                        #Indexing the resul table
+                        # Indexing the resul table
                         res_sr = pd.Series([model_print_name, ft_selector_print_name, c_index_cvi, brier_score_cvi,
                                             median_survival_time, mae_hinge_cvi, d_calib, event_detector_target, datasheet_target,
                                             n_preds, t_total_split_time, best_params, list(selected_fts), y_delta],
@@ -317,14 +311,14 @@ def main():
                                                    "MedianSurvTime", "MAEHinge", "DCalib", "EDTarget", "DatasheetTarget",
                                                    "Npreds", "TTotalSplit", "BestParams", "SelectedFts", "DeltaY"])
                         model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
-                
-                #Indexing the file name linked to the DATASET condition
+                 
+                # Indexing the file name linked to the DATASET condition
                 if DATASET == "xjtu":
-                    index = re.search(r"\d\d", cfg.RAW_DATA_PATH_XJTU[i])
-                    condition_name = cfg.RAW_DATA_PATH_XJTU[i][index.start():-1] + "_" + str(int(CENSORING[j] * 100))
+                    index = re.search(r"\d\d", cfg.RAW_DATA_PATH_XJTU[TEST_CONDITION])
+                    condition_name = cfg.RAW_DATA_PATH_XJTU[TEST_CONDITION][index.start():-1] + "_" + str(int(CENSORING[CENSOR_CONDITION] * 100))
                 elif DATASET == "pronostia":
-                    index = re.search(r"\d\d", cfg.RAW_DATA_PATH_PRONOSTIA[i])
-                    condition_name = cfg.RAW_DATA_PATH_PRONOSTIA[i][index.start():-1] + "_" + str(int(CENSORING[j] * 100))
+                    index = re.search(r"\d\d", cfg.RAW_DATA_PATH_PRONOSTIA[TEST_CONDITION])
+                    condition_name = cfg.RAW_DATA_PATH_PRONOSTIA[TEST_CONDITION][index.start():-1] + "_" + str(int(CENSORING[CENSOR_CONDITION] * 100))
                 
                 file_name = f"{model_name}_{condition_name}_results.csv"
 
@@ -335,7 +329,7 @@ def main():
                 else:
                     address = 'bootstrap'
                 
-                #Save the results to the proper DATASET type folder
+                # Save the results to the proper DATASET type folder
                 model_results.to_csv(f"data/logs/{DATASET}/{address}/" + file_name)
 
 if __name__ == "__main__":

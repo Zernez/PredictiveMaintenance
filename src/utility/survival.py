@@ -4,12 +4,12 @@ import math
 import torch
 from typing import Optional
 
-def convert_to_structured(T, E):
+def convert_to_structured (T, E):
     default_dtypes = {"names": ("event", "time"), "formats": ("bool", "f8")}
     concat = list(zip(E, T))
     return np.array(concat, dtype=default_dtypes)
 
-def make_event_times(t_train, e_train):
+def make_event_times (t_train, e_train):
     unique_times = compute_unique_counts(torch.Tensor(e_train), torch.Tensor(t_train))[0]
     if 0 not in unique_times:
         unique_times = torch.cat([torch.tensor([0]).to(unique_times.device), unique_times], 0)
@@ -95,31 +95,29 @@ class Survival:
     def __init__(self):
         pass
     
-    def pred_sanitize_surv_function(self, model, X_test, times, y_test):
-        surv_probs = model.predict_survival(X_test, event_times= times)
-        sanitized_probs = []
-        exclusor = []
-        y_test_sanitized = y_test
+    @staticmethod
+    def sanitize_survival_data (
+            surv_preds: pd.DataFrame, 
+            cvi: np.ndarray, 
+            upper: float, 
+            fix_ending: bool = False
+        ) -> (pd.DataFrame, np.ndarray):
 
-        for counter, surv_prob in enumerate(surv_probs):
-            second_layer_probs = []
-            for num, singleton in enumerate(surv_prob):
-                if singleton [0] < 0.5 and num not in exclusor:
-                    exclusor.append(num)
+        """
+        Sanitizes the survival data by fixing the ending of the survival function,
+        replacing infs with 0, and removing rows where the first prediction is less than 0.5.
 
-        for counter, surv_prob in enumerate(surv_probs):
-            second_layer_probs = []
-            for num, singleton in enumerate(surv_prob):
-                if num not in exclusor:
-                    second_layer_probs.append(singleton)
-            sanitized_probs.append(second_layer_probs)
+        Parameters:
+        - surv_preds (pandas.DataFrame): The survival predictions.
+        - cvi (numpy.ndarray): The cross-validation indices.
+        - upper (float): The upper limit for fixing the ending of the survival function.
+        - fix_ending (bool): Whether to fix the ending of the survival function. Default is False.
 
-        for idx in exclusor:
-            y_test_sanitized = np.delete(y_test_sanitized, idx)
+        Returns:
+        - sanitized_surv_preds (pandas.DataFrame): The sanitized survival predictions.
+        - sanitized_cvi (numpy.ndarray): The sanitized cross-validation indices.
+        """
 
-        return sanitized_probs, y_test_sanitized    
-    
-    def sanitize_survival_data(self, surv_preds, cvi, upper, fix_ending=False):
         # Fix ending of surv function
         if fix_ending:
             surv_preds.replace(np.nan, 1e-1000, inplace=True)
@@ -135,8 +133,26 @@ class Survival:
         sanitized_cvi = np.delete(cvi, bad_idx)
         
         return sanitized_surv_preds, sanitized_cvi
+    
+    @staticmethod
+    def predict_survival_function (
+            model, 
+            X_test: pd.DataFrame, 
+            times: np.ndarray
+        ) -> (pd.DataFrame):
 
-    def predict_survival_function(self, model, X_test, times):
+        """
+        Predicts the survival function for given test data using the specified model.
+
+        Parameters:
+        - model (pd.DataFrame): The survival model used for prediction.
+        - X_test (pd.DataFrame): The test data.
+        - times (np.ndarray): The time points at which to predict the survival function.
+
+        Returns:
+        - surv_prob (pd.DataFrame): The predicted survival probabilities at each time point.
+        """
+
         # lower, upper = np.percentile(y_test[y_test.dtype.names[1]], [10, 90])
         # times = np.arange(np.ceil(lower + 1), np.floor(upper - 1), dtype=int)
         if model.__class__.__name__ == 'WeibullAFTFitter':
@@ -151,8 +167,26 @@ class Survival:
         else:
             surv_prob = pd.DataFrame(np.row_stack([fn(times) for fn in model.predict_survival_function(X_test)]), columns=times)
             return surv_prob
+    
+    @staticmethod
+    def predict_hazard_function (
+            model, 
+            X_test: pd.DataFrame, 
+            times: np.ndarray
+        ) -> (pd.DataFrame):
 
-    def predict_hazard_function(self, model, X_test, times):
+        """
+        Predicts the hazard function for a given model and test data.
+
+        Parameters:
+        - model (pd.DataFrame): The survival model used for prediction.
+        - X_test (pd.DataFrame): The test data.
+        - times (np.ndarray): The time points at which to predict the hazard function.
+
+        Returns:
+        - risk_pred (pd.DataFrame): The predicted hazards at each time point.
+        """
+
         if model.__class__.__name__ == 'WeibullAFTFitter':
             surv_prob = model.predict_cumulative_hazard(X_test)
             return surv_prob
@@ -165,3 +199,94 @@ class Survival:
         else:
             surv_prob = np.row_stack([fn(times) for fn in model.predict_cumulative_hazard_function(X_test)])
             return pd.DataFrame(surv_prob, columns=times)
+    
+    @staticmethod
+    def sanitize_surv_functions_and_test_data (
+            model, 
+            X_test: pd.DataFrame, 
+            times: np.ndarray, 
+            y_test: np.ndarray
+        ) -> (pd.DataFrame, pd.DataFrame):
+
+        """
+        Sanitizes the survival functions and test data by excluding certain elements based on the predicted survival probabilities.
+
+        Parameters:
+        - self (object): The instance of the class.
+        - model (object): The predictive model.
+        - X_test (array-like): The test data.
+        - times (array-like): The event times.
+        - y_test (array-like): The test labels.
+
+        Returns:
+        - sanitized_PDF_survival_probabilities (DataFrame): The sanitized survival probabilities.
+        - sanitized_y_test (DataFrame): The sanitized data test.
+        """
+
+        # Init the element to sanitize
+        PDF_survival_probabilities = model.predict_survival(X_test, event_times= times)
+        sanitized_PDF_survival_probabilities = []
+        sanitized_y_test = y_test
+
+        # Find the bearings to exclude
+        excluded_indexes = self.find_bearing_to_exclude (PDF_survival_probabilities)
+
+        # Sanitize the bearings in a second moment to keep the array shape consistent (same size for each dimension element)
+        sanitized_PDF_survival_probabilities = self.sanitize_PDF_survival_probabilities (PDF_survival_probabilities, excluded_indexes)
+
+        # Sanitize the y_test
+        for idx in excluded_indexes:
+            sanitized_y_test = np.delete(sanitized_y_test, idx)
+
+        return sanitized_PDF_survival_probabilities, sanitized_y_test
+
+    def find_bearing_to_exclude (
+            PDF_survival_probabilities: list
+        ) -> list:
+
+        """
+        Finds the bearings to exclude based on the given survival probabilities.
+
+        Parameters:
+        - PDF_survival_probabilities (list): A list of survival probabilities for each bearing.
+
+        Returns:
+        - excluded_indexes (list): A list of bearing indexes to exclude after a a given condition.
+        """
+
+        excluded_indexes = []
+        CONDITION = 0.5
+
+        for PDF_survival_probability in PDF_survival_probabilities:
+            for bearing_num, survival_probability in enumerate(PDF_survival_probability):
+                if survival_probability [0] < CONDITION and bearing_num not in excluded_indexes:
+                    excluded_indexes.append(bearing_num)
+
+        return excluded_indexes
+
+    def sanitize_PDF_survival_probabilities(
+            PDF_survival_probabilities: list, 
+            excluded_indexes: list
+        ) -> list:
+
+        """
+        Sanitizes the PDF_survival_probabilities list by excluding the survival probabilities at the specified excluded_indexes.
+
+        Args:
+        - PDF_survival_probabilities (list): A list of lists representing the PDF survival probabilities.
+        - excluded_indexes (list): A list of indexes to be excluded from the PDF_survival_probabilities.
+
+        Returns:
+        - sanitized_PDF_survival_probabilities (list): A sanitized version of the PDF_survival_probabilities list, where the survival probabilities at the excluded_indexes are removed.
+        """
+
+        sanitized_PDF_survival_probabilities = []
+
+        for PDF_survival_probability in PDF_survival_probabilities:
+            sanitized_survival_probabilities = []
+            for bearing_num, survival_probability in enumerate(PDF_survival_probability):
+                if bearing_num not in excluded_indexes:
+                    sanitized_survival_probabilities.append(survival_probability)
+            sanitized_PDF_survival_probabilities.append(sanitized_survival_probabilities)
+
+        return sanitized_PDF_survival_probabilities

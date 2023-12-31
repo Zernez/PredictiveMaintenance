@@ -12,36 +12,33 @@ class Featuring:
     def __init__ (self):
         pass
 
-    def calculate_rms (self, df):
-        result = []
-        for col in df:
-            r = np.sqrt((df[col]**2).sum() / len(df[col]))
-            result.append(r)
-        return result
+    @staticmethod
+    def time_features_xjtu(
+            dataset_path: str, 
+            bootstrap: int = 0
+        ) -> (pd.DataFrame, pd.DataFrame):
 
-    def calculate_p2p(self, df):
-        return np.array(df.max().abs() + df.min().abs())
+        """
+        Extracts all time and frequency features in timeseries modality from the XJTU dataset.
 
-    def calculate_entropy(self, df):
-        ent = []
-        for col in df:
-            ent.append(entropy(pd.cut(df[col], 500).value_counts()))
-        return np.array(ent)
+        Args:
+        - dataset_path (str): The path to the dataset.
+        - bootstrap (int): The number of bootstrapping iterations. Default is 0.
 
-    def calculate_clearence(self, df):
-        result = []
-        for col in df:
-            r = ((np.sqrt(df[col].abs())).sum() / len(df[col]))**2
-            result.append(r)
-        return result
+        Returns:
+        - data_total (DataFrame): A dataframe containing the features extracted from the dataset in timeseries type.
+        - bootstrap_total (DataFrame): Contain the generated information of the bootstrap values that will be used for construct the event data.
+        """
 
-    def time_features_xjtu(self, dataset_path, bootstrap= 0):
-        features = ['mean','std','skew','kurtosis','entropy','rms','max','p2p', 'crest', 'clearence', 'shape', 'impulse', 
-                    'FoH', 'FiH', 'FrH', 'FrpH', 'FcaH','Fo', 'Fi', 'Fr', 'Frp', 'Fca', 'noise', 'Event', 'Survival_time']
+        # All feature names
+        features = ['mean','std','skew','kurtosis','entropy','rms','max','p2p', 'crest', 'clearence', 'shape', 'impulse',
+                'FoH', 'FiH', 'FrH', 'FrpH', 'FcaH','Fo', 'Fi', 'Fr', 'Frp', 'Fca', 'noise', 'Event', 'Survival_time']
+        # Bearing names from use x and y data as B1 and B2
         cols2 = ['B1', 'B2']
 
         start = []
         stop = []
+        # Load the frequency bands from config.py
         if re.findall("35Hz12kN/", dataset_path) == ['35Hz12kN/']:
             start= cfg.FREQUENCY_BANDS1['xjtu_start']
             stop= cfg.FREQUENCY_BANDS1['xjtu_stop']
@@ -54,8 +51,6 @@ class Featuring:
 
         if bootstrap > 8:
             raise Exception("Too much bootstrapping, max is 8")
-
-        data_total= []
 
         #From the specs of XJTU dataset 25.6 kHz
         Fsamp = 25600
@@ -71,33 +66,35 @@ class Featuring:
 
             timeline= int(re.sub('.csv*', '', filename))
 
-            # time features
+            # Time features
             mean_abs = np.array(raw_data.abs().mean())
             std = np.array(raw_data.std())
             skew = np.array(raw_data.skew())
             kurtosis = np.array(raw_data.kurtosis())
-            entropy = self.calculate_entropy(raw_data)
-            rms = np.array(self.calculate_rms(raw_data))
+            entropy = Featuring.calculate_entropy(raw_data)
+            rms = np.array(Featuring.calculate_rms(raw_data))
             max_abs = np.array(raw_data.abs().max())
-            p2p = self.calculate_p2p(raw_data)
+            p2p = Featuring.calculate_p2p(raw_data)
             crest = max_abs/rms
-            clearence = np.array(self.calculate_clearence(raw_data))
+            clearence = np.array(Featuring.calculate_clearence(raw_data))
             shape = rms / mean_abs
             impulse = max_abs / mean_abs
-
+            
+            # FFT with Hilbert features
             h_signal = np.abs(hilbert(raw_data))
             N = len(h_signal)
             fftH = np.abs(np.fft.fft(h_signal) /len (h_signal))
             fftH= 2 * fftH [0:int(N/2+1)]
             fftH[0]= fftH[0] / 2
-
+            
+            # FFT without Hilbert
             raw_signal = np.abs(raw_data)
             N = len(raw_signal)
             fft = np.abs(np.fft.fft(raw_signal) /len (raw_signal))
             fft= 2 * fft [0:int(N/2+1)]
             fft[0]= fft[0] / 2
 
-            # Excluding continuous representation
+            # Excluding continuous representation (Hilbert)
             start_freq_interested = start
             end_freq_interested = stop
             fft_nH = [None] * 5
@@ -108,7 +105,7 @@ class Featuring:
                 fft_nH [i]= np.mean(temp_mean, axis= 0) 
                 i += 1
 
-            # Excluding continuous representation
+            # Excluding continuous representation (NoHilbert)
             start_freq_interested = start
             end_freq_interested = stop
             fft_n = [None] * 5
@@ -118,9 +115,11 @@ class Featuring:
                 temp_mean = fft [index_s : index_e]
                 fft_n [i]= np.mean(temp_mean, axis= 0) 
                 i += 1
-
+            
+            # Noise feature
             noise = np.mean(fft, axis= 0) 
 
+            # Setup dataframe index and columns names for each feature 
             mean_abs = pd.DataFrame(mean_abs.reshape(1,2), columns=[c+'_mean' for c in cols2])
             std = pd.DataFrame(std.reshape(1,2), columns=[c+'_std' for c in cols2])
             skew = pd.DataFrame(skew.reshape(1,2), columns=[c+'_skew' for c in cols2])
@@ -173,7 +172,7 @@ class Featuring:
             event.index = [timeline]
             survt.index = [timeline]      
             
-            # concat
+            # Concat and create the master dataframe
             merge = pd.concat([mean_abs, std, skew, kurtosis, entropy, rms, max_abs, p2p,crest,clearence, shape, impulse, 
                             fft_1, fft_2, fft_3, fft_4, fft_5, fft_6, fft_7, fft_8, fft_9, fft_10, noise, event, survt], axis=1)
             data = pd.concat([data,merge])
@@ -183,45 +182,37 @@ class Featuring:
         data.sort_index(inplace= True)
         data.reset_index(inplace= True, drop=True)  
 
-        rng_bootstrap = np.random.permutation([-4, -3, -2, -1, 1, 2, 3, 4])
-        rng_bootstrap = rng_bootstrap[:bootstrap]
+        data_total, bootstrap_total = Featuring.control_bootstrap(data, bootstrap)
 
-        data_boot= data
+        return data_total, bootstrap_total
 
-        for boot_num in range (0, bootstrap + 2 , 1):
-            
-            if boot_num == 0:
-                data_boot.reset_index(inplace= True, drop=True)             
-                data_total.append(data_boot)
-            elif boot_num > 0 and boot_num < bootstrap + 1:
-                if (rng_bootstrap [boot_num - 1] < 0):
-                    data_boot= data
-                    data_boot= data_boot.iloc[-(rng_bootstrap[boot_num - 1]) : , :]
-                else:
-                    data_boot= data
-                    data_aux = pd.DataFrame(data_boot[-1:].values, columns= data.columns)          
-                    for boot_adder in range (0, rng_bootstrap[boot_num - 1], 1):
-                        data_boot = pd.concat([data_boot, data_aux], ignore_index=True)
-                data_boot.reset_index(inplace= True, drop=True)          
-                data_total.append(data_boot)
-            elif boot_num == bootstrap + 1:
-                data_boot= data
-                rng_bootstrap= np.append(rng_bootstrap, random.randint(-4, -1))
-                data_boot= data_boot.iloc[-(rng_bootstrap[boot_num - 1]) : , :]
-                data_boot.reset_index(inplace= True, drop=True)           
-                data_total.append(data_boot)
+    @staticmethod
+    def time_features_pronostia(
+            dataset_path: str, 
+            bootstrap: int = 0
+        ) -> (pd.DataFrame, pd.DataFrame):
 
-        rng_bootstrap = pd.DataFrame(rng_bootstrap, columns= ["Bootstrap values"])  
+        """
+        Extracts all time and frequency features in timeseries modality from the PRONOSTIA dataset.
 
-        return data_total, rng_bootstrap
+        Args:
+        - dataset_path (str): The path to the dataset.
+        - bootstrap (int): The number of bootstrapping iterations. Default is 0.
 
-    def time_features_pronostia(self, dataset_path, bootstrap= 0):
+        Returns:
+        - data_total (DataFrame): A dataframe containing the features extracted from the dataset in timeseries type.
+        - bootstrap_total (DataFrame): Contain the generated information of the bootstrap values that will be used for construct the event data.
+        """
+
+        # All feature names
         features = ['mean','std','skew','kurtosis','entropy','rms','max','p2p', 'crest', 'clearence', 'shape', 'impulse',
                 'FoH', 'FiH', 'FrH', 'FrpH', 'FcaH','Fo', 'Fi', 'Fr', 'Frp', 'Fca', 'noise', 'Event', 'Survival_time']
+        # Bearing names from use x and y data as B1 and B2
         cols2 = ['B1', 'B2']
 
         start = []
         stop = []
+        # Load the frequency bands from config.py
         if re.findall("25Hz5kN/", dataset_path) == ['25Hz5kN/']:
             start= cfg.FREQUENCY_BANDS4['pronostia_start']
             stop= cfg.FREQUENCY_BANDS4['pronostia_stop']
@@ -234,8 +225,6 @@ class Featuring:
 
         if bootstrap > 8:
             raise Exception("Too much bootstrapping, max is 8")
-
-        data_total= []
 
         #From the specs of PRONOSTIA dataset 25.6 kHz
         Fsamp = 25600
@@ -252,33 +241,35 @@ class Featuring:
             
             raw_data.drop(raw_data.columns[[0, 1, 2, 3]], axis=1, inplace=True)
 
-            # time features
+            # Time features
             mean_abs = np.array(raw_data.abs().mean())
             std = np.array(raw_data.std())
             skew = np.array(raw_data.skew())
             kurtosis = np.array(raw_data.kurtosis())
-            entropy = self.calculate_entropy(raw_data)
-            rms = np.array(self.calculate_rms(raw_data))
+            entropy = Featuring.calculate_entropy(raw_data)
+            rms = np.array(Featuring.calculate_rms(raw_data))
             max_abs = np.array(raw_data.abs().max())
-            p2p = self.calculate_p2p(raw_data)
+            p2p = Featuring.calculate_p2p(raw_data)
             crest = max_abs/rms
-            clearence = np.array(self.calculate_clearence(raw_data))
+            clearence = np.array(Featuring.calculate_clearence(raw_data))
             shape = rms / mean_abs
             impulse = max_abs / mean_abs
 
+            # FFT with Hilbert features
             h_signal = np.abs(hilbert(raw_data))
             N = len(h_signal)
             fftH = np.abs(np.fft.fft(h_signal) /len (h_signal))
             fftH= 2 * fftH [0:int(N/2+1)]
             fftH[0]= fftH[0] / 2
 
+            # FFT features without Hilbert
             raw_signal = np.abs(raw_data)
             N = len(raw_signal)
             fft = np.abs(np.fft.fft(raw_signal) /len (raw_signal))
             fft= 2 * fft [0:int(N/2+1)]
             fft[0]= fft[0] / 2
 
-            # Excluding continuous representation
+            # Excluding continuous representation (Hilbert)
             start_freq_interested = start
             end_freq_interested = stop
             fft_nH = [None] * 5
@@ -289,7 +280,7 @@ class Featuring:
                 fft_nH [i]= np.mean(temp_mean, axis= 0) 
                 i += 1
 
-            # Excluding continuous representation
+            # Excluding continuous representation (NoHilbert)
             start_freq_interested = start
             end_freq_interested = stop
             fft_n = [None] * 5
@@ -299,9 +290,11 @@ class Featuring:
                 temp_mean = fft [index_s : index_e]
                 fft_n [i]= np.mean(temp_mean, axis= 0) 
                 i += 1
-
+            
+            # Noise feature
             noise = np.mean(fft, axis= 0) 
 
+            # Setup dataframe index and columns names for each feature
             mean_abs = pd.DataFrame(mean_abs.reshape(1,2), columns=[c+'_mean' for c in cols2])
             std = pd.DataFrame(std.reshape(1,2), columns=[c+'_std' for c in cols2])
             skew = pd.DataFrame(skew.reshape(1,2), columns=[c+'_skew' for c in cols2])
@@ -354,7 +347,7 @@ class Featuring:
             event.index = [timeline]
             survt.index = [timeline]      
             
-            # concat
+            # Concat and create the master dataframe
             merge = pd.concat([mean_abs, std, skew, kurtosis, entropy, rms, max_abs, p2p,crest,clearence, shape, impulse, 
                             fft_1, fft_2, fft_3, fft_4, fft_5, fft_6, fft_7, fft_8, fft_9, fft_10, noise, event, survt], axis=1)
             data = pd.concat([data,merge])
@@ -366,34 +359,92 @@ class Featuring:
         data.sort_index(inplace= True)
         data.reset_index(inplace= True, drop=True)  
 
-        rng_bootstrap = np.random.permutation([-4, -3, -2, -1, 1, 2, 3, 4])
-        rng_bootstrap = rng_bootstrap[:bootstrap]
+        data_total, bootstrap_total = Featuring.control_bootstrap(data, bootstrap)
 
-        data_boot= data
+        return data_total, bootstrap_total
+    
+    @classmethod
+    def control_bootstrap(self, 
+            data: pd.DataFrame, 
+            bootstrap: int = 0
+        ) -> (pd.DataFrame, pd.DataFrame, pd.DataFrame):
 
-        for boot_num in range (0, bootstrap + 2 , 1):
-            
+        """
+        Add information about bootstrap in a separate dataframe by generating random permutations and creating bootstrapped samples.
+        In a second step, the survival dataset will be created by adding the bootstrap event values to the original value.
+
+        Parameters:
+        - data: The input data to be bootstrapped.
+        - bootstrap: The number of bootstrap multiplier.
+
+        Returns:
+        - data_total (DataFrame): Contain the generated information of timeseries data.
+        - bootstrap_total (DataFrame): Contain the generated information of the bootstrap values.
+        """
+        # Bootstrap max value is 8 so the maximum distance is +-4
+        random_generator_bootstrap = np.random.permutation([-4, -3, -2, -1, 1, 2, 3, 4])
+        random_generator_bootstrap = random_generator_bootstrap[:bootstrap]
+        data_boot = data
+        data_total = []
+
+        # Bootstrap the data stay at the random distance from the true value given permutations
+        for boot_num in range(0, bootstrap + 2, 1):
             if boot_num == 0:
-                data_boot.reset_index(inplace= True, drop=True)             
+                data_boot.reset_index(inplace=True, drop=True)
                 data_total.append(data_boot)
             elif boot_num > 0 and boot_num < bootstrap + 1:
-                if (rng_bootstrap [boot_num - 1] < 0):
-                    data_boot= data
-                    data_boot= data_boot.iloc[-(rng_bootstrap[boot_num - 1]) : , :]
+                if random_generator_bootstrap[boot_num - 1] < 0:
+                    data_boot = data
+                    data_boot = data_boot.iloc[-(random_generator_bootstrap[boot_num - 1]):, :]
                 else:
-                    data_boot= data
-                    data_aux = pd.DataFrame(data_boot[-1:].values, columns= data.columns)          
-                    for boot_adder in range (0, rng_bootstrap[boot_num - 1], 1):
+                    data_boot = data
+                    data_aux = pd.DataFrame(data_boot[-1:].values, columns=data.columns)
+                    for boot_adder in range(0, random_generator_bootstrap[boot_num - 1], 1):
                         data_boot = pd.concat([data_boot, data_aux], ignore_index=True)
-                data_boot.reset_index(inplace= True, drop=True)          
+                data_boot.reset_index(inplace=True, drop=True)
                 data_total.append(data_boot)
             elif boot_num == bootstrap + 1:
-                data_boot= data
-                rng_bootstrap= np.append(rng_bootstrap, random.randint(-4, -1))
-                data_boot= data_boot.iloc[-(rng_bootstrap[boot_num - 1]) : , :]
-                data_boot.reset_index(inplace= True, drop=True)           
+                data_boot = data
+                random_generator_bootstrap = np.append(random_generator_bootstrap, random.randint(-4, -1))
+                data_boot = data_boot.iloc[-(random_generator_bootstrap[boot_num - 1]):, :]
+                data_boot.reset_index(inplace=True, drop=True)
                 data_total.append(data_boot)
 
-        rng_bootstrap = pd.DataFrame(rng_bootstrap, columns= ["Bootstrap values"])  
+        bootstrap_total = pd.DataFrame(random_generator_bootstrap, columns=["Bootstrap values"])
 
-        return data_total, rng_bootstrap
+        return data_total, bootstrap_total
+    
+    def calculate_rms (
+            df: pd.DataFrame
+        ) -> list:
+
+        result = []
+        for col in df:
+            r = np.sqrt((df[col]**2).sum() / len(df[col]))
+            result.append(r)
+        return result
+
+    def calculate_p2p (
+            df: pd.DataFrame
+        ) -> np.array:
+
+        return np.array(df.max().abs() + df.min().abs())
+    
+    def calculate_entropy (
+            df: pd.DataFrame
+        ) -> np.array:
+
+        ent = []
+        for col in df:
+            ent.append(entropy(pd.cut(df[col], 500).value_counts()))
+        return np.array(ent)
+    
+    def calculate_clearence (
+        df: pd.DataFrame
+        ) -> list:
+
+        result = []
+        for col in df:
+            r = ((np.sqrt(df[col].abs())).sum() / len(df[col]))**2
+            result.append(r)
+        return result

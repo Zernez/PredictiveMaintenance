@@ -9,9 +9,24 @@ class VIF:
         self.k = K
         self.selected_features= []
 
-    def fit(self, X, y=None):
+    def fit(self, 
+            X: pd.DataFrame, 
+            y
+        ):
+
+        """
+        Fits the Variance Inflation Factor (VIF) model to the given data.
+
+        Parameters:
+        - X (pandas.DataFrame): The input data.
+        - y (optional): The target variable (not used in this method).
+
+        Returns:
+        - self: The fitted VIF model instance.
+        """
+        
         # Create a DataFrame to store the VIF results
-        data= X
+        data = X
         vif_data = pd.DataFrame()
         vif_data["Feature"] = data.columns
 

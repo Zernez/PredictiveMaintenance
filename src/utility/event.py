@@ -13,271 +13,325 @@ class Event:
             self.total_bearings = self.real_bearings * (2 + bootstrap) * 2
         elif dataset == "pronostia":
             self.real_bearings = cfg.N_BEARING_TOT_PRONOSTIA
-            self.total_bearings = self.real_bearings * (2 + bootstrap) * 2          
-        self.window= 10
+            self.total_bearings = self.real_bearings * (2 + bootstrap) * 2  
+        self.frequency_bins = 5            
+        self.data_points_per_window = 10
         self.percentage_error = 10
-        self.break_in_percentage= 40
-        self.t_threshold= - 1e-20
+        self.break_in_offset_init_kl = -0.8
+        self.break_in_offset_init_sd = -0.6
+        self.break_out_offset_init_kl = 0.6
+        self.break_out_offset_init_sd = 0.4
+        self.break_out_KL = 0.0
 
-    def evaluator_KL (self, x, window):
-        lenght= int((len(x) - x.iloc[:,0:1].isna().sum().values[0]) /window)
-        len_col= len(x.columns)
-        res = np.zeros((len_col,lenght - 1), dtype= float) #2156/36
-        i = 0
-        j = 0
-        index_s = 0
-        for x_label, __ in x.items():
-            for index_s in range (window, len(x), window):
-                index_e= index_s + window
-                if index_e <= len(x) and not x [index_s : index_e].isnull().values.any():
-                    temp_window1 = x [0 : window]
+    def evaluator_KL (self, 
+            x: pd.DataFrame, 
+            data_points_per_window: int
+        ) -> np.ndarray:
+
+        """
+        Calculate the Kullback-Leibler (KL) divergence between the reference window and the moving window for each bearing.
+
+        Parameters:
+        - x (DataFrame): DataFrame containing the data points for each bearing.
+        - data_points_per_window (int): Number of data points in each window.
+
+        Returns:
+        - results (numpy.ndarray): Matrix containing the KL divergence values for each bearing and window.
+        """
+
+        # Calculate the number of windows for each bearing and initialize the matrix for the results
+        length = int((len(x) - x.iloc[:, 0:1].isna().sum().values[0]) / data_points_per_window)
+        len_col = len(x.columns)
+        results = np.zeros((len_col, length - 1), dtype=float) 
+
+        # For each bearing, calculate the entropy between the reference window and the moving window
+        for BIN, BIN_NAME in enumerate(x.columns):
+            # For each window, calculate the entropy between the reference window and the moving window
+            for WINDOW, index_actual in enumerate(range(data_points_per_window, len(x), data_points_per_window)):
+                index_future = index_actual + data_points_per_window
+
+                # Check for the end of dataset and save the moving window eventually
+                if index_future <= len(x) and not x[index_actual:index_future].isnull().values.any():
+                    temp_window_reference = x[0:data_points_per_window]
                 else:
                     break
-                temp_window2 = x [index_s : index_e]
-                res [j][i] = entropy(temp_window1[x_label].values, temp_window2[x_label].values)
-                i += 1
-            i = 0
-            j += 1
 
-        return res
+                # Calculate the entropy between the reference window and the moving window
+                moving_window = x[index_actual:index_future]
+                results[BIN][WINDOW] = entropy(temp_window_reference[BIN_NAME].values, moving_window[BIN_NAME].values)
 
-    def evaluator_Ttest (self, x, window):
-        lenght= int((len(x) - x.iloc[:,0:1].isna().sum().values[0]) /window)
-        len_col= len(x.columns)
-        res = np.zeros((len_col,lenght - 1), dtype= float) #2156/36
-        i = 0
-        j = 0
-        index_s = 0
-        for x_label, __ in x.items():
-            for index_s in range (window, len(x), window):
-                index_e= index_s + window
-                if index_e <= len(x) and not x [index_s : index_e].isnull().values.any():
-                    temp_window1 = x [0 : window]
+        return results
+
+    def evaluator_SD (self, 
+            x: pd.DataFrame, 
+            data_points_per_window: int
+        ) -> np.ndarray:
+
+        """
+        Calculate the Standard Deviation (SD) divergence between the reference window and the moving window for each bearing.
+
+        Parameters:
+        - x (DataFrame): DataFrame containing the data points for each bearing.
+        - data_points_per_window (int): Number of data points in each window.
+
+        Returns:
+        - results (numpy.ndarray): Matrix containing the SD values for each bearing and window.
+        """
+        
+        # Calculate the number of windows for each bearing and initialize the matrix for the results
+        length = int((len(x) - x.iloc[:, 0:1].isna().sum().values[0]) / data_points_per_window)
+        len_col = len(x.columns)
+        results = np.zeros((len_col, length - 1), dtype=float) 
+
+        # For each bearing, calculate the entropy between the reference window and the moving window
+        for BIN, BIN_NAME in enumerate(x.columns):
+            # For each window, calculate the entropy between the reference window and the moving window
+            for WINDOW, index_actual in enumerate(range(data_points_per_window, len(x), data_points_per_window)):
+                index_future = index_actual + data_points_per_window
+
+                # Check for the end of dataset and save the moving window eventually
+                if index_future <= len(x) and not x[index_actual:index_future].isnull().values.any():
+                    temp_window_reference = x[index_actual:index_future]
                 else:
                     break
-                temp_window2 = x [index_s : index_e]
 
-                res [j][i] = stat.ttest_ind(temp_window1[x_label].values, temp_window2[x_label].values)[1]
-                i += 1
-            i = 0
-            j += 1
+                # Calculate the SD of the moving window
+                results[BIN][WINDOW] = np.std(temp_window_reference[BIN_NAME].values)
 
-        return res
-
-    def evaluator_SD (self, x, window):
-        lenght= int((len(x) - x.iloc[:,0:1].isna().sum().values[0]) /window)
-        len_col= len(x.columns)
-        res = np.zeros((len_col,lenght - 1), dtype= float) #2156/36
-        i = 0
-        j = 0
-        index_s = 0
-        for x_label, __ in x.items():
-            for index_s in range (window, len(x), window):
-                index_e= index_s + window
-                if index_e > len(x) or x [index_s : index_e].isnull().values.any():
-                    break
-                temp_window = x [index_s : index_e]
-
-                res [j][i] = np.std(temp_window[x_label].values)
-                i += 1
-            i = 0
-            j += 1
-
-        return res
-
-    def evaluator_Chi (self, x, window):
-        lenght= int((len(x) - x.iloc[:,0:1].isna().sum().values[0]) /window)
-        len_col= len(x.columns)
-        res = np.zeros((len_col,lenght - 1), dtype= float) #2156/36
-        i = 0
-        j = 0
-        index_s = 0
-        for x_label, __ in x.items():
-            for index_s in range (window, len(x), window):
-                index_e= index_s + window
-                if index_e <= len(x) and not x [index_s : index_e].isnull().values.any():
-                    temp_window1 = x [0 : window]
-                else:
-                    break
-                temp_window2 = x [index_s : index_e]
-                res [j][i] = st.chisquare(temp_window1[x_label].values, np.sum(temp_window1[x_label].values)/ np.sum(temp_window2[x_label].values) * temp_window2[x_label].values)[0]
-                i += 1
-            i = 0
-            j += 1
-
-        return res
+        return results
     
-    def evaluator_breakpoint (self, kl, sd, t, chi):
-        i= 0
-        j= 0
-        w= 0
-        m= 0
-        q= 0
-        bins = 5
-        data= 3 + 1
-        percentage_error= self.percentage_error
-        break_in_percentage= self.break_in_percentage
+    def evaluator_breakpoint_KL (self, 
+            kl: np.ndarray
+        ) -> np.ndarray:
+
+        """
+        Calculates the thresholds and breakpoints for the KL divergence event detector.
+
+        Args:
+        - kl (list): List of KL divergence values for each frequency bin.
+
+        Returns:
+        - thresholds_kl (numpy.ndarray): Matrix containing the calculated thresholds and breakpoints for each frequency bin and metric.
+        """
+
+        # Number of frequency bins used to analyze and build the event detector
+        bins = self.frequency_bins
+        # Number of information (3 important info plus 1 side info) for each frequency bin, each metrics and bearing: 
+        # 0: threshold, 1: threshold + error, 2: breakpoint, 3: length of the dataset
+        data = 3 + 1
+        #Percentage of error allowed added to the threshold
+        percentage_error = self.percentage_error
+        # Derivative value to break used for find the threshold in KD
+        break_in_offset_init_kl = self.break_in_offset_init_kl
+        # Derivative value to break used for find the threshold in KL in a successive postive increasing case
+        break_out_offset_init_kl = self.break_out_offset_init_kl
+        # Initialize the threshold and breakpoint matrix
         thresholds_kl = np.zeros((bins, data), dtype= float)
-        thresholds_sd = np.zeros((bins, data), dtype= float)
-        thresholds_t = np.zeros((bins, data), dtype= float)
-        thresholds_chi = np.zeros((bins, data), dtype= float)
 
-        for bin in kl:
-            break_in= int(len(bin)* break_in_percentage /100)
-            for step in bin:
-                if i <= break_in:
-                    if bin[i]> thresholds_kl [j][0] or i== 0:
-                        thresholds_kl [j][0]= bin[i]
-                        thresholds_kl [j][1]= bin[i] + (bin[i]/100 * percentage_error)
-                        thresholds_kl [j][3]= len (bin)
-                    w= i+1
+        for BIN, bin in enumerate(kl):
+            WINDOW_NO = 0
+            # Slope of the line used to find the breakpoint
+            m = 0
+            # Intercept of the line used to find the breakpoint
+            q = 0
+            # Temporary reference for estabilish the breakline (updatable)
+            fixed_y = 0
+            break_in_offset_kl = break_in_offset_init_kl
+            break_out_offset_kl = break_out_offset_init_kl
+            previous_derivative = 0
+            thresholds_kl [BIN][3] = len(bin)
 
-                    if i> 0 and bin[i]>= thresholds_kl [j][0]:
-                        thresholds_kl [j][2]= 0                    
+            for THRESHOLD_WINDOW, window_data in enumerate(bin):
+                # Set the first value of the bin as the reference for the threshold
+                if THRESHOLD_WINDOW == 0:
+                    fixed_y= bin[0]
+                    continue
+                
+                # Calculate the derivative of the line between the temporary threshold reference of the bin and the current value
+                x = [0, 1]
+                y = [fixed_y, bin[THRESHOLD_WINDOW]]
+                coefficients = np.polyfit(x, y, 1)
+                derivative= coefficients[0]/coefficients[1]
 
-                    for step_2 in bin[i+1:]:
-                        if step_2 > thresholds_kl [j][1]:
-                            m= bin[w]-bin[w-1]
-                            q= bin[w-1]
-                            thresholds_kl [j][2] =  (thresholds_kl [j][1]/m) - (q/m) + (w -1)
-                            break
-                        w += 1
-                else:
+                y = [bin[THRESHOLD_WINDOW -1], bin[THRESHOLD_WINDOW]]
+                coefficients = np.polyfit(x, y, 1)
+                derivative_last= coefficients[0]/coefficients[1]
+
+                # If the derivative is lower than the threshold, save the information and calculate the error 
+                if derivative < break_in_offset_kl or derivative_last > 3:
+
+                    if bin[THRESHOLD_WINDOW]> thresholds_kl [BIN][0]:
+                        thresholds_kl [BIN][0] = fixed_y
+                        thresholds_kl [BIN][1] = fixed_y + (fixed_y/100 * percentage_error)
+
+                    if thresholds_kl [BIN][3] > THRESHOLD_WINDOW:                    
+                        # Set up the window number for find the breakpoint in the future
+                        WINDOW_NO = THRESHOLD_WINDOW + 1
+                        
+                        # If the derivative is lower than the threshold, the breakpoint is found by looking at the next values
+                        for FUTURE in bin[THRESHOLD_WINDOW + 1:]:
+                            if FUTURE > thresholds_kl [BIN][1]:
+                                m = bin[WINDOW_NO]-bin[WINDOW_NO - 1]
+                                q = bin[WINDOW_NO - 1]
+                                thresholds_kl [BIN][2] = (thresholds_kl [BIN][1]/m) - (q/m) + (WINDOW_NO -1)
+                                break
+                            WINDOW_NO += 1
+
+                            self.break_out_KL = thresholds_kl [BIN][2]
                     break
-
-                i+= 1
-            i= 0
-            j+= 1
-
-        i= 0
-        j= 0
-
-        for bin in sd:
-            break_in= int(len(bin)* break_in_percentage /100)
-            for step in bin:
-                if  i <= break_in:
-                    if bin[i]> thresholds_sd [j][0] or i== 0:
-                        thresholds_sd [j][0]= bin[i]
-                        thresholds_sd [j][1]= bin[i] + (bin[i]/100 * percentage_error)
-                        thresholds_sd [j][3]= len (bin)
-                    w= i+1
-
-                    if i> 0 and bin[i]>= thresholds_sd [j][0]:
-                        thresholds_sd [j][2]= 0     
-
-                    for step_2 in bin[i+1:]:
-                        if step_2 > thresholds_sd [j][1]:
-                            m= bin[w]-bin[w-1]
-                            q= bin[w-1]
-                            thresholds_sd [j][2] =  (thresholds_sd [j][1]/m) - (q/m) + (w -1)
-                            break
-                        w += 1
                 else:
-                    break
+                    # If the derivative is higher than the threshold, the threshold is updated to be more sensitive next window 
+                    if break_in_offset_kl + 0.15 <= 0.0: 
+                        break_in_offset_kl += 0.15 
+                    else:
+                        break_in_offset_kl = 0.0
+                    # If the acutal value is higher than the threshold registred, update the threshold
+                    if fixed_y < bin[THRESHOLD_WINDOW]:
+                        fixed_y = bin[THRESHOLD_WINDOW]
 
-                i+= 1
-            i= 0
-            j+= 1
+                    #Update the derivative for the next iteration
+                    previous_derivative = derivative        
 
-        i= 0
-        j= 0
-        count= 0
-        t_threshold= self.t_threshold
-        ground_level= 0
-        max_count = 3
+        return thresholds_kl
 
-        for bin in t:
-            break_in= int(len(bin)* break_in_percentage /100)
-            thresholds_t [j][max_count]= len (bin)        
-            for step in bin:
-                if i == 0:
-                    i+= 1
+    def evaluator_breakpoint_SD (self, 
+            sd: np.ndarray
+        ) -> np.ndarray:
+
+        """
+        Calculates the thresholds and breakpoints for the given frequency bins and metrics in the SD dataset.
+
+        Args:
+        - sd (list): List of frequency bins and metrics.
+
+        Returns:
+        - thresholds_sd (numpy.ndarray): Matrix containing the calculated thresholds and breakpoints for each frequency bin and metric.
+        """
+
+        # Number of frequency bins used to analyze and build the event detector
+        bins = self.frequency_bins
+        # Number of information (3 important info plus 1 side info) for each frequency bin, each metrics and bearing: 
+        # 0: threshold, 1: threshold + error, 2: breakpoint, 3: length of the dataset
+        data = 3 + 1
+        #Percentage of error allowed added to the threshold
+        percentage_error = self.percentage_error
+        # Derivative value to break used for find the threshold in SD
+        break_in_offset_init_sd = self.break_in_offset_init_sd
+        # Derivative value to break used for find the threshold in SD in a successive postive increasing case
+        break_out_offset_init_sd = self.break_out_offset_init_sd
+        # Initialize the threshold and breakpoint matrix
+        thresholds_sd = np.zeros((bins, data), dtype=float)
+
+        for BIN, bin in enumerate(sd):
+            WINDOW_NO = 0
+            # Slope of the line used to find the breakpoint
+            m = 0
+            # Intercept of the line used to find the breakpoint
+            q = 0
+            # Temporary reference for estabilish the breakline (updatable)
+            fixed_y = 0
+            break_in_offset_sd= break_in_offset_init_sd
+            break_out_offset_sd = break_out_offset_init_sd
+            previous_derivative = 0
+            thresholds_sd [BIN][3] = len(bin)
+
+            for THRESHOLD_WINDOW, window_data in enumerate(bin):
+                # Set the first value of the bin as the reference for the threshold
+                if THRESHOLD_WINDOW == 0:
+                    fixed_y = bin[0]
                     continue
 
-                if count== data - 1:
+                # Calculate the derivative of the line between the temporary threshold reference of the bin and the current value
+                x = [0, 1]
+                y = [fixed_y, bin[THRESHOLD_WINDOW]]
+                coefficients = np.polyfit(x, y, 1)
+                derivative= coefficients[0]/coefficients[1]
+                
+                y = [bin[THRESHOLD_WINDOW -1], bin[THRESHOLD_WINDOW]]
+                coefficients = np.polyfit(x, y, 1)
+                derivative_last= coefficients[0]/coefficients[1]
+
+                # If the derivative is lower than the threshold, save the information and calculate the error 
+                if (derivative < break_in_offset_sd and self.break_out_KL < THRESHOLD_WINDOW) or derivative_last > 3:
+
+                    if bin[THRESHOLD_WINDOW]> thresholds_sd [BIN][0]:
+                        thresholds_sd [BIN][0] = fixed_y
+                        thresholds_sd [BIN][1] = fixed_y + (fixed_y/100 * percentage_error)
+
+                    if thresholds_sd [BIN][3] > THRESHOLD_WINDOW:
+                        # Set up the window number for find the breakpoint in the future
+                        WINDOW_NO = THRESHOLD_WINDOW + 1
+                        
+                        # If the derivative is lower than the threshold, the breakpoint is found by looking at the next values
+                        for FUTURE in bin[THRESHOLD_WINDOW + 1:]:
+                            if FUTURE > thresholds_sd [BIN][1]:
+                                m = bin[WINDOW_NO]-bin[WINDOW_NO - 1]
+                                q = bin[WINDOW_NO - 1]
+                                thresholds_sd [BIN][2] = (thresholds_sd [BIN][1]/m) - (q/m) + (WINDOW_NO -1)
+                                break
+                            WINDOW_NO += 1          
                     break
+                else:
+                    # If the derivative is higher than the threshold, the threshold is updated to be more sensitive next window 
+                    if break_in_offset_sd + 0.1 <= 0.0: 
+                        break_in_offset_sd += 0.1
+                    else:
+                        break_in_offset_sd = 0.0
+                    # If the acutal value is higher than the threshold registred, update the threshold
+                    if fixed_y < bin[THRESHOLD_WINDOW]:
+                        fixed_y = bin[THRESHOLD_WINDOW]
+                    
+                    #Update the derivative for the next iteration
+                    previous_derivative = derivative   
 
-                ground_level= min(bin) + (min(bin) /100 * percentage_error)
+        return thresholds_sd
 
-                x= list(range (0, len(bin), 1))
-                y= bin
-                dydx= np.diff(y)/np.diff(x)
+    def make_events (self, 
+            set_analytic: pd.DataFrame
+        ) -> (list, list):
 
-                w= 1
-                for val in dydx:
-                    if val < t_threshold and bin[i] < ground_level and count< max_count and w> 1:
-                        thresholds_t [j][count]= w
-                        count+= 1
-                    w += 1
+        """
+        Generates events for each bearing based on the given set of analytic data.
 
-                i+= 1
-            count= 0    
-            i= 0
-            j+= 1
+        Args:
+        - set_analytic (DataFrame): The analytic data for all bearings.
 
-        i= 0
-        j= 0
-        count= 0
-        c_threshold= self.t_threshold 
-        ground_level= 0
+        Returns:
+        tuple: A tuple containing two lists - events_KL and events_SD.
+            - events_KL (list): The calculated thresholds and breakpoints for each bearing based on KL evaluation.
+            - events_SD (list): The calculated thresholds and breakpoints for each bearing based on SD evaluation.
+        """
 
-        for bin in chi:
-            break_in= int(len(bin)* break_in_percentage /100)
-            thresholds_chi [j][max_count]= len (bin)
-            for step in bin:
-                if i == 0:
-                    i+= 1
-                    continue
+        # Initialize the information
+        evals_KL = []
+        evals_SD = []
+        events_KL = []
+        events_SD = []      
 
-                if count== data - 1:
-                    break
+        # For each bearing, evaluate the KL and SD
+        for bearing_no in range(1, self.total_bearings + 1, 1):
+            information_matrix = set_analytic[["B{}_FoH".format(bearing_no), "B{}_FiH".format(bearing_no), "B{}_FrH".format(bearing_no), "B{}_FrpH".format(bearing_no), "B{}_FcaH".format(bearing_no)]]   
+            evals_KL.append(self.evaluator_KL(information_matrix, self.data_points_per_window))
+            evals_SD.append(self.evaluator_SD(information_matrix, self.data_points_per_window))
 
-                ground_level= min(bin) + (min(bin) /100 * percentage_error)
+        # For each bearing, calculate the threshold and breakpoint
+        for eval_KL, eval_SD in zip(evals_KL, evals_SD):
+            bearing_th_and_br_KL = self.evaluator_breakpoint_KL(eval_KL)
+            bearing_th_and_br_SD = self.evaluator_breakpoint_SD(eval_SD)
+            events_KL.append(bearing_th_and_br_KL)
+            events_SD.append(bearing_th_and_br_SD)
 
-                x= list(range (0, len(bin), 1))
-                y= bin
-                dydx= np.diff(y)/np.diff(x)
+        return events_KL, events_SD
 
-                w= 1
-                for val in dydx:
-                    if val < c_threshold and bin[i] < ground_level and count< max_count and w> 1:
-                        thresholds_chi [j][count]= w
-                        count+= 1
-                    w += 1
+    def calculate_L10 (self):
 
-                i+= 1
-            count= 0    
-            i= 0
-            j+= 1
+        base_dynamic_load_C = 12.82 * 1000
+        dynamic_equivalent_load_P = 11 * 1000 #Kn From the specs of XJTU-SY dataset of this type of testset
+        bearing_type_p = 3
 
-        return thresholds_kl, thresholds_sd, thresholds_t, thresholds_chi
-    
+        RPM = 37.5 * 60 #KHz From the specs of XJTU-SY dataset of this type of testset
 
-    def make_events (self, set_analytic):
-        window = self.window
-        eval_KL = []
-        eval_t = []
-        eval_SD = []
-        eval_chi = []
-        event_kl = []
-        event_sd = []
-        event_t = []
-        event_chi = []         
+        L10 = pow((base_dynamic_load_C / dynamic_equivalent_load_P), bearing_type_p)
+        L10H = 1000000 * L10 / (60 * RPM)
 
-        for b_num in range (1, self.total_bearings + 1, 1):
-            set= set_analytic[["B{}_FoH".format(b_num), "B{}_FiH".format(b_num), "B{}_FrH".format(b_num), "B{}_FrpH".format(b_num), "B{}_FcaH".format(b_num)]]   
-            eval_KL.append(self.evaluator_KL(set, window))
-            eval_SD.append(self.evaluator_SD(set, window))
-            eval_t.append(self.evaluator_Ttest(set, window))
-            eval_chi.append(self.evaluator_Chi(set, window))
-
-        i= 0
-        for set_KL in eval_KL:
-            temp_kl, temp_sd, temp_t, temp_chi= self.evaluator_breakpoint(set_KL, eval_SD[i], eval_t[i], eval_chi[i])
-            event_kl.append(temp_kl)
-            event_sd.append(temp_sd)
-            event_t.append(temp_t)
-            event_chi.append(temp_chi)
-            i += 1
-
-        return event_kl, event_sd, event_t
+        return L10H
