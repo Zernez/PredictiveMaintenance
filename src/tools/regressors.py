@@ -93,12 +93,12 @@ class CoxPH (BaseRegressor):
             return {'n_iter': [5],
                     'tol': [1e-1]} 
         else:
-            return {'n_iter': [10, 20, 40],
-                    'tol': [1e-1, 1e-2, 1e-3]}
+            return {'n_iter': [10, 15, 20],
+                    'tol': [1e-1, 1e-2]}
     
     def get_best_hyperparams (self):
-        return {'tol': 1e-9,
-                'n_iter': 100}
+        return {'tol': 1e-3,
+                'n_iter': 20}
 
 class CphRidge (BaseRegressor):
     def make_model (self, params=None):
@@ -108,12 +108,16 @@ class CphRidge (BaseRegressor):
         return CoxPHSurvivalAnalysis(**model_params)
     
     def get_hyperparams (self):
-        return {'n_iter': [50, 100],
-                'tol': [1e-1, 1e-5, 1e-9]}
+        if cfg.DATA_TYPE == "bootstrap":
+            return {'n_iter': [5],
+                    'tol': [1e-1]} 
+        else:
+            return {'n_iter': [10, 15, 20],
+                    'tol': [1e-1, 1e-2]}
     
     def get_best_hyperparams (self):
-        return {'tol': 1e-9,
-                'n_iter': 100}
+        return {'tol': 1e-3,
+                'n_iter': 20}
 
 class CphLASSO (BaseRegressor):
     def make_model (self, params=None):
@@ -125,14 +129,14 @@ class CphLASSO (BaseRegressor):
     def get_hyperparams (self):
         return {'n_alphas': [50, 100, 200],
                 'normalize': [True, False],
-                'tol': [1e-1, 1e-5, 1e-7],
-                'max_iter': [100000]}
+                'tol': [1e-1, 1e-3, 1e-5],
+                'max_iter': [100]}
     
     def get_best_hyperparams (self):
-        return {'tol': 1e-05,
+        return {'tol': 1e-03,
                 'normalize': True,
                 'n_alphas': 50,
-                'max_iter': 100000}
+                'max_iter': 100}
 
 class CphElastic (BaseRegressor):
     def make_model (self, params=None):
@@ -144,14 +148,14 @@ class CphElastic (BaseRegressor):
     def get_hyperparams (self):
         return {'n_alphas': [50, 100, 200],
                 'normalize': [True, False],
-                'tol': [1e-1, 1e-5, 1e-7],
-                'max_iter': [100000]}
+                'tol': [1e-1, 1e-3, 1e-5],
+                'max_iter': [100]}
     
     def get_best_hyperparams (self):
-        return {'tol': 1e-05, 
+        return {'tol': 1e-03,
                 'normalize': True,
-                'n_alphas': 100, 
-                'max_iter': 100000}
+                'n_alphas': 50,
+                'max_iter': 100}
 
 class RSF (BaseRegressor):
     def make_model (self, params=None):
@@ -168,9 +172,9 @@ class RSF (BaseRegressor):
                     'min_samples_leaf': [1, 2, 3]}
         else:
             return {'max_depth': [3, 5, 7],
-                    'n_estimators': [25, 50, 100],
-                    'min_samples_split': [2, 5, 10],
-                    'min_samples_leaf': [1, 2, 4]}      
+                    'n_estimators': [25, 50, 75],
+                    'min_samples_split': [2, 5, 8],
+                    'min_samples_leaf': [1, 2, 3]}      
     
     def get_best_hyperparams (self):
         return  {'n_estimators': 3, 
@@ -195,7 +199,7 @@ class CoxBoost (BaseRegressor):
                     'tol': [1e-1]}
         else:
             return {'learning_rate': [0.1, 0.05, 0.01],
-                    'n_estimators': [100, 200, 300, 400],
+                    'n_estimators': [100, 200, 300],
                     'max_depth': [3, 5, 7],
                     'min_samples_split': [2, 5, 10],
                     'min_samples_leaf': [1, 2, 4],
@@ -270,8 +274,8 @@ class DeepSurv(BaseRegressor):
         else:
             return {'batch_size' : [16, 32],
                     'learning_rate' : [1e-1, 1e-2, 1e-3],
-                    'iters': [100, 500, 1000],
-                    'layers': [[8], [16], [32]]
+                    'iters': [100, 300, 500],
+                    'layers': [[16], [32]]
                     }
     
     def get_best_hyperparams(self):
@@ -291,14 +295,14 @@ class DSM(BaseRegressor):
         if cfg.DATA_TYPE == "bootstrap":
             return {'batch_size' : [4],
                     'learning_rate' : [1e-1, 1e-2],
-                    'iters': [20],
+                    'iters': [50, 100],
                     'layers': [[16]]
                     }
         else:
             return {'batch_size' : [16, 32],
-                    'learning_rate' : [1e-2, 1e-3],
-                    'iters': [50, 100],
-                    'layers': [[8], [16], [32]]
+                    'learning_rate' : [1e-1, 1e-2, 1e-3],
+                    'iters': [100, 300, 500],
+                    'layers': [[16], [32]]
                     }
             
     def get_best_hyperparams(self):
@@ -325,7 +329,7 @@ class BNNmcd(BaseRegressor):
             return {'batch_size' : [16, 32],
                     'learning_rate' : [1e-2, 1e-3],
                     'num_epochs': [5, 10],
-                    'layers': [[8], [16], [32]]
+                    'layers': [[16], [32]]
                     }
 
     def get_best_hyperparams(self):

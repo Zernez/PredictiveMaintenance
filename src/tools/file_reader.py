@@ -36,7 +36,7 @@ class FileReader:
         return [set1, set2, set3]
     
     def read_data(self, 
-            fileno: int, 
+            test_condition: int, 
             bootstrap: int, 
             from_pickle: bool = False
         ) -> (pd.DataFrame, pd.DataFrame, dict):
@@ -45,7 +45,7 @@ class FileReader:
         Read the timeseries data from CSV files and optionally load events from pickle files.
 
         Args:
-        - fileno (int): The file number.
+        - test_condition (int): The cardinal number of the test condition starting from 0.
         - bootstrap (int): The multiplier of the bootstrap.
         - from_pickle (bool, optional): Flag indicating whether to load events from pickle files. Defaults to False.
 
@@ -56,16 +56,16 @@ class FileReader:
         """
 
         # Read the timeseries time and frequency data from the csv files
-        set_covariates = pd.read_csv(self.dataset_path + 'covariates_' + str(fileno) + '.csv')
-        set_boot = pd.read_csv(self.dataset_path + 'boot_' + str(fileno) + '.csv')
-        set_analytic = pd.read_csv(self.dataset_path + 'analytic_' + str(fileno) + '.csv')
+        set_covariates = pd.read_csv(self.dataset_path + 'covariates_' + str(test_condition) + '.csv')
+        set_boot = pd.read_csv(self.dataset_path + 'boot_' + str(test_condition) + '.csv')
+        set_analytic = pd.read_csv(self.dataset_path + 'analytic_' + str(test_condition) + '.csv')
 
         # Eventually read the events from the pickle files
         if from_pickle:
             event_kl = self.read_pickle(self.dataset_path + "event_kl")
             event_sd = self.read_pickle(self.dataset_path + "event_sd")
         else:
-            event_kl, event_sd = Event(self.dataset, bootstrap).make_events(set_analytic)
+            event_kl, event_sd = Event(self.dataset, bootstrap).make_events(set_analytic, test_condition)
 
         # Pack the events in a dictionary
         info_pack = {'KL': event_kl, 'SD': event_sd}
