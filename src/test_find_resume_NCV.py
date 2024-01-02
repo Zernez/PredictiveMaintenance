@@ -69,15 +69,9 @@ def main():
     if args.merge:
         MERGE = args.merge
     
-<<<<<<< HEAD
-    DATASET= "xjtu"
-    TYPE= "correlated"
-    MERGE= "False"
-=======
     #DATASET= "xjtu"
     #TYPE= "correlated"
     #MERGE= "False"
->>>>>>> d94f7f56cefaf7091dcd7ee406729780d615fb28
 
     if TYPE == "bootstrap":
         N_BOOT = 8
