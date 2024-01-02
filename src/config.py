@@ -13,7 +13,7 @@ N_REAL_BEARING_XJTU= 5
 BASE_DYNAMIC_LOAD_XJTU= 12.82
 #N_BEARING_TOT_XJTU= N_REAL_BEARING_XJTU * N_BOOT_FOLD_XJTU
 
-DATASET_PATH_PRONOSTIA= "../data/PRONOSTIA/csv/"
+DATASET_PATH_PRONOSTIA= "./data/PRONOSTIA/csv/"
 RAW_DATA_PATH_PRONOSTIA= ["../data/PRONOSTIA/25Hz5kN/", "../data/PRONOSTIA/27.65Hz4.2kN/", "../data/PRONOSTIA/30Hz4kN/"]  
 N_REAL_BEARING_PRONOSTIA= 2
 BASE_DYNAMIC_LOAD_XJTU= 12.82
@@ -28,14 +28,14 @@ HYPER_RESULTS= "../data/logs/"
 
 FREQUENCY_BANDS1 = {'xjtu_start': [12, 34, 71, 107, 171],
                        'xjtu_stop': [14, 36, 73, 109, 173]}
-FREQUENCY_BANDS2 = {'xjtu_start': [13, 36, 76, 114, 183],
-                       'xjtu_stop': [15, 38, 78, 116, 185]}
+FREQUENCY_BANDS2 = {'xjtu_start': [13, 36.5, 76, 114, 183],
+                       'xjtu_stop': [15, 37.5, 78, 116, 185]}
 FREQUENCY_BANDS3 = {'xjtu_start': [14, 39, 82, 122, 195],
                        'xjtu_stop': [15, 41, 84, 124, 197]}
 FREQUENCY_BANDS4 = {'pronostia_start': [9, 24, 89, 139, 183],
                        'pronostia_stop': [11, 26, 91, 141, 185]} 
-FREQUENCY_BANDS5 = {'pronostia_start': [11, 27, 98, 153, 203],
-                       'pronostia_stop': [13, 29, 100, 155, 205]}    
+FREQUENCY_BANDS5 = {'pronostia_start': [11, 26.65, 98, 153, 203],
+                       'pronostia_stop': [13, 28.65, 100, 155, 205]}    
 FREQUENCY_BANDS6 = {'pronostia_start': [12, 29, 107, 167, 216],
                        'pronostia_stop': [14, 31, 109, 169, 218]}
    

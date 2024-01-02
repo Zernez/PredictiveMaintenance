@@ -34,7 +34,7 @@ PLOT = True
 RESUME = True
 NEW_DATASET = False
 N_INTERNAL_SPLITS = 5
-N_ITER = 10
+N_ITER = 10 
 
 def main():
     parser = argparse.ArgumentParser()
@@ -69,9 +69,9 @@ def main():
     if args.merge:
         MERGE = args.merge
     
-    # DATASET= "xjtu"
-    # TYPE= "correlated"
-    # MERGE= "False"
+    DATASET= "xjtu"
+    TYPE= "correlated"
+    MERGE= "False"
 
     if TYPE == "bootstrap":
         N_BOOT = 8

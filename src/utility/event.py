@@ -25,9 +25,9 @@ class Event:
         # Percentage of error allowed added to the threshold
         self.percentage_error = 10
         # Derivative safety value that is broken when a high excursion of entropy occurs from the previous state
-        self.anomaly_excursion_break_out_kl = 2
+        self.anomaly_excursion_offset_kl = 0
         # Derivative safety value that is broken when a high excursion of SD occurs from the previous state
-        self.anomaly_excursion_break_out_sd = 2
+        self.anomaly_excursion_offset_sd = 0
         # The last break out time of KL divergence used in the SD evaluation
         self.break_out_KL = 0.0
         # Number of information for each frequency bin, each metrics and bearing: 0: threshold, 1: threshold + error, 2: breakpoint, 3: length of the dataset (windows)
@@ -131,13 +131,10 @@ class Event:
 
         #Percentage of error allowed added to the threshold
         percentage_error = self.percentage_error
-        # Derivative safety value that is broken when a high excursion of entropy occurs
-        anomaly_excursion_break_out_kl = self.anomaly_excursion_break_out_kl
 
         # Calculate the L10 RUL in hours given the test condition and the CDF for each window
         hz_speed, kn_load = self.datasheet_loader(test_condition)
         L10H_windowed = int(self.calculate_L10_minute(hz_speed, kn_load) / self.data_points_per_window)
-        cdf_values = self.calculate_CDF(L10H_windowed)
 
         for BIN, bin in enumerate(kl):
             WINDOW_NO = 0
@@ -150,14 +147,24 @@ class Event:
 
             thresholds_kl [BIN][3] = len(bin)
 
+            if L10H_windowed >= len(bin):
+                cdf_values = self.calculate_CDF(L10H_windowed)
+            else:
+                cdf_values = self.calculate_CDF(len(bin))
+
             for THRESHOLD_WINDOW, window_data in enumerate(bin):
                 # Set the first value of the bin as the reference for the threshold
                 if THRESHOLD_WINDOW == 0:
                     fixed_y= bin[0]
                     continue
 
+                # Derivative safety value that is broken when a high excursion of entropy occurs
+                anomaly_excursion_break_out_kl = self.anomaly_excursion_offset_kl
+
                 # Set the break in offset given from CDF function over L10H
                 break_in_offset_kl = - (1 - cdf_values[THRESHOLD_WINDOW])
+
+                anomaly_excursion_break_out_kl += abs(break_in_offset_kl) * 4     
                 
                 # Calculate the derivative of the line between the temporary threshold reference of the bin and the current value
                 x = [0, 1]
@@ -178,6 +185,7 @@ class Event:
                     
                     if previous_derivative > anomaly_excursion_break_out_kl: 
                         thresholds_kl [BIN][2] = THRESHOLD_WINDOW
+                        self.break_out_KL = thresholds_kl [BIN][2]
                         break
 
                     # If is not at the end of the dataset
@@ -188,21 +196,16 @@ class Event:
                         # If the derivative is lower than the threshold, the breakpoint is found by looking at the next values
                         for FUTURE in bin[THRESHOLD_WINDOW + 1:]:
                             if FUTURE > thresholds_kl [BIN][1]:
-                                m = bin[WINDOW_NO]-bin[WINDOW_NO - 1]
+                                m = bin[WINDOW_NO] - bin[WINDOW_NO - 1]
                                 q = bin[WINDOW_NO - 1]
                                 thresholds_kl [BIN][2] = (thresholds_kl [BIN][1]/m) - (q/m) + (WINDOW_NO - 1)
                                 break
                             WINDOW_NO += 1
 
-                            # Save the time when the threshold is broken for the evaluation of the breakpoint by SD
-                            self.break_out_KL = thresholds_kl [BIN][2]
+                        # Save the time when the threshold is broken for the evaluation of the breakpoint by SD
+                        self.break_out_KL = thresholds_kl [BIN][2]
                     break
                 else:
-                    # If the derivative is higher than the threshold, the threshold is updated to be more sensitive next window 
-                    if break_in_offset_kl + 0.15 <= 0.0: 
-                        break_in_offset_kl += 0.15 
-                    else:
-                        break_in_offset_kl = 0.0
                     # If the acutal value is higher than the threshold registred, update the threshold
                     if fixed_y < bin[THRESHOLD_WINDOW]:
                         fixed_y = bin[THRESHOLD_WINDOW]    
@@ -230,12 +233,10 @@ class Event:
     
         break_out_KL = self.break_out_KL
         percentage_error = self.percentage_error
-        anomaly_excursion_break_out_sd = self.anomaly_excursion_break_out_sd
 
         # Calculate the L10 RUL in hours given the test condition and the CDF for each window
         hz_speed, kn_load = self.datasheet_loader(test_condition)
         L10H_windowed = int(self.calculate_L10_minute(hz_speed, kn_load) / self.data_points_per_window)
-        cdf_values = self.calculate_CDF(L10H_windowed)
 
         for BIN, bin in enumerate(sd):
             WINDOW_NO = 0
@@ -248,14 +249,24 @@ class Event:
 
             thresholds_sd [BIN][3] = len(bin)
 
+            if L10H_windowed >= len(bin):
+                cdf_values = self.calculate_CDF(L10H_windowed)
+            else:
+                cdf_values = self.calculate_CDF(len(bin))
+
             for THRESHOLD_WINDOW, window_data in enumerate(bin):
                 # Set the first value of the bin as the reference for the threshold
                 if THRESHOLD_WINDOW == 0:
                     fixed_y= bin[0]
                     continue
 
+                # Derivative safety value that is broken when a high excursion of SD occurs
+                anomaly_excursion_break_out_sd = self.anomaly_excursion_offset_sd
+
                 # Set the break in offset given from CDF function over L10H
                 break_in_offset_sd = - (1 - cdf_values[THRESHOLD_WINDOW])
+
+                anomaly_excursion_break_out_sd += abs(break_in_offset_sd) * 4        
                 
                 # Calculate the derivative of the line between the temporary threshold reference of the bin and the current value
                 x = [0, 1]
@@ -268,7 +279,7 @@ class Event:
                 previous_derivative = coefficients[0]/coefficients[1]
 
                 # If the derivative is lower than the threshold and KL break-threshold occurs or an anomal derivative occur, save the information and calculate the error 
-                if (derivative < break_in_offset_sd and break_out_KL < THRESHOLD_WINDOW) or previous_derivative > anomaly_excursion_break_out_sd:
+                if (derivative < break_in_offset_sd and break_out_KL < THRESHOLD_WINDOW and break_out_KL > 0.0) or previous_derivative > anomaly_excursion_break_out_sd:
 
                     if bin[THRESHOLD_WINDOW]> thresholds_sd [BIN][0]:
                         thresholds_sd [BIN][0] = fixed_y
@@ -286,22 +297,13 @@ class Event:
                         # If the derivative is lower than the threshold, the breakpoint is found by looking at the next values
                         for FUTURE in bin[THRESHOLD_WINDOW + 1:]:
                             if FUTURE > thresholds_sd [BIN][1]:
-                                m = bin[WINDOW_NO]-bin[WINDOW_NO - 1]
+                                m = bin[WINDOW_NO] - bin[WINDOW_NO - 1]
                                 q = bin[WINDOW_NO - 1]
                                 thresholds_sd [BIN][2] = (thresholds_sd [BIN][1]/m) - (q/m) + (WINDOW_NO -1)
                                 break
                             WINDOW_NO += 1          
                     break
                 else:
-                    # If the derivative is higher than the threshold, the threshold is updated to be more sensitive next window 
-                    if break_in_offset_sd + 0.1 <= 0.0: 
-                        break_in_offset_sd += 0.1
-                    else:
-                        break_in_offset_sd = 0.0
-                    # If the acutal value is higher than the threshold registred, update the threshold
-                    if fixed_y < bin[THRESHOLD_WINDOW]:
-                        fixed_y = bin[THRESHOLD_WINDOW]
-                    
                     #Update the derivative for the next iteration
                     previous_derivative = derivative   
 
@@ -346,7 +348,7 @@ class Event:
 
         return events_KL, events_SD
 
-    def calculate_L10_minute(self, 
+    def calculate_L10_minute (self, 
             hz_speed: float, 
             kn_load: float
         ) -> float:
@@ -360,7 +362,6 @@ class Event:
 
         Returns:
         - L10M (float): The L10 minute of lifetime.
-
         """
 
         # Value from the specs valid for all XJTU-SY dataset
@@ -380,7 +381,7 @@ class Event:
 
         return L10M
 
-    def calculate_CDF(self, 
+    def calculate_CDF (self, 
             L10H_windowed: int
         ) -> np.ndarray:
 
@@ -392,7 +393,6 @@ class Event:
 
         Returns:
         - cdf_values (numpy.ndarray): An array of CDF values corresponding to the x_values.
-
         """
 
         # Create an array of values for which you want to calculate the CDF
@@ -406,13 +406,18 @@ class Event:
 
         return cdf_values
 
-    def exponential_degradation_function (self, x, L10M_windowed):
+    def exponential_degradation_function (self, 
+            x: np.ndarray, 
+            L10M_windowed: int
+        ) -> np.ndarray:
         
         # The decay is proportional to the L10
-        decay = 1/ L10M_windowed * 2
+        decay = 1 / (L10M_windowed * 2)
         return L10M_windowed * np.exp(-decay * x)
 
-    def datasheet_loader (self, condition):
+    def datasheet_loader (self, 
+            condition: int
+        ) -> (float, float):
         
         # Given the path of the testset, extract the speed and load characteristics
         input_string = self.dataset_condition[condition]

@@ -412,7 +412,7 @@ class DataETL:
         # res = round(statistics.mean(res), 1)
 
         # Take the SD as first choice and KL as second choice
-        result = round(max(data_sd), 1)
+        result = round(data_sd[0], 1)
 
         return result
 
