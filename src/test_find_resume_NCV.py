@@ -32,7 +32,7 @@ warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
 PLOT = True
 RESUME = True
-NEW_DATASET = False
+NEW_DATASET = True
 N_INTERNAL_SPLITS = 5
 N_ITER = 10
 
@@ -69,9 +69,9 @@ def main():
     if args.merge:
         MERGE = args.merge
     
-    # DATASET= "xjtu"
-    # TYPE= "correlated"
-    # MERGE= "False"
+    #DATASET= "xjtu"
+    #TYPE= "correlated"
+    #MERGE= "False"
 
     if TYPE == "bootstrap":
         N_BOOT = 8
@@ -86,7 +86,7 @@ def main():
         N_BEARING = cfg.N_REAL_BEARING_XJTU
         N_SPLITS = 5
         TRAIN_SIZE = 1
-        CENSORING = cfg.CENSORING_LEVEL  
+        CENSORING = cfg.CENSORING_LEVEL
     elif DATASET == "pronostia":
         data_path = cfg.RAW_DATA_PATH_PRONOSTIA
         N_CONDITION = len(data_path)
@@ -101,7 +101,7 @@ def main():
 
     # Insert the models and feature name selector for CV hyperparameter search and initialize the DataETL instance
     models = [CoxPH, RSF, DeepSurv, DSM, BNNmcd]
-    ft_selectors = [NoneSelector, PHSelector]
+    ft_selectors = [PHSelector]
     data_util = DataETL(DATASET, N_BOOT)
 
     # Extract information from the dataset selected from the config file
@@ -295,9 +295,9 @@ def main():
 
                         # Calculate the target datasheet TtE
                         if DATASET == 'xjtu':
-                            datasheet_target = estimate_target_rul_xjtu (data_path, test, TEST_CONDITION)
+                            datasheet_target = estimate_target_rul_xjtu(data_path, test, TEST_CONDITION)
                         elif DATASET == 'pronostia':
-                            datasheet_target = estimate_target_rul_pronostia (data_path, test, TEST_CONDITION)
+                            datasheet_target = estimate_target_rul_pronostia(data_path, test, TEST_CONDITION)
 
                         print(f"Evaluated {model_print_name} - {ft_selector_print_name} - {percentage}" +
                             f" - CI={round(c_index_cvi, 3)} - IBS={round(brier_score_cvi, 3)}" +
