@@ -32,22 +32,22 @@ warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
 PLOT = True
 RESUME = True
-NEW_DATASET = False
+NEW_DATASET = True
 N_INTERNAL_SPLITS = 5
-N_ITER = 1 #0 
+N_ITER = 10 
 
 def main():
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument('--dataset', type=str,
-    #                     required=True,
-    #                     default=None)
-    # parser.add_argument('--typedata', type=str,
-    #                     required=True,
-    #                     default=None)
-    # parser.add_argument('--merge', type=str,
-    #                     required=True,
-    #                     default=None)
-    # args = parser.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dataset', type=str,
+                        required=True,
+                        default=None)
+    parser.add_argument('--typedata', type=str,
+                        required=True,
+                        default=None)
+    parser.add_argument('--merge', type=str,
+                        required=True,
+                        default=None)
+    args = parser.parse_args()
     
     global DATASET
     global TYPE
@@ -59,19 +59,19 @@ def main():
     global CENSORING
     global N_BOOT
     
-    # if args.dataset:
-    #     DATASET = args.dataset
-    #     cfg.DATASET_NAME = args.dataset
+    if args.dataset:
+        DATASET = args.dataset
+        cfg.DATASET_NAME = args.dataset
 
-    # if args.typedata:
-    #     TYPE = args.typedata
+    if args.typedata:
+        TYPE = args.typedata
     
-    # if args.merge:
-    #     MERGE = args.merge
+    if args.merge:
+        MERGE = args.merge
     
-    DATASET= "xjtu"
-    TYPE= "correlated"
-    MERGE= "False"
+    #DATASET= "xjtu"
+    #TYPE= "correlated"
+    #MERGE= "False"
 
     if TYPE == "bootstrap":
         N_BOOT = 8
@@ -100,8 +100,8 @@ def main():
         Builder(DATASET, N_BOOT).build_new_dataset(bootstrap= N_BOOT)
 
     # Insert the models and feature name selector for CV hyperparameter search and initialize the DataETL instance
-    models = [CoxPH] #, RSF, DeepSurv, DSM, BNNmcd
-    ft_selectors = [NoneSelector] #, PHSelector
+    models = [CoxPH, RSF, DeepSurv, DSM, BNNmcd]
+    ft_selectors = [NoneSelector, PHSelector]
     data_util = DataETL(DATASET, N_BOOT)
 
     # Extract information from the dataset selected from the config file
