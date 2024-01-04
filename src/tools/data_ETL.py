@@ -18,7 +18,6 @@ class DataETL:
             self.total_signals = cfg.N_SIGNALS_XJTU
             self.time_split = 20
             self.folder_size = self.total_bearings * self.time_split
-            self.event_detector_goal = cfg.EVENT_DETECTOR_CONFIG
         elif dataset == "pronostia":
             self.real_bearings = cfg.N_REAL_BEARING_PRONOSTIA
             self.boot_folder_size = (2 + bootstrap) * 2
@@ -26,7 +25,8 @@ class DataETL:
             self.total_signals = cfg.N_SIGNALS_PRONOSTIA
             self.time_split = 20
             self.folder_size = self.total_bearings * self.time_split
-            self.event_detector_goal = cfg.EVENT_DETECTOR_CONFIG
+        self.event_detector_goal = cfg.EVENT_DETECTOR_CONFIG
+
 
     def make_surv_data_bootstrap (self, 
             covariates: dict, 
@@ -417,7 +417,11 @@ class DataETL:
         if self.event_detector_goal == "predictive_maintenance_sensitive":
             result = round(data_sd[0], 1)
         elif self.event_detector_goal == "predictive_maintenance_robust":
-            result = round(data_sd[1], 1)
+            if len(data_sd) > 1:
+                result = round(data_sd[1], 1)
+            else:
+                print("For bearing #{}, event considered at the end of the recording".format(bear_num))
+                result = -tot_length
         elif self.event_detector_goal == "labeler_median":
             result = round(np.median(data_sd), 1)
         elif self.event_detector_goal == "labeler_mean":
