@@ -69,9 +69,9 @@ def main():
     if args.merge:
         MERGE = args.merge
     
-    #DATASET= "xjtu"
-    #TYPE= "correlated"
-    #MERGE= "False"
+    # DATASET= "xjtu"
+    # TYPE= "correlated"
+    # MERGE= "False"
 
     if TYPE == "bootstrap":
         N_BOOT = 8
@@ -101,7 +101,7 @@ def main():
 
     # Insert the models and feature name selector for CV hyperparameter search and initialize the DataETL instance
     models = [CoxPH, RSF, DeepSurv, DSM, BNNmcd]
-    ft_selectors = [NoneSelector, PHSelector]
+    ft_selectors = [NoneSelector, PHSelector] 
     data_util = DataETL(DATASET, N_BOOT)
 
     # Extract information from the dataset selected from the config file
