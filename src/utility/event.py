@@ -164,7 +164,7 @@ class Event:
                 # Set the break in offset given from CDF function over L10H
                 break_in_offset_kl = - (1 - cdf_values[THRESHOLD_WINDOW])
 
-                anomaly_excursion_break_out_kl += abs(break_in_offset_kl) * 4     
+                anomaly_excursion_break_out_kl += abs(break_in_offset_kl) * 4
                 
                 # Calculate the derivative of the line between the temporary threshold reference of the bin and the current value
                 x = [0, 1]
@@ -266,7 +266,7 @@ class Event:
                 # Set the break in offset given from CDF function over L10H
                 break_in_offset_sd = - (1 - cdf_values[THRESHOLD_WINDOW])
 
-                anomaly_excursion_break_out_sd += abs(break_in_offset_sd) * 4        
+                anomaly_excursion_break_out_sd += abs(break_in_offset_sd) * 4       
                 
                 # Calculate the derivative of the line between the temporary threshold reference of the bin and the current value
                 x = [0, 1]
@@ -412,7 +412,7 @@ class Event:
         ) -> np.ndarray:
         
         # The decay is proportional to the L10
-        decay = 1 / (L10M_windowed * 2)
+        decay = 1 / L10M_windowed * 2
         return L10M_windowed * np.exp(-decay * x)
 
     def datasheet_loader (self, 
