@@ -101,7 +101,7 @@ def main():
 
     # Insert the models and feature name selector for CV hyperparameter search and initialize the DataETL instance
     models = [CoxPH, RSF, DeepSurv, DSM, BNNmcd]
-    ft_selectors = [PHSelector] #, NoneSelector
+    ft_selectors = [PHSelector]
     data_util = DataETL(DATASET, N_BOOT)
 
     # Extract information from the dataset selected from the config file
