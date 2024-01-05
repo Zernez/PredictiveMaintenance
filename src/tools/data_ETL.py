@@ -379,6 +379,9 @@ class DataETL:
         - result (float): The analyzed event data.
         """
         
+        # Transform the bearing number into the index of the info_pack
+        bear_num -= 1 
+
         data_kl = []
         data_sd = []
 

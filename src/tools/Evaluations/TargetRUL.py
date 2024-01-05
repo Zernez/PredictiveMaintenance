@@ -3,7 +3,7 @@ import re
 import os
 
 def estimate_target_rul_xjtu(
-        data_path: str, 
+        data_path: list, 
         test: list, 
         test_condition: int
     ) -> (float):
@@ -11,7 +11,7 @@ def estimate_target_rul_xjtu(
     Estimates the target Remaining Useful Life (RUL) using the XJTU-SY dataset.
 
     Args:
-    - data_path (str): The path to the data.
+    - data_path (list): The path to the data.
     - test (list): A list of indices representing the test data.
     - test_condition (int): The actual test condition in the main pipeline script.
 
