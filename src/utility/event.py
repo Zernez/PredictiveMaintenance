@@ -164,7 +164,7 @@ class Event:
                 # Set the break in offset given from CDF function over L10H
                 break_in_offset_kl = - (1 - cdf_values[THRESHOLD_WINDOW])
 
-                anomaly_excursion_break_out_kl += abs(break_in_offset_kl) * 4
+                anomaly_excursion_break_out_kl += abs(break_in_offset_kl) * 3
                 
                 # Calculate the derivative of the line between the temporary threshold reference of the bin and the current value
                 x = [0, 1]
@@ -266,7 +266,7 @@ class Event:
                 # Set the break in offset given from CDF function over L10H
                 break_in_offset_sd = - (1 - cdf_values[THRESHOLD_WINDOW])
 
-                anomaly_excursion_break_out_sd += abs(break_in_offset_sd) * 4       
+                anomaly_excursion_break_out_sd += abs(break_in_offset_sd) * 4      
                 
                 # Calculate the derivative of the line between the temporary threshold reference of the bin and the current value
                 x = [0, 1]
@@ -279,7 +279,7 @@ class Event:
                 previous_derivative = coefficients[0]/coefficients[1]
 
                 # If the derivative is lower than the threshold and KL break-threshold occurs or an anomal derivative occur, save the information and calculate the error 
-                if (derivative < break_in_offset_sd and break_out_KL < THRESHOLD_WINDOW and break_out_KL > 0.0) or previous_derivative > anomaly_excursion_break_out_sd:
+                if (derivative < break_in_offset_sd and self.break_out_KL < THRESHOLD_WINDOW and self.break_out_KL > 0.0) or previous_derivative > anomaly_excursion_break_out_sd:
 
                     if bin[THRESHOLD_WINDOW]> thresholds_sd [BIN][0]:
                         thresholds_sd [BIN][0] = fixed_y
@@ -412,7 +412,7 @@ class Event:
         ) -> np.ndarray:
         
         # The decay is proportional to the L10
-        decay = 1 / L10M_windowed * 2
+        decay = 3 / L10M_windowed
         return L10M_windowed * np.exp(-decay * x)
 
     def datasheet_loader (self, 

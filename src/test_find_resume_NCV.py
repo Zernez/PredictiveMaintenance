@@ -32,7 +32,7 @@ warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
 PLOT = True
 RESUME = True
-NEW_DATASET = True
+NEW_DATASET = False
 N_INTERNAL_SPLITS = 5
 N_ITER = 10 
 
@@ -101,7 +101,7 @@ def main():
 
     # Insert the models and feature name selector for CV hyperparameter search and initialize the DataETL instance
     models = [CoxPH, RSF, DeepSurv, DSM, BNNmcd]
-    ft_selectors = [NoneSelector, PHSelector] 
+    ft_selectors = [PHSelector] #, NoneSelector
     data_util = DataETL(DATASET, N_BOOT)
 
     # Extract information from the dataset selected from the config file
