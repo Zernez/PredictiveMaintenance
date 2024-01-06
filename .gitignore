@@ -4,6 +4,7 @@ plots/
 logs/
 __pycache__/
 
+src/config.py
 src/test_find_resume_CV.py
 src/test_resume_plot.py
 src/PredMan/
