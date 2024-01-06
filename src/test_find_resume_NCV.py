@@ -32,7 +32,7 @@ warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
 PLOT = True
 RESUME = True
-NEW_DATASET = False
+NEW_DATASET = True
 N_INTERNAL_SPLITS = 5
 N_ITER = 10 
 
