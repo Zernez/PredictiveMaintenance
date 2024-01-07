@@ -26,7 +26,7 @@ def run_cross_validation(model_builder, data, param_list, n_internal_splits):
                     preds = pd.DataFrame(model.predict_survival(x_test, t=list(times)), columns=times)
                 elif model_name == "BNNmcd":
                     model.fit(x_train, t_train, e_train)
-                    preds = pd.DataFrame(np.mean(model.predict_survival(x_test, times), axis=0), columns=times)
+                    preds = pd.DataFrame(np.mean(model.predict_survival(x_test, times, n_post_samples=1000), axis=0), columns=times)
                 else:
                     y_train = convert_to_structured(t_train, e_train)
                     model.fit(x_train, y_train)

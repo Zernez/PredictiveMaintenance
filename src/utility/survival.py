@@ -135,7 +135,7 @@ class Survival:
         return sanitized_surv_preds, sanitized_cvi
     
     @staticmethod
-    def predict_survival_function (
+    def predict_survival_function(
             model, 
             X_test: pd.DataFrame, 
             times: np.ndarray,
@@ -163,7 +163,7 @@ class Survival:
             surv_prob = pd.DataFrame(model.predict_survival(X_test, t= list(times)), columns=times)
             return surv_prob
         elif model.__class__.__name__ == 'MCD':
-            surv_prob = pd.DataFrame(np.mean(model.predict_survival(X_test, event_times= times), axis=0))
+            surv_prob = pd.DataFrame(np.mean(model.predict_survival(X_test, event_times=times, n_post_samples=n_post_samples), axis=0))
             return surv_prob
         else:
             surv_prob = pd.DataFrame(np.row_stack([fn(times) for fn in model.predict_survival_function(X_test)]), columns=times)
