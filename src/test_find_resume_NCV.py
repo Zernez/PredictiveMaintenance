@@ -34,7 +34,7 @@ PLOT = True
 RESUME = True
 NEW_DATASET = True
 N_INTERNAL_SPLITS = 5
-N_ITER = 10 
+N_ITER = 10
 
 def main():
     parser = argparse.ArgumentParser()

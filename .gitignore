@@ -4,6 +4,8 @@ plots/
 logs/
 __pycache__/
 
+config.py
+src/config.py
 src/test_find_resume_CV.py
 src/test_resume_plot.py
 src/PredMan/
@@ -18,3 +20,4 @@ src/HP_crest_kurtosis.ipynb
 
 *.pt
 data.zip
+src/config.py
