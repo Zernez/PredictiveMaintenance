@@ -265,22 +265,15 @@ class DeepSurv(BaseRegressor):
         return DeepCoxPH(layers=model_params['layers'])
     
     def get_hyperparams(self):
-        if cfg.DATA_TYPE == "bootstrap":
-            return {'batch_size' : [4],
-                    'learning_rate' : [1e-1, 1e-2],
-                    'iters': [50, 100],
-                    'layers': [[16]]
-                    }
-        else:
-            return {'batch_size' : [16, 32],
-                    'learning_rate' : [1e-1, 1e-2, 1e-3, 1e-4],
-                    'iters': [100, 300, 500, 1000],
-                    'layers': [[16], [32], [16, 16], [32, 32], [16, 16, 16], [32, 32, 32]]
-                    }
+        return {'batch_size' : [16, 32],
+                'learning_rate' : [1e-2, 1e-3],
+                'iters': [100, 300, 500, 1000],
+                'layers': [[16], [32], [16, 16], [32, 32]]
+                }
     
     def get_best_hyperparams(self):
         return {'batch_size' : 10,
-                'learning_rate' : 1e-4,
+                'learning_rate' : 1e-3,
                 'iters': 100,
                 'layers': [32]}
     
@@ -292,22 +285,15 @@ class DSM(BaseRegressor):
         return DeepSurvivalMachines(layers=model_params['layers'])
     
     def get_hyperparams(self):
-        if cfg.DATA_TYPE == "bootstrap":
-            return {'batch_size' : [4],
-                    'learning_rate' : [1e-1, 1e-2],
-                    'iters': [50, 100],
-                    'layers': [[16]]
-                    }
-        else:
-            return {'batch_size' : [16, 32],
-                    'learning_rate' : [1e-1, 1e-2, 1e-3, 1e-4],
-                    'iters': [100, 300, 500, 1000],
-                    'layers': [[16], [32], [16, 16], [32, 32], [16, 16, 16], [32, 32, 32]]
-                    }
+        return {'batch_size' : [16, 32],
+                'learning_rate' : [1e-2, 1e-3],
+                'iters': [100, 300, 500, 1000],
+                'layers': [[16], [32], [16, 16], [32, 32]]
+                }
             
     def get_best_hyperparams(self):
         return {'batch_size' : 32,
-                'learning_rate' : 1e-4,
+                'learning_rate' : 1e-3,
                 'iters': 100,
                 'layers': [32]}
     
@@ -319,18 +305,11 @@ class BNNmcd(BaseRegressor):
         return models.MCD(**model_params)
     
     def get_hyperparams(self):
-        if cfg.DATA_TYPE == "bootstrap":
-            return {'batch_size' : [4],
-                    'learning_rate' : [1e-1, 1e-2],
-                    'num_epochs': [5],
-                    'layers': [[16]]
-                    }
-        else:
-            return {'batch_size' : [16, 32],
-                    'learning_rate' : [1e-1, 1e-2, 1e-3, 1e-4],
-                    'num_epochs': [5, 10],
-                    'layers': [[16], [32], [16, 16], [32, 32], [16, 16, 16], [32, 32, 32]]
-                    }
+        return {'batch_size' : [16, 32],
+                'learning_rate' : [1e-2, 1e-3],
+                'num_epochs': [5, 10],
+                'layers': [[16], [32], [16, 16], [32, 32]]
+                }
 
     def get_best_hyperparams(self):
         return {'batch_size' : 32,

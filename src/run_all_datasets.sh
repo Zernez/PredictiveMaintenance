@@ -15,7 +15,7 @@ echo "==========================================================================
 for dataset in ${datasets[@]}; do
 	for corr in ${corrs[@]}; do
 		echo "Starting dataset run <$dataset> <$corr> <$merge>"
-	        python $base_path/../src/test_find_resume.py --dataset $dataset --typedata $corr --typedata $merge
+	        python $base_path/../src/test_find_resume.py --dataset $dataset --typedata $corr
 	        echo "Tuning dataset <$dataset> <$corr> <$merge> done"
 	        echo -e "\n\n\n\n\n"
 	        echo "=============================================================================================="
