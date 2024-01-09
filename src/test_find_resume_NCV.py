@@ -261,6 +261,12 @@ def main():
                             brier_score_cvi = approx_brier_score(sanitized_cvi, sanitized_surv_preds)
                         except:
                             brier_score_cvi = np.nan
+                            
+                        if brier_score_cvi == np.inf:
+                            brier_score_cvi = np.nan
+                        
+                        if mae_hinge_cvi > 1000:
+                            mae_hinge_cvi = np.nan
                         
                         n_preds = len(sanitized_surv_preds)
                         event_detector_target = np.median(sanitized_cvi['Survival_time'])
