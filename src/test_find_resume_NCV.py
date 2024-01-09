@@ -65,10 +65,8 @@ def main():
 
     if TYPE == "bootstrap":
         N_BOOT = 8
-        cfg.DATA_TYPE = "bootstrap"
     else:
         N_BOOT = 3
-        cfg.DATA_TYPE = "not_bootstrap"
 
     if DATASET == "xjtu":
         data_path = cfg.RAW_DATA_PATH_XJTU
@@ -87,7 +85,7 @@ def main():
     
     # For the first time running, a NEW_DATASET is needed
     if NEW_DATASET== True:
-        Builder(DATASET, N_BOOT).build_new_dataset(bootstrap=N_BOOT)
+        Builder(DATASET, N_BOOT, TYPE).build_new_dataset(bootstrap=N_BOOT)
 
     # Insert the models and feature name selector for CV hyperparameter search and initialize the DataETL instance
     models = [CoxPH, RSF, DeepSurv, DSM, BNNmcd]
@@ -99,7 +97,7 @@ def main():
     boot_group = []
     info_group = []
     for test_condition in range (0, N_CONDITION):
-        cov, boot, info_pack = FileReader(DATASET).read_data(test_condition, N_BOOT)
+        cov, boot, info_pack = FileReader(DATASET, TYPE).read_data(test_condition, N_BOOT)
         cov_group.append(cov)
         boot_group.append(boot)
         info_group.append(info_pack)
@@ -133,7 +131,7 @@ def main():
 
             # Indexing by the original bearing number the dataset to avoid train/test leaking. 
             # The data will be splitted in chunks of bearings bootrastrapped from the original bearing.
-            dummy_x = list(range(0, int(np.floor(N_BEARING * TRAIN_SIZE)), 1))                       
+            dummy_x = list(range(0, int(np.floor(N_BEARING * TRAIN_SIZE)), 1))
             
             print(f"Started evaluation of {len(models)} models/{len(ft_selectors)} ft selectors. Dataset: {DATASET}. Type: {TYPE}")
             

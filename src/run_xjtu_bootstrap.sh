@@ -16,7 +16,7 @@ for dataset in ${datasets[@]}; do
         for corr in ${corrs[@]}; do
                 echo "Starting dataset run <$dataset> <$corr>"
                 python $base_path/test_find_resume_NCV.py --dataset $dataset --typedata $corr
-                rm $base_path/data/XJTU-SY/csv/*
+                rm $base_path/data/XJTU-SY/csv/$corr/*
                 echo "Tuning dataset <$dataset> <$corr> done"
                 echo -e "\n\n\n\n\n"
                 echo "=============================================================================================="
