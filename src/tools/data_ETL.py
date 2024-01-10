@@ -403,11 +403,11 @@ class DataETL:
 
         # Assign a time-to-event if exist from KL or SD or end of recording if necessary
         if not data_sd:
-            if data_kl:
-                data_sd = data_kl
-            else:
-                data_sd = [-tot_length]
-                print("For bearing #{}, event considered at the end of the recording".format(bear_num))
+            # if data_kl:
+            #     data_sd = data_kl
+            # else:
+            data_sd = [-tot_length]
+            print("For bearing #{}, event considered at the end of the recording".format(bear_num))
         if not data_kl:
             if data_sd:
                 data_kl = data_sd
