@@ -22,7 +22,10 @@ def run_cross_validation(model_builder, data, param_list, n_internal_splits):
             model = model_builder().make_model(sample)
             with Suppressor():
                 if model_name in ["DeepSurv", "DSM"]:
-                    model = model.fit(x_train, t_train, e_train, vsize=0.3)
+                    model = model.fit(x_train, t_train, e_train, vsize=0.3,
+                                      iters=sample['iters'],
+                                      learning_rate=sample['learning_rate'],
+                                      batch_size=sample['batch_size'])
                     preds = pd.DataFrame(model.predict_survival(x_test, t=list(times)), columns=times)
                 elif model_name == "BNNmcd":
                     model.fit(x_train, t_train, e_train)

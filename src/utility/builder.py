@@ -7,20 +7,20 @@ import config as cfg
 
 class Builder:
 
-    def __init__ (self, dataset, bootstrap):
+    def __init__ (self, dataset, bootstrap, type):
         if dataset == "xjtu":
             self.real_bearing = cfg.N_REAL_BEARING_XJTU
             boot_folder_size = (2 + bootstrap) * 2
-            self.total_bearings= self.real_bearing * boot_folder_size
-            self.raw_main_path= cfg.RAW_DATA_PATH_XJTU
-            self.aggregate_main_path= cfg.DATASET_PATH_XJTU
+            self.total_bearings = self.real_bearing * boot_folder_size
+            self.raw_main_path = cfg.RAW_DATA_PATH_XJTU
+            self.aggregate_main_path = cfg.DATASET_PATH_XJTU + f'{type}/'
 
         elif dataset == "pronostia":
             self.real_bearing = cfg.N_REAL_BEARING_PRONOSTIA
             boot_folder_size = (2 + bootstrap) * 2
-            self.total_bearings= self.real_bearing * boot_folder_size
-            self.raw_main_path= cfg.RAW_DATA_PATH_PRONOSTIA
-            self.aggregate_main_path= cfg.DATASET_PATH_PRONOSTIA
+            self.total_bearings = self.real_bearing * boot_folder_size
+            self.raw_main_path = cfg.RAW_DATA_PATH_PRONOSTIA
+            self.aggregate_main_path = cfg.DATASET_PATH_PRONOSTIA
         self.dataset= dataset 
 
     def build_new_dataset (self, 
