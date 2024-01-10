@@ -8,7 +8,7 @@ fi
 echo "$base_path"
 
 datasets=("xjtu")
-corrs=("bootstrap", "correlated", "not_correlated")
+corrs=("bootstrap" "correlated" "not_correlated")
 echo "=============================================================================================="
 echo "Starting script"
 echo "=============================================================================================="
