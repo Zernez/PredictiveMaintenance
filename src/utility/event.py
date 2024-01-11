@@ -150,9 +150,7 @@ class Event:
 
             thresholds_kl [BIN][3] = len(bin)
             
-            if thresholds_kl [BIN][3] > 0 and L10H_windowed * 0.5 < thresholds_kl [BIN][3]:
-                cdf_values = self.calculate_CDF(L10H_windowed)
-            elif thresholds_kl [BIN][3] > 0 and L10H_windowed * 0.5 > thresholds_kl [BIN][3]:
+            if thresholds_kl [BIN][3] > 0 and L10H_windowed * 0.5 > thresholds_kl [BIN][3]:
                 cdf_values = self.calculate_CDF(int(np.mean([avg_life_group,L10H_windowed])))
             elif thresholds_kl [BIN][3] > 0 and L10H_windowed < thresholds_kl [BIN][3]:
                 cdf_values = self.calculate_CDF(thresholds_kl [BIN][3])
@@ -257,9 +255,7 @@ class Event:
 
             thresholds_sd [BIN][3] = len(bin)
 
-            if thresholds_sd [BIN][3] > 0 and L10H_windowed * 0.5 < thresholds_sd [BIN][3]:
-                cdf_values = self.calculate_CDF(L10H_windowed)
-            elif thresholds_sd [BIN][3] > 0 and L10H_windowed * 0.5 > thresholds_sd [BIN][3]:
+            if thresholds_sd [BIN][3] > 0 and L10H_windowed * 0.5 > thresholds_sd [BIN][3]:
                 cdf_values = self.calculate_CDF(int(np.mean([avg_life_group,L10H_windowed])))
             elif thresholds_sd [BIN][3] > 0 and L10H_windowed < thresholds_sd [BIN][3]:
                 cdf_values = self.calculate_CDF(thresholds_sd [BIN][3])
@@ -278,7 +274,7 @@ class Event:
                 # Set the break in offset given from CDF function over L10H
                 break_in_offset_sd = - (1 - cdf_values[THRESHOLD_WINDOW])
 
-                anomaly_excursion_break_out_sd += abs(break_in_offset_sd) * 4 #4    
+                anomaly_excursion_break_out_sd += abs(break_in_offset_sd) * 3 #4    
                 
                 # Calculate the derivative of the line between the temporary threshold reference of the bin and the current value
                 x = [0, 1]
@@ -393,24 +389,24 @@ class Event:
         return L10M
 
     def calculate_CDF (self, 
-            L10H_windowed: int
+            lifetime_estimation: float
         ) -> np.ndarray:
 
         """
         Calculate the Cumulative Distribution Function (CDF) for a given L10H_windowed value.
 
         Parameters:
-        - L10H_windowed (int): The L10H_windowed value for which to calculate the CDF.
+        - lifetime_estimation (float): The lifetime on L10 or group estimation value for which to calculate the CDF.
 
         Returns:
         - cdf_values (numpy.ndarray): An array of CDF values corresponding to the x_values.
         """
 
         # Create an array of values for which you want to calculate the CDF
-        x_values = np.linspace(0, L10H_windowed, L10H_windowed)
+        x_values = np.linspace(0, int(lifetime_estimation), int(lifetime_estimation))
 
         # Calculate the CDF for each value in the array using numerical integration
-        cdf_values = np.cumsum(self.exponential_degradation_function(x_values, L10H_windowed)) * (x_values[1] - x_values[0])
+        cdf_values = np.cumsum(self.exponential_degradation_function(x_values, lifetime_estimation)) * (x_values[1] - x_values[0])
 
         # Normalize the CDF to be between 0 and 1
         cdf_values /= cdf_values[-1]
@@ -423,7 +419,7 @@ class Event:
         ) -> np.ndarray:
         
         # The decay is proportional to the L10
-        decay = 4 / L10M_windowed
+        decay = 5 / L10M_windowed
 
         return L10M_windowed * np.exp(-decay * x)
 
