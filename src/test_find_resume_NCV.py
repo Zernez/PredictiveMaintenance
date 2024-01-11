@@ -260,7 +260,7 @@ def main():
                         except:
                             brier_score_cvi = np.nan
                             
-                        if brier_score_cvi == np.inf:
+                        if brier_score_cvi < 0 or brier_score_cvi > 1:
                             brier_score_cvi = np.nan
                         
                         if mae_hinge_cvi > 1000:
