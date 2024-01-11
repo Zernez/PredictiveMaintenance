@@ -62,12 +62,12 @@ if __name__ == "__main__":
                                     (results['Upsampling'] == um) &
                                     (results['Censoring'] == cens) &
                                     (results['Condition'] == cond)]
-                    mean_ctd = round(np.mean(res['CIndex']), 3)
-                    mean_ibs = round(np.mean(res['BrierScore']), 3)
-                    mean_mae = round(np.mean(res['MAEHinge']), 3)
-                    std_ctd = round(np.std(res['CIndex']), 3)
-                    std_ibs = round(np.std(res['BrierScore']), 3)
-                    std_mae = round(np.std(res['MAEHinge']), 3)
+                    mean_ctd = round(np.mean(res['CIndex']), 2)
+                    mean_ibs = round(np.mean(res['BrierScore']), 2)
+                    mean_mae = round(np.mean(res['MAEHinge']), 2)
+                    std_ctd = round(np.std(res['CIndex']), 2)
+                    std_ibs = round(np.std(res['BrierScore']), 2)
+                    std_mae = round(np.std(res['MAEHinge']), 2)
                     text += f"{mean_ctd}$\pm${std_ctd} & {mean_ibs}$\pm${std_ibs} & {mean_mae}$\pm${std_mae}"
                     if cond == 2:
                         text += "\\\\"
