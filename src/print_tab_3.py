@@ -26,25 +26,22 @@ if __name__ == "__main__":
     
     upsampling_pattern = r'./results\\([^\\]+)\\'
     censoring_pattern = r'_(\d+)_results\.csv$'
-    condition_pattern = r'_([^_]+)'
+    condition_pattern = r'_([^_]+_\d+)_'
 
     for filename in all_files:
         df = pd.read_csv(filename, index_col=0)
         
         match = re.search(upsampling_pattern, filename)
-        df['Upsampling'] = match.group(1).capitalize()
-        
-        match = re.search(censoring_pattern, filename)
-        df['Censoring'] = match.group(1)
-        
-        match = re.search(condition_pattern, filename)
-        cond = match.group(1)
+        df['Upsampling'] = re.search(upsampling_pattern, filename).group(1).capitalize()
+        df['Censoring'] = re.search(censoring_pattern, filename).group(1)
+        cond = re.search(condition_pattern, filename).group(1).split("_", 1)[0] # hack
         if cond == '35Hz12kN':
             df['Condition'] = 0
         elif cond == '37.5Hz11kN':
             df['Condition'] = 1
         else:
             df['Condition'] = 2
+            
         li.append(df)
 
     results = pd.concat(li, axis=0, ignore_index=True)
@@ -62,13 +59,10 @@ if __name__ == "__main__":
                                     (results['Upsampling'] == um) &
                                     (results['Censoring'] == cens) &
                                     (results['Condition'] == cond)]
-                    mean_ctd = round(np.mean(res['CIndex']), 2)
-                    mean_ibs = round(np.mean(res['BrierScore']), 2)
-                    mean_mae = round(np.mean(res['MAEHinge']), 2)
-                    std_ctd = round(np.std(res['CIndex']), 2)
-                    std_ibs = round(np.std(res['BrierScore']), 2)
-                    std_mae = round(np.std(res['MAEHinge']), 2)
-                    text += f"{mean_ctd}$\pm${std_ctd} & {mean_ibs}$\pm${std_ibs} & {mean_mae}$\pm${std_mae}"
+                    for metric in metrics:
+                        mean = round(np.mean(res[metric]), 2)
+                        std = round(np.std(res[metric]), 2)
+                        text += f"{mean}$\pm${std}"
                     if cond == 2:
                         text += "\\\\"
                     else:
