@@ -27,12 +27,14 @@ from tools.cross_validator import run_cross_validation
 from xgbse.metrics import approx_brier_score
 import os
 import argparse
+from itertools import combinations
 
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
 NEW_DATASET = True
-N_INTERNAL_SPLITS = 5
 N_ITER = 10
+N_INTERNAL_SPLITS = 5
+N_TRAIN_BEARINGS = 3
 
 def main():
     parser = argparse.ArgumentParser()
@@ -144,10 +146,11 @@ def main():
                 for ft_selector_builder in ft_selectors:
                     ft_selector_name = ft_selector_builder.__name__
                     
-                    # For N_SPLITS folds 
-                    kf = KFold(n_splits= N_SPLITS, shuffle= False)
-                    for split_idx, (train, test) in enumerate(kf.split(dummy_x)):
-                        # Start take the time for search the hyperparameters for each fold
+                    # Split in train and test set
+                    for train in list(combinations(dummy_x, N_TRAIN_BEARINGS)):
+                        test = list([idx for idx in dummy_x if idx not in train])
+                        
+                        # Track time
                         split_start_time = time()
 
                         # Load the train data from group indexed Kfold splitting avoiding train/test leaking                
@@ -277,7 +280,7 @@ def main():
                             datasheet_target = estimate_target_rul_pronostia(data_path, test, test_condition)
 
                         print(f"Evaluated {model_print_name} - {ft_selector_print_name} - {percentage}" +
-                            f" - CI={round(c_index_cvi, 3)} - IBS={round(brier_score_cvi, 3)}" +
+                            f" - CI={round(c_index_cvi, 3)} - IBS={round(brier_score_cvi, 3)} - MED={round(median_survival_time, 3)}" +
                             f" - MAE={round(mae_hinge_cvi, 3)} - DCalib={d_calib} - T={round(t_total_split_time, 3)}")
 
                         # Indexing the resul table
