@@ -33,7 +33,7 @@ warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
 NEW_DATASET = True
 N_ITER = 10
-N_INTERNAL_SPLITS = 5
+N_INTERNAL_SPLITS = 3
 N_TRAIN_BEARINGS = 3
 
 def main():
