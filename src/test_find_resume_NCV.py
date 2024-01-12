@@ -246,7 +246,7 @@ def main():
                             median_survival_time = np.median(lifelines_eval.predict_time_from_curve(predict_median_survival_time))
                             mae_hinge_cvi = lifelines_eval.mae(method="Hinge")
                             d_calib = 1 if lifelines_eval.d_calibration()[0] > 0.05 else 0
-                            c_index_cvi = lifelines_eval.concordance()
+                            c_index_cvi = lifelines_eval.concordance()[0]
                         except:
                             median_survival_time = np.nan
                             mae_hinge_cvi = np.nan

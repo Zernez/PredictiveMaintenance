@@ -36,7 +36,7 @@ def run_cross_validation(model_builder, data, param_list, n_internal_splits):
                     preds = pd.DataFrame(np.row_stack([fn(times)
                                                        for fn in model.predict_survival_function(x_test)]), columns=times)
             lifelines_eval = LifelinesEvaluator(preds.T, t_test, e_test, t_train, e_train)
-            ci = lifelines_eval.concordance()
+            ci = lifelines_eval.concordance()[0]
             res_sr = pd.Series([str(model_name), split_idx, sample, ci],
                             index=["ModelName", "SplitIdx", "Params", "CI"])
             param_results = pd.concat([param_results, res_sr.to_frame().T], ignore_index=True)
