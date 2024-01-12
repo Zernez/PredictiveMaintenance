@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.model_selection import KFold
 from utility.printer import Suppressor
 from utility.survival import make_event_times, convert_to_structured
-from pycox.evaluation import EvalSurv
+from tools.evaluator import LifelinesEvaluator
 
 def run_cross_validation(model_builder, data, param_list, n_internal_splits):
     sample_results = pd.DataFrame()
@@ -35,14 +35,14 @@ def run_cross_validation(model_builder, data, param_list, n_internal_splits):
                     model.fit(x_train, y_train)
                     preds = pd.DataFrame(np.row_stack([fn(times)
                                                        for fn in model.predict_survival_function(x_test)]), columns=times)
-            pycox_eval = EvalSurv(preds.T, t_test, e_test, censor_surv="km")
-            ctd = pycox_eval.concordance_td()
-            res_sr = pd.Series([str(model_name), split_idx, sample, ctd],
-                            index=["ModelName", "SplitIdx", "Params", "CTD"])
+            lifelines_eval = LifelinesEvaluator(preds.T, t_test, e_test, t_train, e_train)
+            ci = lifelines_eval.concordance()
+            res_sr = pd.Series([str(model_name), split_idx, sample, ci],
+                            index=["ModelName", "SplitIdx", "Params", "CI"])
             param_results = pd.concat([param_results, res_sr.to_frame().T], ignore_index=True)
-        mean_ctd = param_results['CTD'].mean()
-        res_sr = pd.Series([str(model_name), param_results.iloc[0]["Params"], mean_ctd],
-                        index=["ModelName", "Params", "CTD"])
+        mean_ci = param_results['CI'].mean()
+        res_sr = pd.Series([str(model_name), param_results.iloc[0]["Params"], mean_ci],
+                        index=["ModelName", "Params", "CI"])
         sample_results = pd.concat([sample_results, res_sr.to_frame().T], ignore_index=True)
-    best_params = sample_results.loc[sample_results['CTD'].astype(float).idxmax()]['Params']
+    best_params = sample_results.loc[sample_results['CI'].astype(float).idxmax()]['Params']
     return best_params

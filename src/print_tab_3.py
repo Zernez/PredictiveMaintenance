@@ -15,6 +15,13 @@ def get_citation(model_name):
         return "\cite{nagpal_deep_2021}"
     return "\cite{lillelund_uncertainty_2023}"
 
+def get_upsampling_method(um):
+    if um == "Bootstrap":
+        return r"Bootstrap \eqref{alg:BSA}"
+    elif um == "Not_correlated":
+        return r"MA \eqref{alg:MAUSA}"
+    return r"AMA \eqref{alg:ACMVUSA}"
+
 if __name__ == "__main__":
     path = cfg.RESULTS_PATH
     all_files = glob(f'{path}/**/*.csv', recursive=True)
@@ -51,6 +58,7 @@ if __name__ == "__main__":
     
     for um in upsampling_methods:
         for cens in censoring:
+            print(r"\multirow{5}{*}{\shortstack{" + f"{get_upsampling_method(um)}" + r"\\" + f"{cens}" + r"\%}}")
             for index, model_name in enumerate(model_names):
                 text = ""
                 text += f"& {model_name} {get_citation(model_name)} & "
@@ -61,11 +69,13 @@ if __name__ == "__main__":
                                     (results['Condition'] == cond)]
                     for metric in metrics:
                         mean = round(np.mean(res[metric]), 2)
-                        std = round(np.std(res[metric]), 2)
+                        std = round(np.std(res[metric]), 1)
                         text += f"{mean}$\pm${std}"
-                    if cond == 2:
-                        text += "\\\\"
-                    else:
-                        text += "&"
+                        if cond == 2 and metric == 'MAEHinge':
+                            text += "\\\\"
+                        else:
+                            text += " & "
                 print(text)
-    print()
+            if um == "Correlated" and cens == "30":
+                break
+            print(r"\cmidrule(lr){1-1}")
