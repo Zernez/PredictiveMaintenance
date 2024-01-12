@@ -15,6 +15,13 @@ def get_citation(model_name):
         return "\cite{nagpal_deep_2021}"
     return "\cite{lillelund_uncertainty_2023}"
 
+def get_upsampling_method(um):
+    if um == "Bootstrap":
+        return r"Bootstrap \eqref{alg:BSA}"
+    elif um == "Not_correlated":
+        return r"MA \eqref{alg:MAUSA}"
+    return r"AMA \eqref{alg:ACMVUSA}"
+
 if __name__ == "__main__":
     path = cfg.RESULTS_PATH
     all_files = glob(f'{path}/**/*.csv', recursive=True)
@@ -51,6 +58,7 @@ if __name__ == "__main__":
     
     for um in upsampling_methods:
         for cens in censoring:
+            print(r"\multirow{5}{*}{\shortstack{" + f"{get_upsampling_method(um)}" + r"\\" + f"{cens}" + r"\%}}")
             for index, model_name in enumerate(model_names):
                 text = ""
                 text += f"& {model_name} {get_citation(model_name)} & "
@@ -59,8 +67,8 @@ if __name__ == "__main__":
                                     (results['Upsampling'] == um) &
                                     (results['Censoring'] == cens) &
                                     (results['Condition'] == cond)]
-                    tte_surv = round(np.median(res["MedianSurvTime"]), 2)
-                    tte_ed = round(np.median(res["EDTarget"]), 2)
+                    tte_surv = round(np.median(res["MedianSurvTime"]), 1)
+                    tte_ed = round(np.median(res["EDTarget"]), 1)
                     delta = round(tte_surv-tte_ed, 2)
                     text += f"{tte_surv} & {tte_ed} & {delta} "
                     text = text.replace("nan", "NA")
@@ -69,4 +77,8 @@ if __name__ == "__main__":
                     else:
                         text += "& "
                 print(text)
+            if um == "Correlated":
+                break
+            print(r"\cmidrule(lr){1-1}")
+
     print()
