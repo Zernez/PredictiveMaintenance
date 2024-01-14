@@ -35,6 +35,7 @@ NEW_DATASET = True
 N_ITER = 10
 N_INTERNAL_SPLITS = 3
 N_TRAIN_BEARINGS = 3
+TRAIN_SIZE = 1
 
 def main():
     parser = argparse.ArgumentParser()
@@ -50,7 +51,6 @@ def main():
     global TYPE
     global N_CONDITION
     global N_BEARING
-    global N_SPLITS
     global TRAIN_SIZE
     global CENSORING
     global N_BOOT
@@ -63,7 +63,7 @@ def main():
         TYPE = args.typedata
     
     #DATASET= "xjtu"
-    #TYPE= "correlated"
+    #TYPE= "not_correlated"
 
     if TYPE == "bootstrap":
         N_BOOT = 8
@@ -71,18 +71,16 @@ def main():
         N_BOOT = 3
 
     if DATASET == "xjtu":
-        data_path = cfg.RAW_DATA_PATH_XJTU
-        N_CONDITION = len(data_path)
+        DATA_PATH = cfg.RAW_DATA_PATH_XJTU
+        DATASET_PATH = cfg.DATASET_PATH_XJTU
+        N_CONDITION = len(cfg.RAW_DATA_PATH_XJTU)
         N_BEARING = cfg.N_REAL_BEARING_XJTU
-        N_SPLITS = 5
-        TRAIN_SIZE = 1
         CENSORING = cfg.CENSORING_LEVEL
     elif DATASET == "pronostia":
-        data_path = cfg.RAW_DATA_PATH_PRONOSTIA
-        N_CONDITION = len(data_path)
+        DATA_PATH = cfg.RAW_DATA_PATH_PRONOSTIA
+        DATASET_PATH = cfg.DATASET_PATH_PRONOSTIA
+        N_CONDITION = len(cfg.RAW_DATA_PATH_PRONOSTIA)
         N_BEARING = cfg.N_REAL_BEARING_PRONOSTIA
-        N_SPLITS = 2
-        TRAIN_SIZE = 1
         CENSORING = cfg.CENSORING_LEVEL
     
     # For the first time running, a NEW_DATASET is needed
@@ -99,7 +97,7 @@ def main():
     boot_group = []
     info_group = []
     for test_condition in range (0, N_CONDITION):
-        cov, boot, info_pack = FileReader(DATASET, TYPE).read_data(test_condition, N_BOOT)
+        cov, boot, info_pack = FileReader(DATASET, DATASET_PATH, TYPE).read_data(test_condition, N_BOOT)
         cov_group.append(cov)
         boot_group.append(boot)
         info_group.append(info_pack)
@@ -275,15 +273,16 @@ def main():
 
                         # Calculate the target datasheet TtE
                         if DATASET == 'xjtu':
-                            datasheet_target = estimate_target_rul_xjtu(data_path, test, test_condition)
+                            datasheet_target = estimate_target_rul_xjtu(DATA_PATH, test, test_condition)
                         elif DATASET == 'pronostia':
-                            datasheet_target = estimate_target_rul_pronostia(data_path, test, test_condition)
+                            datasheet_target = estimate_target_rul_pronostia(DATA_PATH, test, test_condition)
 
                         print(f"Evaluated {model_print_name} - {ft_selector_print_name} - {percentage}" +
                             f" - CI={round(c_index_cvi, 3)} - IBS={round(brier_score_cvi, 3)} - MED={round(median_survival_time, 3)}" +
-                            f" - MAE={round(mae_hinge_cvi, 3)} - DCalib={d_calib} - T={round(t_total_split_time, 3)}")
+                            f" - EDTarget={round(event_detector_target, 3)} - MAE={round(mae_hinge_cvi, 3)} - DCalib={d_calib}" +
+                            f" - T={round(t_total_split_time, 3)}")
 
-                        # Indexing the resul table
+                        # Indexing the result table
                         res_sr = pd.Series([model_print_name, ft_selector_print_name, c_index_cvi, brier_score_cvi,
                                             median_survival_time, mae_hinge_cvi, d_calib, event_detector_target, datasheet_target,
                                             n_preds, t_total_split_time, best_params, list(selected_fts), y_delta],
