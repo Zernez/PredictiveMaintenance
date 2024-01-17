@@ -42,12 +42,15 @@ FREQUENCY_BANDS5 = {'pronostia_start': [11, 26, 98, 153, 203],
 FREQUENCY_BANDS6 = {'pronostia_start': [12, 29, 107, 167, 216],
                        'pronostia_stop': [14, 31, 109, 169, 218]}
    
-PH_EXCLUSION = {'pronostia_not_corr': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise','impulse','skew','shape','mean','max'],
-                'pronostia_corr': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise','skew', 'clearence', 'mean', 'kurtosis', 'max', 'shape', 'entropy', 'impulse', 'crest', 'p2p'],
-                'pronostia_boot': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise'],
-                'xjtu_not_corr': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise', 'skew', 'shape', 'max', 'p2p', 'entropy', 'kurtosis'],
-                'xjtu_corr': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise', 'entropy', 'p2p', 'impulse','max', 'kurtosis', 'crest', 'shape', 'skew', 'mean'],
-                'xjtu_boot': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise','max','impulse','skew']}  
+PH_EXCLUSION = {'xjtu_bootstrap_c1': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise', 'std', 'rms'],
+                'xjtu_bootstrap_c2': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise'],
+                'xjtu_bootstrap_c3': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise'],
+                'xjtu_not_corr_c1': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise'],
+                'xjtu_not_corr_c2': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise'],
+                'xjtu_not_corr_c3': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise'],
+                'xjtu_corr_c1': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise'],
+                'xjtu_corr_c2': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise'],
+                'xjtu_corr_c3': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise']}
 
 PARAMS_CPH = {'alpha': 0.0001,
               'tol': 0.1, 
