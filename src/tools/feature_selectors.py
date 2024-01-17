@@ -22,27 +22,21 @@ class SelectPHFeatures ():
     def __init__ (self, X, y, data_info):
         self.x = X
         self.y = y
-        self.data_info = data_info
+        self.dataset = data_info[0]
+        self.type = data_info[1]
+        self.cond = data_info[2]
         self.features = []
 
     def fit (self, X, y=None):
-        if self.data_info[0] == "xjtu":
-            if self.data_info[1] == "correlated":
-                data_type = 'xjtu_corr'
-            elif self.data_info[1] == "not_correlated":
-                data_type =  'xjtu_not_corr'
-            elif self.data_info[1] == "bootstrap":
-                data_type =  'xjtu_boot'
-        elif self.data_info[0] == "pronostia":
-            if self.data_info[1] == "correlated":
-                data_type = 'pronostia_corr'
-            elif self.data_info[1] == "not_correlated":
-                data_type =  'pronostia_not_corr'
-            elif self.data_info[1] == "bootstrap":
-                data_type =  'pronostia_boot'
-
+        if self.cond == 0:
+            cond = "c1"
+        elif self.cond == 1:
+            cond = "c2"
+        else:
+            cond = "c3" 
+        data_type = f"{self.dataset}_{self.type}_{cond}"
+        
         exclusion_list = cfg.PH_EXCLUSION[data_type]
-
         for feature in exclusion_list:
             X = X.drop(feature, axis=1)
 

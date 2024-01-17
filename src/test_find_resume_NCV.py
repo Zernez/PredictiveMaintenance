@@ -175,7 +175,7 @@ def main():
                         # Create model instance and find best features
                         model = model_builder().get_estimator()
                         if ft_selector_name == "PHSelector":
-                            ft_selector = ft_selector_builder(ti[0], ti[1], estimator=[DATASET, TYPE])
+                            ft_selector = ft_selector_builder(ti[0], ti[1], estimator=[DATASET, TYPE, test_condition])
                         else:
                             ft_selector = ft_selector_builder(ti[0], ti[1], estimator=model)
                         
