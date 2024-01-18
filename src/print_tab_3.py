@@ -68,11 +68,11 @@ if __name__ == "__main__":
                                     (results['Censoring'] == cens) &
                                     (results['Condition'] == cond)]
                     for metric in metrics:
-                        mean = round(np.mean(res[metric]), 2)
+                        mean = round(np.mean(res[metric].dropna()), 2)
                         if metric == "MAEHinge":
-                            std = round(np.std(res[metric]), 1)
+                            std = round(np.std(res[metric].dropna()), 1)
                         else:
-                            std = round(np.std(res[metric]), 2)
+                            std = round(np.std(res[metric].dropna()), 2)
                         text += f"{mean}$\pm${std}"
                         if cond == 2 and metric == 'MAEHinge':
                             text += "\\\\"

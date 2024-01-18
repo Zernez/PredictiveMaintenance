@@ -67,8 +67,8 @@ if __name__ == "__main__":
                                     (results['Upsampling'] == um) &
                                     (results['Censoring'] == cens) &
                                     (results['Condition'] == cond)]
-                    tte_surv = round(np.median(res["MedianSurvTime"]), 1)
-                    tte_ed = round(np.median(res["EDTarget"]), 1)
+                    tte_surv = round(np.median(res["MedianSurvTime"].dropna()), 1)
+                    tte_ed = round(np.median(res["EDTarget"].dropna()), 1)
                     delta = round(tte_surv-tte_ed, 2)
                     text += f"{tte_surv} & {tte_ed} & {delta} "
                     text = text.replace("nan", "NA")
@@ -80,5 +80,4 @@ if __name__ == "__main__":
             if um == "Correlated":
                 break
             print(r"\cmidrule(lr){1-1}")
-
     print()
