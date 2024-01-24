@@ -60,13 +60,13 @@ def main():
     if args.typedata:
         TYPE = args.typedata
     
-    #DATASET= "xjtu"
-    #TYPE= "correlated"
+    # DATASET= "xjtu"
+    # TYPE= "bootstrap"
 
     if TYPE == "bootstrap":
-        N_BOOT = 8
+        N_BOOT = 16
     else:
-        N_BOOT = 3
+        N_BOOT = 0
 
     if DATASET == "xjtu":
         data_path = cfg.RAW_DATA_PATH_XJTU
@@ -109,8 +109,10 @@ def main():
         # Create different data for bootstrap and not bootstrap
         if TYPE == "bootstrap":
             data_temp_X, deltaref_temp_y = data_util.make_surv_data_bootstrap(cov, boot, info_pack, N_BOOT)
-        else:
-            data_temp_X, deltaref_temp_y = data_util.make_surv_data_upsampling(cov, boot, info_pack, N_BOOT, TYPE)
+        elif TYPE == "not_correlated":
+            data_temp_X, deltaref_temp_y = data_util.make_surv_data_transform_ma(cov, boot, info_pack, N_BOOT, TYPE)
+        elif TYPE == "correlated":
+            data_temp_X, deltaref_temp_y = data_util.make_surv_data_transform_ama(cov, boot, info_pack, N_BOOT, TYPE)
         data_container_X.append(data_temp_X)
         data_container_y.append(deltaref_temp_y)
 

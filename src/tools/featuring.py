@@ -2,6 +2,7 @@ import os
 import numpy as np 
 import pandas as pd 
 import random
+import math
 import re
 from scipy.signal import hilbert
 from scipy.stats import entropy
@@ -14,7 +15,7 @@ class Featuring:
 
     @staticmethod
     def time_features_xjtu(
-            dataset_path: str, 
+            dataset_path: str,
             bootstrap: int = 0
         ) -> (pd.DataFrame, pd.DataFrame):
 
@@ -38,19 +39,8 @@ class Featuring:
 
         start = []
         stop = []
-        # Load the frequency bands from config.py
-        if re.findall("35Hz12kN/", dataset_path) == ['35Hz12kN/']:
-            start= cfg.FREQUENCY_BANDS1['xjtu_start']
-            stop= cfg.FREQUENCY_BANDS1['xjtu_stop']
-        elif re.findall("37.5Hz11kN/", dataset_path) == ['37.5Hz11kN/']:
-            start= cfg.FREQUENCY_BANDS2['xjtu_start']
-            stop= cfg.FREQUENCY_BANDS2['xjtu_stop']
-        elif re.findall("40Hz10kN/", dataset_path) == ['40Hz10kN/']:
-            start= cfg.FREQUENCY_BANDS3['xjtu_start']
-            stop= cfg.FREQUENCY_BANDS3['xjtu_stop']
 
-        if bootstrap > 8:
-            raise Exception("Too much bootstrapping, max is 8")
+        start, stop = Featuring.calculate_frequency_bands(dataset_path)
 
         #From the specs of XJTU dataset 25.6 kHz
         Fsamp = 25600
@@ -182,7 +172,11 @@ class Featuring:
         data.sort_index(inplace= True)
         data.reset_index(inplace= True, drop=True)  
 
-        data_total, bootstrap_total = Featuring.control_bootstrap(data, bootstrap)
+        if bootstrap > 0:
+            data_total, bootstrap_total = Featuring.control_bootstrap(data, bootstrap)
+        else:
+            data_total = [data]
+            bootstrap_total = pd.DataFrame()
 
         return data_total, bootstrap_total
 
@@ -210,21 +204,7 @@ class Featuring:
         # Bearing names from use x and y data as B1 and B2
         cols2 = ['B1', 'B2']
 
-        start = []
-        stop = []
-        # Load the frequency bands from config.py
-        if re.findall("25Hz5kN/", dataset_path) == ['25Hz5kN/']:
-            start= cfg.FREQUENCY_BANDS4['pronostia_start']
-            stop= cfg.FREQUENCY_BANDS4['pronostia_stop']
-        elif re.findall("27.65Hz4.2kN/", dataset_path) == ['27.65Hz4.2kN/']:
-            start= cfg.FREQUENCY_BANDS5['pronostia_start']
-            stop= cfg.FREQUENCY_BANDS5['pronostia_stop']
-        elif re.findall("30Hz4kN/", dataset_path) == ['30Hz4kN/']:
-            start= cfg.FREQUENCY_BANDS6['pronostia_start']
-            stop= cfg.FREQUENCY_BANDS6['pronostia_stop']
-
-        if bootstrap > 8:
-            raise Exception("Too much bootstrapping, max is 8")
+        start, stop = Featuring.calculate_frequency_bands(dataset_path)
 
         #From the specs of PRONOSTIA dataset 25.6 kHz
         Fsamp = 25600
@@ -359,12 +339,16 @@ class Featuring:
         data.sort_index(inplace= True)
         data.reset_index(inplace= True, drop=True)  
 
-        data_total, bootstrap_total = Featuring.control_bootstrap(data, bootstrap)
+        if bootstrap > 0:
+            data_total, bootstrap_total = Featuring.control_bootstrap(data, bootstrap)
+        else:
+            data_total = [data]
+            bootstrap_total = pd.DataFrame()
 
         return data_total, bootstrap_total
-    
+
     @classmethod
-    def control_bootstrap(self, 
+    def control_bootstrap (self, 
             data: pd.DataFrame, 
             bootstrap: int = 0
         ) -> (pd.DataFrame, pd.DataFrame, pd.DataFrame):
@@ -381,38 +365,181 @@ class Featuring:
         - data_total (DataFrame): Contain the generated information of timeseries data.
         - bootstrap_total (DataFrame): Contain the generated information of the bootstrap values.
         """
-        # Bootstrap max value is 8 so the maximum distance is +-4
-        random_generator_bootstrap = np.random.permutation([-4, -3, -2, -1, 1, 2, 3, 4])
-        random_generator_bootstrap = random_generator_bootstrap[:bootstrap]
+        
+        # Create a random normal distribution of samples for tte based on the bootstrap multiplier multiplied by 2 as the channel x and y considered separately
+        tte_random_generator = self.create_normal_random_samples(bootstrap * 2)
+
         data_boot = data
         data_total = []
 
-        # Bootstrap the data stay at the random distance from the true value given permutations
-        for boot_num in range(0, bootstrap + 2, 1):
-            if boot_num == 0:
-                data_boot.reset_index(inplace=True, drop=True)
-                data_total.append(data_boot)
-            elif boot_num > 0 and boot_num < bootstrap + 1:
-                if random_generator_bootstrap[boot_num - 1] < 0:
-                    data_boot = data
-                    data_boot = data_boot.iloc[-(random_generator_bootstrap[boot_num - 1]):, :]
-                else:
-                    data_boot = data
-                    data_aux = pd.DataFrame(data_boot[-1:].values, columns=data.columns)
-                    for boot_adder in range(0, random_generator_bootstrap[boot_num - 1], 1):
-                        data_boot = pd.concat([data_boot, data_aux], ignore_index=True)
-                data_boot.reset_index(inplace=True, drop=True)
-                data_total.append(data_boot)
-            elif boot_num == bootstrap + 1:
-                data_boot = data
-                random_generator_bootstrap = np.append(random_generator_bootstrap, random.randint(-4, -1))
-                data_boot = data_boot.iloc[-(random_generator_bootstrap[boot_num - 1]):, :]
-                data_boot.reset_index(inplace=True, drop=True)
-                data_total.append(data_boot)
+        # Add the original data
+        data_boot.reset_index(inplace=True, drop=True)
+        data_total.append(data_boot)
 
-        bootstrap_total = pd.DataFrame(random_generator_bootstrap, columns=["Bootstrap values"])
+        # Deviate from the original value by 3% of the standard deviation
+        std_percentage = 0.03
+
+        # Add the bootstrapped data based on the random normal distribution tte
+        for boot_num in range(0, bootstrap, 1):
+            data_boot = data
+
+            # How many times we have to pick random numbers as distance from the new target
+            distance = math.ceil(abs(tte_random_generator[boot_num]))
+
+            while distance > 0:
+                new_time_row = pd.Series(dtype= np.float64)  
+                for column_name, column_data in data_boot.iteritems():
+                    if re.split("\d_", column_name)[1] != "Event" and re.split("\d_", column_name)[1] != "Survival_time":
+                        
+                        standard_deviation = column_data.std() * std_percentage
+                        # Create a random normal distribution of samples for covariates for each column and each step to cover
+                        covariate_random_item = self.create_covariates_random_samples(standard_deviation, column_data[-1:].values[0])
+                        new_time_row [column_name]= covariate_random_item
+                    else:
+
+                        # No need to create random samples for event and survival time
+                        new_time_row[column_name]= column_data[0]
+                
+                # Add the new row to the dataframe
+                data_boot = data_boot.append(new_time_row, ignore_index=True)
+                distance -= 1
+            
+            # Add the new bootstrapped data to the total
+            data_boot.reset_index(inplace=True, drop=True)
+            data_total.append(data_boot)
+
+        bootstrap_total = pd.DataFrame(tte_random_generator, columns=["Bootstrap values"])
 
         return data_total, bootstrap_total
+
+    @classmethod 
+    def create_normal_random_samples (self, 
+             min_samples: int = 0
+        ) -> np.array:
+
+        """
+        Generate an array of normal random samples.
+
+        Parameters:
+        - min_samples (int): The minimum number of samples required. Default is 0.
+
+        Returns:
+        - np.array: An array of normal distributed random samples.
+        """
+
+        # Set the size of the sample you want in the normal distribution
+        sample_size = 100
+
+        # Set the mean and standard deviation of the normal distribution
+        mean = 0
+        std_dev = sample_size * 0.03
+
+        # Set the resolution as number of decimal places
+        resolution = 1
+
+        # Generate random samples from a normal distribution
+        random_samples = np.random.normal(mean, std_dev, sample_size)
+
+        # Round the samples to the desired resolution
+        random_samples = np.round(random_samples, resolution)
+
+        # Ensure uniqueness of samples and avoid no deviation samples
+        unique_random_samples = np.unique(random_samples)
+        unique_random_samples = unique_random_samples[unique_random_samples != 0]
+
+        # Check if the number of samples is less than the minimum
+        while len(unique_random_samples) < min_samples:
+            # Generate additional samples to meet the minimum requirement
+            additional_samples = np.random.normal(mean, std_dev, min_samples - len(unique_random_samples))
+            
+            # Round the additional samples to the desired resolution
+            additional_samples = np.round(additional_samples, resolution)
+            
+            # Ensure uniqueness of additional samples and avoid no deviation samples
+            additional_samples = np.unique(additional_samples)
+            additional_samples = additional_samples[additional_samples != 0]
+
+            np.concatenate((unique_random_samples, additional_samples), axis= None)
+
+        # Take the first min_samples to ensure the desired minimum number of samples
+        random_generator = unique_random_samples[:min_samples]
+
+        return random_generator
+
+    @classmethod 
+    def create_covariates_random_samples(self,
+            std_dev: float, 
+            ref: float, 
+        ) -> float:
+
+        """
+        Generate random samples for one column and one step in the given covariates DataFrame.
+
+        Parameters:
+            std_dev (DataFrame): The standard deviation of the feature though the whole time
+            ref (float): The reference value used as the mean for the normal distribution.
+
+        Returns:
+            float: Random samples generated for one column in the covariates DataFrame.
+        """
+
+        # Set the mean and standard deviation of the normal distribution
+        mean = ref
+
+        # Set the size of the sample you want in the normal distribution
+        sample_size = 50
+
+        # Set how many sample you want to generate
+        min_samples = 1
+
+        # Generate random samples from a normal distribution
+        random_samples = np.random.normal(mean, std_dev, sample_size)
+
+        # Ensure uniqueness of samples
+        unique_random_samples = np.unique(random_samples)
+
+        # Check if the number of samples is less than the minimum
+        while len(unique_random_samples) < min_samples:
+            # Generate additional samples to meet the minimum requirement
+            additional_samples = np.random.normal(mean, std_dev, min_samples - len(unique_random_samples))
+
+            # Round the additional samples to the desired resolution
+            additional_samples = np.round(additional_samples, resolution)
+
+            # Ensure uniqueness of additional samples
+            additional_samples = np.unique(additional_samples)
+
+            np.concatenate((unique_random_samples, additional_samples), axis= None)
+
+        # Take the first and only min_samples
+        random_generator = unique_random_samples[:min_samples][0]
+
+        return random_generator
+
+    @classmethod
+    def calculate_frequency_bands (self,
+        dataset_path:  str
+    ) -> list:
+
+        """
+        Find the frequency bands of the dataset from start to end of each.
+        """
+
+        start = []
+        stop = []
+
+        # Load the frequency bands from config.py
+        if re.findall("35Hz12kN/", dataset_path) == ['35Hz12kN/']:
+            start= cfg.FREQUENCY_BANDS1['xjtu_start']
+            stop= cfg.FREQUENCY_BANDS1['xjtu_stop']
+        elif re.findall("37.5Hz11kN/", dataset_path) == ['37.5Hz11kN/']:
+            start= cfg.FREQUENCY_BANDS2['xjtu_start']
+            stop= cfg.FREQUENCY_BANDS2['xjtu_stop']
+        elif re.findall("40Hz10kN/", dataset_path) == ['40Hz10kN/']:
+            start= cfg.FREQUENCY_BANDS3['xjtu_start']
+            stop= cfg.FREQUENCY_BANDS3['xjtu_stop']
+
+        return start, stop
     
     def calculate_rms (
             df: pd.DataFrame

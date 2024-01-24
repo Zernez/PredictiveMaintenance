@@ -11,26 +11,27 @@ import config as cfg
 class DataETL:
 
     def __init__ (self, dataset, bootstrap):
+        # 2 real bearings from x and y channel + 2 bootstrapped bearings from x and y channel multiplied by the bootstrap value
+        self.fixed_time_split = 1
+        self.boot_folder_size = (bootstrap * 2) + 2
+        self.lag = 1
+        self.post = 2
         if dataset == "xjtu":
             self.real_bearings = cfg.N_REAL_BEARING_XJTU
-            self.boot_folder_size = (2 + bootstrap) * 2
             self.total_bearings = self.real_bearings * self.boot_folder_size
             self.total_signals = cfg.N_SIGNALS_XJTU
-            self.time_split = 20
-            self.folder_size = self.total_bearings * self.time_split
+            self.folder_size = self.total_bearings * self.fixed_time_split
         elif dataset == "pronostia":
             self.real_bearings = cfg.N_REAL_BEARING_PRONOSTIA
-            self.boot_folder_size = (2 + bootstrap) * 2
             self.total_bearings = self.real_bearings * self.boot_folder_size
             self.total_signals = cfg.N_SIGNALS_PRONOSTIA
-            self.time_split = 20
-            self.folder_size = self.total_bearings * self.time_split
+            self.folder_size = self.total_bearings * self.fixed_time_split
         self.event_detector_goal = cfg.EVENT_DETECTOR_CONFIG
 
 
     def make_surv_data_bootstrap (self, 
             covariates: dict, 
-            set_boot: int, 
+            set_boot: pd.DataFrame, 
             info_pack: dict, 
             bootstrap: int
         ) -> (list, dict):
@@ -41,7 +42,7 @@ class DataETL:
 
         Args:
         - covariates (dict): Dictionary containing the covariates data.
-        - set_boot (int): Number of bootstrap sets.
+        - set_boot (DataFrame): Number of bootstrap sets.
         - info_pack (dict): Dictionary containing information about the time-to-event.
         - bootstrap (int): The value of bootstrapped multiplier.
 
@@ -60,18 +61,14 @@ class DataETL:
         survival_covariates, type_foldering = self.prepare_data()
 
         # Extract the info about the time-to-event
-        for bear_num in range (1, self.total_bearings + 1, (bootstrap * 2) + 4):
+        for bear_num in range (1, self.total_bearings + 1, self.boot_folder_size):
             val = self.event_analyzer (bear_num, info_pack)
             reference_value_TtE.update({bear_num : val})
-        
-        # Set up the time slices
-        moving_window = 0
-        time_split = self.time_split
 
         # For each covariates, event or survival time take the all the time values in a column 
         for column in covariates:
             columnSeriesObj = covariates[column]
-            columnSeriesObj= columnSeriesObj.dropna()
+            columnSeriesObj = columnSeriesObj.dropna()
 
             bear_num = int(re.findall("\d?\d?\d", column)[0])
             temp_label_cov= ""
@@ -80,22 +77,24 @@ class DataETL:
             temp_label_cov = re.split("\d_", column)[1]
 
             if re.findall(r"Event\b", column):
-                reference_bearing_num = self.select_reference(bear_num, (bootstrap * 2) + 4)
+                reference_bearing_num = self.select_reference(bear_num, self.boot_folder_size)
+                
                 # If the event is negative means that event detector has no detection and need to force the censoring status
                 if reference_value_TtE[reference_bearing_num] < 0:        
-                    columnSeriesObj = self.event_manager(bear_num, bootstrap, self.total_bearings, force_censoring = True)
+                    columnSeriesObj = self.event_manager(bear_num, bootstrap, force_censoring = True)
                 else:
-                    columnSeriesObj = self.event_manager(bear_num, bootstrap, self.total_bearings, force_censoring = False)
+                    columnSeriesObj = self.event_manager(bear_num, bootstrap, force_censoring = False)
             elif re.findall(r"Survival_time\b", column):
-                reference_bearing_num = self.select_reference(bear_num, (bootstrap * 2) + 4)
-                 # After use the information about censoring transform the negative value of TtE into positive for the survival data requirements
+                reference_bearing_num = self.select_reference(bear_num, self.boot_folder_size)
+                
+                # After use the information about censoring transform the negative value of TtE into positive for the survival data requirements
                 if reference_value_TtE[reference_bearing_num] < 0:
                     reference_value_TtE_abs = reference_value_TtE
-                    reference_value_TtE_abs[reference_bearing_num] = abs(reference_value_TtE_abs[reference_bearing_num])
+                    reference_value_TtE_abs[reference_bearing_num] = abs(reference_value_TtE[reference_bearing_num])
                     columnSeriesObj = self.survival_time_manager(bear_num, set_boot, reference_value_TtE_abs)
                 else:
+                    columnSeriesObj = self.survival_time_manager(bear_num, set_boot, reference_value_TtE)
                     reference_value_TtE_abs = reference_value_TtE
-                    columnSeriesObj = self.survival_time_manager(bear_num, set_boot, reference_value_TtE_abs)
             
             # Actual information in subject that convert timeseries into survival data
             label= temp_label_cov
@@ -112,23 +111,23 @@ class DataETL:
                     if bear_num in bearings_in_folder:
                         survival_covariates[FOLDER] = pd.concat([survival_covariates[FOLDER], row], ignore_index= True) 
 
-        return survival_covariates, reference_value_TtE_abs
+        return survival_covariates, reference_value_TtE
             
-    def make_surv_data_upsampling(self, 
+    def make_surv_data_transform_ma(self, 
             covariates: dict, 
-            set_boot: int, 
+            set_boot: pd.DataFrame, 
             info_pack: dict, 
             bootstrap: int, 
             type_correlation: str
         ) -> (list, dict):
 
         """
-        Transform the timeseries data into survival data using boostrap and upsampling methododology.
+        Transform the timeseries data into survival data using boostrap and transform MA methododology.
         Upsamples the data from given time split and prepares the empty data and folders of grouped bearings to fill for avoid information leaking train/test.
 
         Parameters:
         - covariates (dict): Dictionary containing the covariates data.
-        - set_boot (int): Number of bootstrap sets.
+        - set_boot (pd.DataFrame): Number of bootstrap sets.
         - info_pack (dict): Dictionary containing the information about the time-to-event.
         - bootstrap (int): The value of bootstrapped multiplier.
         - type_correlation (str): Type of data correlation.
@@ -146,18 +145,18 @@ class DataETL:
         survival_covariates, type_foldering = self.prepare_data()
 
         # Extract the info about the time-to-event
-        for bear_num in range (1, self.total_bearings + 1, (bootstrap * 2) + 4):
+        for bear_num in range (1, self.total_bearings + 1, self.boot_folder_size):
             val = self.event_analyzer (bear_num, info_pack)
             reference_value_TtE.update({bear_num : val})
         
         # Set up the time slices
         moving_window = 0
-        time_split = self.time_split
+        time_split = self.lag + self.post
+        time_moving = self.fixed_time_split
 
         # Upsample the data from given time split
-        while moving_window < time_split:
-            # Set-up a condition for a very low lifetime dataset below the time_split threshold
-            force_stop = False
+        while moving_window < time_moving:
+        
             # For each covariates, event or survival time take the all the time values in a column 
             for column in covariates:
                 columnSeriesObj = covariates[column]
@@ -166,81 +165,191 @@ class DataETL:
                 bear_num = int(re.findall("\d?\d?\d", column)[0])
                 temp_label_cov= ""                    
                 
-                # Manage the time slicing and cases when the time split is not enough for the time-to-event (early event anomaly)
-                timepoints= int(self.survival_time_manager(bear_num, set_boot, reference_value_TtE))
-                time_window= int(timepoints / time_split)
-                if time_window == 0:
-                    if moving_window < timepoints:
-                        low= moving_window
-                        high= moving_window + 1
-                    else:
-                        force_stop= True
-                else:                        
-                    low= time_window * moving_window
-                    high= time_window * (moving_window + 1)
+                # Setup the time window size from the information of the time-to-event
+                timepoints = math.floor(abs(self.survival_time_manager(bear_num, set_boot, reference_value_TtE)))
+                if time_moving < timepoints:
+                    time_moving = timepoints
+
+                # If the end of the lifetime is reached, stop to slice the time-series for this bearing
+                if timepoints - 1 < moving_window:
+                    continue
+
+                # Transform the time window size into bounduaries for slicing and manage particular cases                    
+                low = moving_window - self.lag
+                if low < 0:
+                    low = 0
+                high = self.post + moving_window
+                if high > timepoints:
+                    high = timepoints 
 
                 # Take the second part that contain the name of the covariate from the column name as label
                 temp_label_cov = re.split("\d_", column)[1]
 
                 if re.findall(r"Event\b", column):
-                    reference_bearing_num = self.select_reference(bear_num, (bootstrap * 2) + 4)
+                    reference_bearing_num = self.select_reference(bear_num, self.boot_folder_size)
+                    
                     # If the event is negative means that event detector has no detection and need to force the censoring status
                     if reference_value_TtE[reference_bearing_num] < 0:        
-                        columnSeriesObj = self.event_manager(bear_num, bootstrap, self.total_bearings, force_censoring = True)
+                        columnSeriesObj = self.event_manager(bear_num, bootstrap, force_censoring = True)
                     else:
-                        columnSeriesObj = self.event_manager(bear_num, bootstrap, self.total_bearings, force_censoring = False)
+                        columnSeriesObj = self.event_manager(bear_num, bootstrap, force_censoring = False)
+                        
                 elif re.findall(r"Survival_time\b", column):
-                    reference_bearing_num = self.select_reference(bear_num, (bootstrap * 2) + 4)
+                    reference_bearing_num = self.select_reference(bear_num, self.boot_folder_size)
+                    
                     # After use the information about censoring transform the negative value of TtE into positive for the survival data requirements
                     if reference_value_TtE[reference_bearing_num] < 0:
                         reference_value_TtE_abs = reference_value_TtE
-                        reference_value_TtE_abs[reference_bearing_num] = abs(reference_value_TtE_abs[reference_bearing_num])
+                        reference_value_TtE_abs[reference_bearing_num] = abs(reference_value_TtE[reference_bearing_num])
                         columnSeriesObj = self.survival_time_manager(bear_num, set_boot, reference_value_TtE_abs)
                     else:
+                        columnSeriesObj = self.survival_time_manager(bear_num, set_boot, reference_value_TtE)
                         reference_value_TtE_abs = reference_value_TtE
-                        columnSeriesObj = self.survival_time_manager(bear_num, set_boot, reference_value_TtE_abs)
                 
                 # Actual information in subject that convert timeseries into survival data
                 label= temp_label_cov
                 
                 # If survival time or event type start to slice the time-series, instead for the others take the mean of time-series                     
-                if (label == "Event" or label == "Survival_time") and force_stop == False:
+                if label == "Event" or label == "Survival_time":
                     if label == "Survival_time":
-                        # If correlated start to create time-to-event relative to time slice
-                        if type_correlation == "correlated" or type_correlation == "not_correlated":
-                            if high < timepoints:
-                                if columnSeriesObj > high:
-                                    proportional_value= columnSeriesObj - high
-                                else:
-                                    proportional_value= columnSeriesObj                                     
-                            else:
-                                proportional_value= columnSeriesObj
-                            row [label]= pd.Series(proportional_value).T
-                        # If not correlated take the time-to-event as is
-                        else:  
-                            proportional_value= columnSeriesObj
-                            row [label]= pd.Series(proportional_value).T  
+                        
+                        # At the last slice take the time-to-event as is, otherwise take the mean of the window
+                        if timepoints - 2 < moving_window:
+                            proportional_value= columnSeriesObj                                     
+                        else:
+                            proportional_value= np.mean([low, high])
+                        
+                        row [label] = pd.Series(proportional_value).T 
                     else:
-                        row [label]= pd.Series(columnSeriesObj).T   
-                elif force_stop == False:
-                    # If correlated start to slice the time-series data taking the lasts to correlate to the firsts        
-                    if type_correlation == "correlated":
-                        if high < timepoints: #and (time_window * (moving_window + 1)) < columnSeriesObj.size:
-                            time_slice= columnSeriesObj.iloc[- (time_window * (moving_window + 1)):] #.iloc[low:high]
-                        else:
-                            time_slice= columnSeriesObj #.iloc[low:-1]
-                    # If not correlated take the nearest slice to the time-to-event                                 
-                    else:                            
-                        if high < timepoints:
-                            time_slice= columnSeriesObj.iloc[low:high]
-                        else:
-                            time_slice= columnSeriesObj.iloc[low:-1]
+                        row [label] = pd.Series(columnSeriesObj).T   
+                else:
+                    # Take the slice near to the time-to-event or the last                                 
+                    time_slice = columnSeriesObj.iloc[low:high]
                     
                     # Average the covariates value to transform time-series to survival data
-                    row [label]= pd.Series(np.mean(time_slice.values)).T
+                    row [label] = pd.Series(np.mean(time_slice.values)).T
                 
                 # If survival time column close the row and save it into a proper folder for avoid leaking
-                if label == "Survival_time" and force_stop == False:
+                if label == "Survival_time":
+                    for FOLDER, bearings_in_folder in enumerate(type_foldering):
+                        if bear_num in bearings_in_folder:
+                            survival_covariates[FOLDER] = pd.concat([survival_covariates[FOLDER], row], ignore_index= True)
+
+            # Go for next window                
+            moving_window += 1  
+                  
+        return survival_covariates, reference_value_TtE_abs
+
+    def make_surv_data_transform_ama(self, 
+            covariates: dict, 
+            set_boot: pd.DataFrame, 
+            info_pack: dict, 
+            bootstrap: int, 
+            type_correlation: str
+        ) -> (list, dict):
+
+        """
+        Transform the timeseries data into survival data using boostrap and transform AMA methododology.
+        Upsamples the data from given time split and prepares the empty data and folders of grouped bearings to fill for avoid information leaking train/test.
+
+        Parameters:
+        - covariates (dict): Dictionary containing the covariates data.
+        - set_boot (pd.DataFrame): Number of bootstrap sets.
+        - info_pack (dict): Dictionary containing the information about the time-to-event.
+        - bootstrap (int): The value of bootstrapped multiplier.
+        - type_correlation (str): Type of data correlation.
+
+        Returns:
+        - survival_covariates (list): List of dataframes containing the upsampled data for each group of bearings.
+        - reference_value_TtE_abs (dict): Dictionary containing the reference values for each bearing of the event time with absolute values of time-to-event.
+        """
+
+        #Prepare the empty data
+        row = pd.DataFrame()
+        reference_value_TtE = {}
+        
+        # Prepare the structured empty data and for grouped bearings to fill for avoid leaking
+        survival_covariates, type_foldering = self.prepare_data()
+
+        # Extract the info about the time-to-event
+        for bear_num in range (1, self.total_bearings + 1, self.boot_folder_size):
+            val = self.event_analyzer (bear_num, info_pack)
+            reference_value_TtE.update({bear_num : val})
+        
+        # Set up the time slices
+        moving_window = 0
+        time_split = self.fixed_time_split
+
+        # Upsample the data from given time split
+        while moving_window < time_split:
+        
+            # For each covariates, event or survival time take the all the time values in a column 
+            for column in covariates:
+                columnSeriesObj = covariates[column]
+                columnSeriesObj= columnSeriesObj.dropna()
+
+                bear_num = int(re.findall("\d?\d?\d", column)[0])
+                temp_label_cov= ""                    
+                
+                # Setup the time window size from the information of the time-to-event
+                timepoints = math.floor(abs(self.survival_time_manager(bear_num, set_boot, reference_value_TtE)))
+                if time_split < timepoints:
+                    time_split = timepoints
+
+                # If the end of the lifetime is reached, stop to slice the time-series for this bearing
+                if timepoints - 1 < moving_window:
+                    continue
+
+                # Take the second part that contain the name of the covariate from the column name as label
+                temp_label_cov = re.split("\d_", column)[1]
+
+                if re.findall(r"Event\b", column):
+                    reference_bearing_num = self.select_reference(bear_num, self.boot_folder_size)
+                    
+                    # If the event is negative means that event detector has no detection and need to force the censoring status
+                    if reference_value_TtE[reference_bearing_num] < 0:        
+                        columnSeriesObj = self.event_manager(bear_num, bootstrap, force_censoring = True)
+                    else:
+                        columnSeriesObj = self.event_manager(bear_num, bootstrap, force_censoring = False)
+                elif re.findall(r"Survival_time\b", column):
+                    reference_bearing_num = self.select_reference(bear_num, self.boot_folder_size)
+                    
+                    # After use the information about censoring transform the negative value of TtE into positive for the survival data requirements
+                    if reference_value_TtE[reference_bearing_num] < 0:
+                        reference_value_TtE_abs = reference_value_TtE
+                        reference_value_TtE_abs[reference_bearing_num] = abs(reference_value_TtE[reference_bearing_num])
+                        columnSeriesObj = self.survival_time_manager(bear_num, set_boot, reference_value_TtE_abs)
+                    else:
+                        columnSeriesObj = self.survival_time_manager(bear_num, set_boot, reference_value_TtE)
+                        reference_value_TtE_abs = reference_value_TtE
+                
+                # Actual information in subject that convert timeseries into survival data
+                label = temp_label_cov
+                
+                # If survival time or event type start to slice the time-series, instead for the others take the mean of time-series                     
+                if label == "Event" or label == "Survival_time":
+                    if label == "Survival_time":
+
+                        # For the last slice take the time-to-event as is, otherwise take value of the moving window
+                        if timepoints - 2 < moving_window:
+                            proportional_value = columnSeriesObj                                                                       
+                        else:
+                            proportional_value = moving_window
+                        row [label] = pd.Series(proportional_value).T 
+                    else:
+                        row [label] = pd.Series(columnSeriesObj).T   
+                else:
+                    # For the last slice take the covariates as is, otherwise take lasts time slices        
+                    if timepoints - 2 < moving_window: 
+                        time_slice = columnSeriesObj
+                    else:
+                        time_slice = columnSeriesObj.iloc[- (self.fixed_time_split * (moving_window + 1)):] 
+
+                    # Average the covariates value to transform time-series to survival data
+                    row [label] = pd.Series(np.mean(time_slice.values)).T
+                
+                # If survival time column close the row and save it into a proper folder for avoid leaking
+                if label == "Survival_time":
                     for FOLDER, bearings_in_folder in enumerate(type_foldering):
                         if bear_num in bearings_in_folder:
                             survival_covariates[FOLDER] = pd.concat([survival_covariates[FOLDER], row], ignore_index= True)
@@ -252,8 +361,7 @@ class DataETL:
 
     def event_manager(self, 
             num: int, 
-            bootstrap: int, 
-            tot: int, 
+            bootstrap: int,  
             force_censoring: bool
         ) -> (bool):
         """
@@ -262,35 +370,33 @@ class DataETL:
         Parameters:
         - num (int): The current bearing number.
         - bootstrap (int): The value of bootstrapped multiplier.
-        - tot (int): The total number of events.
         - force_censoring (bool): Flag indicating whether to force censoring or not.
 
         Returns:
         - (bool): True if the event is not censored, False otherwise.
         """
+        
         # The event is not determined by KL and SD so it is censored
         if force_censoring == True:
             return False
 
-        checker = True
-
-        # Only the two last bootstrapped bearings will be censored        
-        censor_level = int((self.total_bearings / self.real_bearings) - 1)  
-        for check in range(censor_level, tot + 1, (bootstrap * 2) + 4):
-            if check == num or check == num - 1: 
-                checker = False
-                break
-            else:
-                checker = True
-            
-        if checker == False:
-            return False
+        # Only the last bootstrapped bearing will be censored        
+        censor_pointer = self.boot_folder_size
+        total_number_bearings = self.total_bearings
+        if bootstrap > 0:  
+            for check in range(censor_pointer, total_number_bearings + 1, self.boot_folder_size):
+                if check == num: 
+                    return False
+                else:
+                    return True
+        
+        # If no bootstrapping will be always not censored
         else:
             return True
 
     def survival_time_manager (self, 
             num: int, 
-            bootref: int, 
+            bootref: pd.DataFrame, 
             ref: dict
         ) -> (float):
 
@@ -309,60 +415,24 @@ class DataETL:
         # Prepare random value for the special reference bearing
         for key, value in ref.items():
             if key == num or key + 1 == num:
-                return value + random.randint(-2, 2)    
+                return value  
         
-        # Prepare the time-to-event referrement
-        bootstrap= len (bootref) - 1
-        tot= ((bootstrap * 2) + 4) * self.real_bearings
-        boot_pack_level=  int((self.total_bearings / self.real_bearings) + 1)
-        boot_pack_max= int (self.total_bearings / self.real_bearings)
-        num_ref= self.total_signals
+        # The size of a batch of bootstrapped sample from a single bearing
+        batch_bootstrap_size = self.boot_folder_size
        
-        # Bootstrapping + addtitional randomizator for the other normal bootstrapped/upsampled bearings
-        for BEARING, check in enumerate(range(boot_pack_level, tot + (bootstrap * 2) + self.real_bearings, (bootstrap * 2) + 4)):    
-            if not num >= check:
-                if num== num_ref:
-                    return bootref.iat[0,BEARING] + ref[check - boot_pack_max] + random.randint(-2, -1)               
-                elif num== num_ref + 1:
-                    return bootref.iat[0,BEARING] + ref[check - boot_pack_max] + random.randint(1, 2)     
-                elif num== num_ref + 2:
-                    return bootref.iat[1,BEARING] + ref[check - boot_pack_max] + random.randint(-2, -1)               
-                elif num== num_ref + 3:
-                    return bootref.iat[1,BEARING] + ref[check - boot_pack_max] + random.randint(1, 2)   
-                elif num== num_ref + 4:
-                    return bootref.iat[2,BEARING] + ref[check - boot_pack_max] + random.randint(-2, -1)              
-                elif num== num_ref + 5:
-                    return bootref.iat[2,BEARING] + ref[check - boot_pack_max] + random.randint(1, 2)
-                elif num== num_ref + 6:
-                    return bootref.iat[3,BEARING] + ref[check - boot_pack_max] + random.randint(-2, -1)              
-                elif num== num_ref + 7:
-                    return bootref.iat[3,BEARING] + ref[check - boot_pack_max] + random.randint(1, 2)
-                elif num== num_ref + 8:
-                    return bootref.iat[4,BEARING] + ref[check - boot_pack_max] + random.randint(-2, -1)              
-                elif num== num_ref + 9:
-                    return bootref.iat[4,BEARING] + ref[check - boot_pack_max] + random.randint(1, 2)      
-                elif num== num_ref + 10:
-                    return bootref.iat[5,BEARING] + ref[check - boot_pack_max] + random.randint(-2, -1)              
-                elif num== num_ref + 11:
-                    return bootref.iat[5,BEARING] + ref[check - boot_pack_max] + random.randint(1, 2)    
-                elif num== num_ref + 12:
-                    return bootref.iat[6,BEARING] + ref[check - boot_pack_max] + random.randint(-2, -1)              
-                elif num== num_ref + 13:
-                    return bootref.iat[6,BEARING] + ref[check - boot_pack_max] + random.randint(1, 2)    
-                elif num== num_ref + 14:
-                    return bootref.iat[7,BEARING] + ref[check - boot_pack_max] + random.randint(-2, -1)              
-                elif num== num_ref + 15:
-                    return bootref.iat[7,BEARING] + ref[check - boot_pack_max] + random.randint(1, 2)     
-                elif num== num_ref + 16:
-                    return bootref.iat[8,BEARING] + ref[check - boot_pack_max] + random.randint(-2, -1)              
-                elif num== num_ref + 17:
-                    # Max bootstrap 8
-                    return bootref.iat[8,BEARING] + ref[check - boot_pack_max] + random.randint(1, 2)      
-                
-            num_ref+= (bootstrap * 2) + 4
+        # Bootstrapping for the other normal bootstrapped/upsampled bearings
+        for BEARING, batch_level in enumerate(range(batch_bootstrap_size, self.total_bearings + 1, batch_bootstrap_size)): 
+            
+            # Transform the real number of the bearing into a index of a bootstrap batch
+            if num >= batch_bootstrap_size:
+                relative_num = num - batch_level
+            else:
+                # The index substract the number 2 of the real bearing and 1 to adapt to an pandas index
+                relative_num = num -2 -1
 
-        #Value that will be recognized if the bearing number is not in the range
-        return -1
+            # Take the value from the batch of bootstrapped and apply the normal randomized value
+            if num <= batch_level and num > batch_level - batch_bootstrap_size:
+                return bootref.iat[relative_num,BEARING] + ref[batch_level - batch_bootstrap_size + 1]         
 
     def event_analyzer(self, 
         bear_num: int, 

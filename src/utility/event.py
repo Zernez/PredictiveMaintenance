@@ -11,12 +11,16 @@ class Event:
     def __init__ (self, dataset, bootstrap):
         if dataset == "xjtu":
             self.real_bearings = cfg.N_REAL_BEARING_XJTU
-            self.total_bearings = self.real_bearings * (2 + bootstrap) * 2
+            # 2 real bearings from x and y channel + 2 bootstrapped bearings from x and y channel multiplied by the bootstrap value
+            self.boot_folder_size = (bootstrap * 2) + 2
+            self.total_bearings = self.real_bearings * self.boot_folder_size
             self.dataset_condition = cfg.RAW_DATA_PATH_XJTU
             self.base_dynamic_load = cfg.BASE_DYNAMIC_LOAD_XJTU
         elif dataset == "pronostia":
             self.real_bearings = cfg.N_BEARING_TOT_PRONOSTIA
-            self.total_bearings = self.real_bearings * (2 + bootstrap) * 2  
+            # 2 real bearings from x and y channel + 2 bootstrapped bearings from x and y channel multiplied by the bootstrap value
+            self.boot_folder_size = (bootstrap * 2) + 2
+            self.total_bearings = self.real_bearings * self.boot_folder_size
             self.dataset_condition = cfg.RAW_DATA_PATH_PRONOSTIA
             self.base_dynamic_load = cfg.BASE_DYNAMIC_LOAD_PRONOSTIA
          # Number of frequency bins analyzed to build the event detector
@@ -56,19 +60,20 @@ class Event:
 
         # For each bearing, calculate the entropy between the reference window and the moving window
         for BIN, BIN_NAME in enumerate(x.columns):
+
             # For each window, calculate the entropy between the reference window and the moving window
             for WINDOW, index_actual in enumerate(range(data_points_per_window, len(x), data_points_per_window)):
                 index_future = index_actual + data_points_per_window
 
                 # Check for the end of dataset and save the moving window eventually
-                if index_future <= len(x) and not x[index_actual:index_future].isnull().values.any():
-                    temp_window_reference = x[0:data_points_per_window]
+                if index_future <= len(x) and not x.loc[index_actual:index_future, BIN_NAME].isnull().values.any():
+                    temp_window_reference = np.array(x.loc[0:data_points_per_window, BIN_NAME], dtype=float)
                 else:
                     break
 
                 # Calculate the entropy between the reference window and the moving window
-                moving_window = x[index_actual:index_future]
-                results[BIN][WINDOW] = entropy(temp_window_reference[BIN_NAME].values, moving_window[BIN_NAME].values)
+                moving_window = np.array(x.loc[index_actual:index_future, BIN_NAME], dtype=float)
+                results[BIN][WINDOW] = entropy(temp_window_reference[BIN], moving_window[BIN])
 
         return results
 
@@ -95,18 +100,19 @@ class Event:
 
         # For each bearing, calculate the entropy between the reference window and the moving window
         for BIN, BIN_NAME in enumerate(x.columns):
+
             # For each window, calculate the entropy between the reference window and the moving window
             for WINDOW, index_actual in enumerate(range(data_points_per_window, len(x), data_points_per_window)):
                 index_future = index_actual + data_points_per_window
 
                 # Check for the end of dataset and save the moving window eventually
                 if index_future <= len(x) and not x[index_actual:index_future].isnull().values.any():
-                    temp_window_reference = x[index_actual:index_future]
+                    temp_window_reference = np.array(x[index_actual:index_future], dtype=float)
                 else:
                     break
 
                 # Calculate the SD of the moving window
-                results[BIN][WINDOW] = np.std(temp_window_reference[BIN_NAME].values)
+                results[BIN][WINDOW] = np.std(temp_window_reference[BIN])
 
         return results
     

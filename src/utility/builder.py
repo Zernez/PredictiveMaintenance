@@ -23,12 +23,12 @@ class Builder:
             self.aggregate_main_path = cfg.DATASET_PATH_PRONOSTIA
         self.dataset= dataset 
 
-    def build_new_dataset (self, 
+    def build_new_dataset (self,
             bootstrap: int = 0
         ): 
 
         self.from_raw_to_csv(bootstrap)
-        self.aggregate_and_refine()
+        self.aggregate_and_refine(bootstrap)
 
     def from_raw_to_csv (self, 
             bootstrap: int = 0
@@ -75,15 +75,22 @@ class Builder:
                     dataset.to_csv(dataname, index=False)
                     BEARING_BOOTSTRAPPED += 1
                     BEARING_CHANNEL_BOOTSTRAPPED += 2
+                
+                if bootstrap > 0:
+                    # Save the bootstrap information in a csv file that will be used for build and upsample the survival dataset
+                    dataname = self.aggregate_main_path + "Bearing1_" + str(bearing) + "_bootstrap" + "_" + str(TYPE_TEST) + ".csv"
+                    bootstrap_val.to_csv(dataname, index=False)
 
-                # Save the bootstrap information in a csv file that will be used for build and upsample the survival dataset
-                dataname = self.aggregate_main_path + "Bearing1_" + str(bearing) + "_bootstrap" + "_" + str(TYPE_TEST) + ".csv"
-                bootstrap_val.to_csv(dataname, index=False)
+    def aggregate_and_refine (self,
+            bootstrap: int = 0
+            ):
 
-    def aggregate_and_refine (self):
         """
         Final step that aggregate and refine the data for event detection and survival analysis after being processed from prerocessed CSV files.
         It saves the aggregated data in separate CSV files for each type of data and information.
+
+        Args:
+        - bootstrap (int): The bootstrap multiplier value.
 
         Returns:
         - None
@@ -115,7 +122,7 @@ class Builder:
                     set_analytic = pd.concat([set_analytic, set_analytic_aux], axis=1)
                     set_covariates = pd.concat([set_covariates, set_cov_aux], axis=1)
 
-                elif re.search('^Bearing.*bootstrap_' + str(TYPE_TEST), filename):
+                elif re.search('^Bearing.*bootstrap_' + str(TYPE_TEST), filename) and bootstrap > 0:
                     col_label = re.findall("_\d", filename)[0][1]
                     datafile = pd.read_csv(os.path.join(self.aggregate_main_path, filename), index_col=False)
                     datafile.rename(columns={'Bootstrap values': col_label}, inplace=True)
@@ -124,7 +131,9 @@ class Builder:
             # Save the aggregated data in separate CSV files
             set_analytic.to_csv(self.aggregate_main_path + 'analytic_' + str(TYPE_TEST) + '.csv', index=False)
             set_covariates.to_csv(self.aggregate_main_path + 'covariates_' + str(TYPE_TEST) + '.csv', index=False)
-            set_boot.to_csv(self.aggregate_main_path + 'boot_' + str(TYPE_TEST) + '.csv', index=False)
+            
+            if bootstrap > 0:
+                set_boot.to_csv(self.aggregate_main_path + 'boot_' + str(TYPE_TEST) + '.csv', index=False)
 
             # Clean the variables for the next batch of data
             set_analytic = pd.DataFrame()
