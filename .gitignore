@@ -1,6 +1,7 @@
 .vscode
 data/
 plots/
+results/
 logs/
 __pycache__/
 

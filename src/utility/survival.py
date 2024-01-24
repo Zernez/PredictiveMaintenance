@@ -160,7 +160,7 @@ class Survival:
             surv_prob = model.predict_survival_function(X_test).T
             return surv_prob
         elif model.__class__.__name__ == 'DeepCoxPH' or model.__class__.__name__ == 'DeepSurvivalMachines':
-            surv_prob = pd.DataFrame(model.predict_survival(X_test, t= list(times)), columns=times)
+            surv_prob = pd.DataFrame(model.predict_survival(X_test, t=list(times)), columns=times)
             return surv_prob
         elif model.__class__.__name__ == 'MCD':
             surv_prob = pd.DataFrame(np.mean(model.predict_survival(X_test, event_times=times, n_post_samples=n_post_samples), axis=0))

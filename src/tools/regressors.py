@@ -272,9 +272,9 @@ class DeepSurv(BaseRegressor):
                 }
     
     def get_best_hyperparams(self):
-        return {'batch_size' : 10,
-                'learning_rate' : 1e-3,
-                'iters': 100,
+        return {'batch_size' : 32,
+                'learning_rate' : 1e-2,
+                'iters': 300,
                 'layers': [32]}
     
 class DSM(BaseRegressor):
@@ -313,6 +313,6 @@ class BNNmcd(BaseRegressor):
 
     def get_best_hyperparams(self):
         return {'batch_size' : 32,
-                'learning_rate' : 1e-3,
+                'learning_rate' : 1e-2,
                 'num_epochs': 10,
                 'layers': [32]}
