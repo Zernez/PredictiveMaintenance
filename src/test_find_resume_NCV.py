@@ -3,13 +3,12 @@ import pandas as pd
 from time import time
 import warnings
 import config as cfg
-import re
 from pycox.evaluation import EvalSurv
 from sksurv.util import Surv
 from sklearn.model_selection import ParameterSampler
 from sklearn.model_selection import KFold
-from tools.feature_selectors import PHSelector, NoneSelector
-from tools.regressors import CoxPH, CphLASSO, RSF, DeepSurv, DSM, BNNmcd
+from tools.feature_selectors import PHSelector
+from tools.regressors import CoxPH, RSF, DeepSurv, DSM, BNNmcd
 from tools.file_reader import FileReader
 from tools.data_ETL import DataETL
 from utility.builder import Builder
@@ -24,16 +23,13 @@ from tools.Evaluations.TargetRUL import estimate_target_rul_xjtu
 from tools.Evaluations.TargetRUL import estimate_target_rul_pronostia
 from utility.survival import make_event_times
 from tools.cross_validator import run_cross_validation
-from xgbse.metrics import approx_brier_score
-import os
-import argparse
-from itertools import combinations
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import KFold
+import argparse
 
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
-NEW_DATASET = False
+NEW_DATASET = True
 N_ITER = 10
 N_OUTER_SPLITS = 5
 N_INNER_SPLITS = 3
@@ -53,7 +49,6 @@ def get_lag(n_condition):
     return -5
 
 def main():
-    """
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str,
                         required=True,
@@ -62,7 +57,6 @@ def main():
                         required=True,
                         default=None)
     args = parser.parse_args()
-    """
     
     global DATASET
     global TYPE
@@ -71,50 +65,42 @@ def main():
     global CENSORING_LEVEL
     global N_BOOT
     
-    """
     if args.dataset:
         DATASET = args.dataset
         cfg.DATASET_NAME = args.dataset
 
     if args.typedata:
         TYPE = args.typedata
-    """
     
-    DATASET = "xjtu"
-    TYPE = "not_correlated"
+    #DATASET = "xjtu"
+    #TYPE = "not_correlated"
 
     if TYPE == "bootstrap":
         N_BOOT = 16
     else:
         N_BOOT = 0
 
-    if DATASET == "xjtu":
-        DATA_PATH = cfg.RAW_DATA_PATH_XJTU
-        DATASET_PATH = cfg.DATASET_PATH_XJTU
-        N_CONDITION = len(cfg.RAW_DATA_PATH_XJTU)
-        N_BEARING = cfg.N_REAL_BEARING_XJTU
-        CENSORING_LEVEL = cfg.CENSORING_LEVEL
-    elif DATASET == "pronostia":
-        DATA_PATH = cfg.RAW_DATA_PATH_PRONOSTIA
-        DATASET_PATH = cfg.DATASET_PATH_PRONOSTIA
-        N_CONDITION = len(cfg.RAW_DATA_PATH_PRONOSTIA)
-        N_BEARING = cfg.N_REAL_BEARING_PRONOSTIA
-        CENSORING_LEVEL = cfg.CENSORING_LEVEL
+    DATA_PATH = cfg.RAW_DATA_PATH_XJTU
+    DATASET_PATH = cfg.DATASET_PATH_XJTU
+    N_CONDITION = len(cfg.RAW_DATA_PATH_XJTU)
+    N_BEARING = cfg.N_REAL_BEARING_XJTU
+    CENSORING_LEVEL = cfg.CENSORING_LEVEL
     
     # For the first time running, a NEW_DATASET is needed
     if NEW_DATASET== True:
         Builder(DATASET, N_BOOT, TYPE).build_new_dataset(bootstrap=N_BOOT)
 
     # Insert the models and feature name selector for CV hyperparameter search and initialize the DataETL instance
-    models = [CoxPH]
+    models = [CoxPH, RSF, DeepSurv, DSM, BNNmcd]
     ft_selectors = [PHSelector]
     data_util = DataETL(DATASET, N_BOOT)
 
     # Extract information from the dataset selected from the config file
+    model_results = pd.DataFrame()    
     for test_condition in range (0, N_CONDITION):
         timeseries_data, boot, info_pack = FileReader(DATASET, DATASET_PATH, TYPE).read_data(test_condition, N_BOOT)
-
-        trainset_sizes, testset_sizes = [], []
+        #trainset_sizes, testset_sizes = [], []
+        
         # Split in train and test set
         kf = KFold(n_splits=N_OUTER_SPLITS)
         bearing_indicies =  list(range(1, (N_BEARING*2)+1)) # number of real bearings x2
@@ -140,10 +126,10 @@ def main():
                 event_detector_target[idx] = event_time
                 transformed_data = data_util.make_moving_average(timeseries_data, event_time, idx, window_size, lag)
                 test_data = pd.concat([test_data, transformed_data], axis=0)
-            trainset_sizes.append(len(train_data))
-            testset_sizes.append(len(test_data))
+            #trainset_sizes.append(len(train_data))
+            #testset_sizes.append(len(test_data))
             
-            for censoring_condition, pct in enumerate(CENSORING_LEVEL):
+            for pct in CENSORING_LEVEL:
                 # Add random censoring
                 train_data = Formatter.control_censored_data(train_data, percentage=pct)
                 test_data = Formatter.control_censored_data(test_data, percentage=pct)
@@ -151,7 +137,6 @@ def main():
                 # For all models
                 for model_builder in models:
                     model_name = model_builder.__name__
-                    model_results = pd.DataFrame()
                     
                     # For all feature selectors
                     for ft_selector_builder in ft_selectors:
@@ -254,11 +239,6 @@ def main():
                             mae_hinge_cvi = np.nan
                             d_calib = np.nan
                             
-                        #try:
-                        #    brier_score_cvi = approx_brier_score(sanitized_cvi, sanitized_surv_preds)
-                        #except:
-                        #    brier_score_cvi = np.nan
-                            
                         if median_survival_time < 0 or median_survival_time > 1000:
                             median_survival_time = np.nan 
                             
@@ -273,46 +253,60 @@ def main():
 
                         # Calculate the target datasheet TtE
                         if DATASET == 'xjtu':
-                            #datasheet_target = estimate_target_rul_xjtu(DATA_PATH, test_idx, test_condition)
-                            datasheet_target = 0
+                            datasheet_target = estimate_target_rul_xjtu(DATA_PATH, test_idx, test_condition)
                         elif DATASET == 'pronostia':
                             datasheet_target = estimate_target_rul_pronostia(DATA_PATH, test_idx, test_condition)
 
-                        print(f"Evaluated {model_name} - {ft_selector_name} - {pct}" +
+                        if test_condition == 0:
+                            cond_name = "C1"
+                        elif test_condition == 1:
+                            cond_name = "C2"
+                        else:
+                            cond_name = "C3"
+                            
+                        print(f"Evaluated {cond_name} - {model_name} - {ft_selector_name} - {pct}" +
                               f" - CI={round(c_index_cvi, 3)} - IBS={round(brier_score_cvi, 3)} - MED={round(median_survival_time, 3)}" +
                               f" - MAE={round(mae_hinge_cvi, 3)} - DCalib={d_calib} - T={round(t_total_split_time, 3)}")
 
                         # Indexing the result table
-                        res_sr = pd.Series([ft_selector_name, ft_selector_name, c_index_cvi, brier_score_cvi,
+                        res_sr = pd.Series([cond_name, model_name, ft_selector_name, pct, c_index_cvi, brier_score_cvi,
                                             median_survival_time, mae_hinge_cvi, d_calib, event_detector_target, datasheet_target,
                                             n_preds, t_total_split_time, best_params, list(selected_fts)],
-                                            index=["ModelName", "FtSelectorName", "CIndex", "BrierScore",
-                                                   "MedianSurvTime", "MAEHinge", "DCalib", "EDTarget", "DSTarget",
+                                            index=["Condition", "ModelName", "FtSelectorName", "CensoringLevel", "CIndex",
+                                                   "BrierScore", "MedianSurvTime", "MAEHinge", "DCalib", "EDTarget", "DSTarget",
                                                    "Npreds", "TTotalSplit", "BestParams", "SelectedFts"])
                         model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
-                 
-                # Indexing the file name linked to the DATASET condition
-                if DATASET == "xjtu":
-                    index = re.search(r"\d\d", cfg.RAW_DATA_PATH_XJTU[test_condition])
-                    condition_name = cfg.RAW_DATA_PATH_XJTU[test_condition][index.start():-1] + "_" + str(int(CENSORING_LEVEL[censoring_condition] * 100))
-                elif DATASET == "pronostia":
-                    index = re.search(r"\d\d", cfg.RAW_DATA_PATH_PRONOSTIA[test_condition])
-                    condition_name = cfg.RAW_DATA_PATH_PRONOSTIA[test_condition][index.start():-1] + "_" + str(int(CENSORING_LEVEL[censoring_condition] * 100))
                 
-                file_name = f"{model_name}_{condition_name}_results.csv"
+        """
+        # Indexing the file name linked to the DATASET condition
+        if DATASET == "xjtu":
+            index = re.search(r"\d\d", cfg.RAW_DATA_PATH_XJTU[test_condition])
+            condition_name = cfg.RAW_DATA_PATH_XJTU[test_condition][index.start():-1] + "_" + str(int(CENSORING_LEVEL[censoring_condition] * 100))
+        elif DATASET == "pronostia":
+            index = re.search(r"\d\d", cfg.RAW_DATA_PATH_PRONOSTIA[test_condition])
+            condition_name = cfg.RAW_DATA_PATH_PRONOSTIA[test_condition][index.start():-1] + "_" + str(int(CENSORING_LEVEL[censoring_condition] * 100))
+        
+        if test_condition == 0:
+            cond = "c1"
+        elif test_condition == 1:
+            cond = "c2"
+        else:
+            cond = "c3"
+        file_name = f"model_results.csv"
 
-                if TYPE == "correlated":
-                    address = 'correlated'
-                elif TYPE == "not_correlated":
-                    address = 'not_correlated'
-                else:
-                    address = 'bootstrap'
-                
-                # Save the results to the proper DATASET type folder
-                #model_results.to_csv(f"data/logs/{DATASET}/{address}/" + file_name)
+        if TYPE == "correlated":
+            address = 'correlated'
+        elif TYPE == "not_correlated":
+            address = 'not_correlated'
+        else:
+            address = 'bootstrap'
+        """
             
-        print(np.mean(trainset_sizes))
-        print(np.mean(testset_sizes))
+        #print(np.mean(trainset_sizes))
+        #print(np.mean(testset_sizes))
+    
+    # Save the results to the proper DATASET type folder
+    model_results.to_csv(f"{cfg.RESULTS_PATH}/model_results.csv")
 
 if __name__ == "__main__":
     main()
