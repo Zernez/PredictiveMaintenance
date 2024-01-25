@@ -28,16 +28,32 @@ from xgbse.metrics import approx_brier_score
 import os
 import argparse
 from itertools import combinations
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import KFold
 
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
-NEW_DATASET = True
+NEW_DATASET = False
 N_ITER = 10
-N_INTERNAL_SPLITS = 3
-N_TRAIN_BEARINGS = 3
-TRAIN_SIZE = 1
+N_OUTER_SPLITS = 5
+N_INNER_SPLITS = 3
+
+def get_window_size(n_condition):
+    if n_condition == 0:
+        return 2
+    elif n_condition == 1:
+        return 4
+    return 6
+
+def get_lag(n_condition):
+    if n_condition == 0:
+        return -1
+    elif n_condition == 1:
+        return -3
+    return -5
 
 def main():
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str,
                         required=True,
@@ -46,24 +62,26 @@ def main():
                         required=True,
                         default=None)
     args = parser.parse_args()
+    """
     
     global DATASET
     global TYPE
     global N_CONDITION
     global N_BEARING
-    global TRAIN_SIZE
-    global CENSORING
+    global CENSORING_LEVEL
     global N_BOOT
     
+    """
     if args.dataset:
         DATASET = args.dataset
         cfg.DATASET_NAME = args.dataset
 
     if args.typedata:
         TYPE = args.typedata
+    """
     
-    #DATASET= "xjtu"
-    #TYPE= "not_correlated"
+    DATASET = "xjtu"
+    TYPE = "not_correlated"
 
     if TYPE == "bootstrap":
         N_BOOT = 16
@@ -75,104 +93,84 @@ def main():
         DATASET_PATH = cfg.DATASET_PATH_XJTU
         N_CONDITION = len(cfg.RAW_DATA_PATH_XJTU)
         N_BEARING = cfg.N_REAL_BEARING_XJTU
-        CENSORING = cfg.CENSORING_LEVEL
+        CENSORING_LEVEL = cfg.CENSORING_LEVEL
     elif DATASET == "pronostia":
         DATA_PATH = cfg.RAW_DATA_PATH_PRONOSTIA
         DATASET_PATH = cfg.DATASET_PATH_PRONOSTIA
         N_CONDITION = len(cfg.RAW_DATA_PATH_PRONOSTIA)
         N_BEARING = cfg.N_REAL_BEARING_PRONOSTIA
-        CENSORING = cfg.CENSORING_LEVEL
+        CENSORING_LEVEL = cfg.CENSORING_LEVEL
     
     # For the first time running, a NEW_DATASET is needed
     if NEW_DATASET== True:
         Builder(DATASET, N_BOOT, TYPE).build_new_dataset(bootstrap=N_BOOT)
 
     # Insert the models and feature name selector for CV hyperparameter search and initialize the DataETL instance
-    models = [CoxPH, RSF, DeepSurv, DSM, BNNmcd]
+    models = [CoxPH]
     ft_selectors = [PHSelector]
     data_util = DataETL(DATASET, N_BOOT)
 
     # Extract information from the dataset selected from the config file
-    cov_group = []
-    boot_group = []
-    info_group = []
     for test_condition in range (0, N_CONDITION):
-        cov, boot, info_pack = FileReader(DATASET, DATASET_PATH, TYPE).read_data(test_condition, N_BOOT)
-        cov_group.append(cov)
-        boot_group.append(boot)
-        info_group.append(info_pack)
+        timeseries_data, boot, info_pack = FileReader(DATASET, DATASET_PATH, TYPE).read_data(test_condition, N_BOOT)
 
-    # Transform information from the dataset selected from the config file
-    data_container_X = []
-    data_container_y= []
-    for test_condition, (cov, boot, info_pack) in enumerate(zip(cov_group, boot_group, info_group)):
-        # Create different data for bootstrap and not bootstrap
-        if TYPE == "bootstrap":
-            data_temp_X, deltaref_temp_y = data_util.make_surv_data_bootstrap(cov, boot, info_pack, N_BOOT)
-        elif TYPE == "not_correlated":
-            data_temp_X, deltaref_temp_y = data_util.make_surv_data_transform_ma(cov, boot, info_pack, N_BOOT, TYPE)
-        elif TYPE == "correlated":
-            data_temp_X, deltaref_temp_y = data_util.make_surv_data_transform_ama(cov, boot, info_pack, N_BOOT, TYPE)
-        data_container_X.append(data_temp_X)
-        data_container_y.append(deltaref_temp_y)
-
-    # Load information from the dataset selected in the config file                                                                          
-    for test_condition, (data, data_y) in enumerate(zip(data_container_X, data_container_y)):
-
-        # Information about the event estimation in event detector
-        y_delta = data_y
-
-        # Iteration for each censored condition
-        for censor_condition, percentage in enumerate(CENSORING):
-
-            # Eventually control the censored data by CENSORING
-            data_X= []
-            for data_group in data:   
-                data_temp_X = Formatter.control_censored_data(data_group, percentage= percentage)
-                data_X.append(data_temp_X)
-
-            # Indexing by the original bearing number the dataset to avoid train/test leaking. 
-            # The data will be splitted in chunks of bearings bootrastrapped from the original bearing.
-            dummy_x = list(range(0, int(np.floor(N_BEARING * TRAIN_SIZE)), 1))
+        trainset_sizes, testset_sizes = [], []
+        # Split in train and test set
+        kf = KFold(n_splits=N_OUTER_SPLITS)
+        bearing_indicies =  list(range(1, (N_BEARING*2)+1)) # number of real bearings x2
+        for _, (train_idx, test_idx) in enumerate(kf.split(bearing_indicies)):
+            split_start_time = time()
             
-            print(f"Started evaluation of {len(models)} models/{len(ft_selectors)} ft selectors. Dataset: {DATASET}. Type: {TYPE}")
-            
-            # For all models selected
-            for model_builder in models:
-                model_name = model_builder.__name__
-                model_results = pd.DataFrame()
+            # Adjust indicies to match bearing numbers
+            train_idx = train_idx + 1
+            test_idx = test_idx + 1
 
-                # For all feature selector selected
-                for ft_selector_builder in ft_selectors:
-                    ft_selector_name = ft_selector_builder.__name__
+            # Compute moving average for training/testing
+            train_data, test_data = pd.DataFrame(), pd.DataFrame()
+            window_size = get_window_size(test_condition)
+            lag = get_lag(test_condition)
+            event_detector_target = {}
+            for idx in train_idx:
+                event_time = data_util.event_analyzer(idx, info_pack)
+                event_detector_target[idx] = event_time
+                transformed_data = data_util.make_moving_average(timeseries_data, event_time, idx, window_size, lag)
+                train_data = pd.concat([train_data, transformed_data], axis=0)
+            for idx in test_idx:
+                event_time = data_util.event_analyzer(idx, info_pack)
+                event_detector_target[idx] = event_time
+                transformed_data = data_util.make_moving_average(timeseries_data, event_time, idx, window_size, lag)
+                test_data = pd.concat([test_data, transformed_data], axis=0)
+            trainset_sizes.append(len(train_data))
+            testset_sizes.append(len(test_data))
+            
+            for censoring_condition, pct in enumerate(CENSORING_LEVEL):
+                # Add random censoring
+                train_data = Formatter.control_censored_data(train_data, percentage=pct)
+                test_data = Formatter.control_censored_data(test_data, percentage=pct)
+                
+                # For all models
+                for model_builder in models:
+                    model_name = model_builder.__name__
+                    model_results = pd.DataFrame()
                     
-                    # Split in train and test set
-                    for train in list(combinations(dummy_x, N_TRAIN_BEARINGS)):
-                        test = list([idx for idx in dummy_x if idx not in train])
+                    # For all feature selectors
+                    for ft_selector_builder in ft_selectors:
+                        ft_selector_name = ft_selector_builder.__name__
+                                                
+                        # Shuffle train and test data
+                        train_data = train_data.sample(frac=1, random_state=0)
+                        test_data = test_data.sample(frac=1, random_state=0)
                         
-                        # Track time
-                        split_start_time = time()
-
-                        # Load the train data from group indexed Kfold splitting avoiding train/test leaking                
-                        data_X_merge = pd.DataFrame()
-                        for element in train:
-                            data_X_merge = pd.concat([data_X_merge, data_X [element]], ignore_index=True)
-                        data_y = Surv.from_dataframe("Event", "Survival_time", data_X_merge)
-                        T1 = (data_X_merge, data_y)
-
-                        # Load the test data from group indexed Kfold splitting avoiding train/test leaking               
-                        data_X_merge = pd.DataFrame()
-                        for element in test:
-                            data_X_merge = pd.concat([data_X_merge, data_X [element]], ignore_index=True)
-                        data_y = Surv.from_dataframe("Event", "Survival_time", data_X_merge)
-                        T2 = (data_X_merge, data_y)
-
-                        # Fromat and center the data
-                        ti, cvi, ti_NN, cvi_NN = Formatter.format_main_data(T1, T2)
-                        ti, cvi, ti_NN, cvi_NN = Formatter.centering_main_data(ti, cvi, ti_NN, cvi_NN)
-
-                        ft_selector_print_name = f"{ft_selector_name}"
-                        model_print_name = f"{model_name}"
+                        # Format and scale the data
+                        train_x = train_data.drop(['Event', 'Survival_time'], axis=1)
+                        train_y = Surv.from_dataframe("Event", "Survival_time", train_data)
+                        test_x = test_data.drop(['Event', 'Survival_time'], axis=1)
+                        test_y = Surv.from_dataframe("Event", "Survival_time", test_data)
+                        features = list(train_x.columns)
+                        scaler = StandardScaler()
+                        scaler.fit(train_x)
+                        ti = (pd.DataFrame(scaler.transform(train_x), columns=features), train_y)
+                        cvi = (pd.DataFrame(scaler.transform(test_x), columns=features), test_y)
                         
                         # Create model instance and find best features
                         model = model_builder().get_estimator()
@@ -187,25 +185,20 @@ def main():
                         ti_new[0].reset_index(inplace=True, drop=True)
                         cvi_new = (cvi[0].loc[:, selected_fts], cvi[1])
                         cvi_new[0].reset_index(inplace=True, drop=True)
-                        ti_new_NN =  (ti_NN[0].loc[:, selected_fts], ti_NN[1])
-                        ti_new_NN[0].reset_index(inplace=True, drop=True)
-                        cvi_new_NN = (cvi_NN[0].loc[:, selected_fts], cvi_NN[1])
-                        cvi_new_NN[0].reset_index(inplace=True, drop=True)
-
-                        # Set event times
-                        times = make_event_times(ti_new_NN[1]['time'], ti_new_NN[1]['event']).astype(int)
+                        
+                        # Make event times
+                        times = make_event_times(ti_new[1]['Survival_time'].copy(), ti_new[1]['Event'].copy()).astype(int)
                         times = np.unique(times)
 
                         # Find hyperparams via inner CV from hyperparamters' space
                         space = model_builder().get_tuneable_params()
                         param_list = list(ParameterSampler(space, n_iter=N_ITER, random_state=0))
-                        best_params = run_cross_validation(model_builder, ti_new_NN,
-                                                           param_list, N_INTERNAL_SPLITS)
+                        best_params = run_cross_validation(model_builder, ti_new, param_list, N_INNER_SPLITS)
                         
                         # Train on train set TI with new parameters
-                        x = ti_new_NN[0].to_numpy()
-                        t = ti_new_NN[1].loc[:, "time"].to_numpy()
-                        e = ti_new_NN[1].loc[:, "event"].to_numpy()
+                        x = ti_new[0].to_numpy()
+                        t = ti_new[1]["Survival_time"]
+                        e = ti_new[1]["Event"]
                         if model_name == "DeepSurv":
                             model = DeepCoxPH(layers=best_params['layers'])
                             with Suppressor():
@@ -229,7 +222,7 @@ def main():
                         
                         # Get survival predictions for CVI
                         if model_name == "DeepSurv" or model_name == "DSM" or model_name == "BNNmcd":
-                            xte = cvi_new_NN[0].to_numpy()
+                            xte = cvi_new[0].to_numpy()
                             with Suppressor():
                                 surv_preds = Survival.predict_survival_function(model, xte, times, n_post_samples=1000)
                         else:
@@ -252,16 +245,22 @@ def main():
                             lifelines_eval = LifelinesEvaluator(sanitized_surv_preds.T, sanitized_cvi['Survival_time'], sanitized_cvi['Event'],
                                                                 ti_new[1]['Survival_time'], ti_new[1]['Event'])
                             median_survival_time = np.median(lifelines_eval.predict_time_from_curve(predict_median_survival_time))
+                            brier_score_cvi = lifelines_eval.integrated_brier_score()
                             mae_hinge_cvi = lifelines_eval.mae(method="Hinge")
                             d_calib = 1 if lifelines_eval.d_calibration()[0] > 0.05 else 0
                         except:
                             median_survival_time = np.nan
+                            brier_score_cvi = np.nan
                             mae_hinge_cvi = np.nan
                             d_calib = np.nan
-                        try:
-                            brier_score_cvi = approx_brier_score(sanitized_cvi, sanitized_surv_preds)
-                        except:
-                            brier_score_cvi = np.nan
+                            
+                        #try:
+                        #    brier_score_cvi = approx_brier_score(sanitized_cvi, sanitized_surv_preds)
+                        #except:
+                        #    brier_score_cvi = np.nan
+                            
+                        if median_survival_time < 0 or median_survival_time > 1000:
+                            median_survival_time = np.nan 
                             
                         if brier_score_cvi < 0 or brier_score_cvi > 1:
                             brier_score_cvi = np.nan
@@ -269,37 +268,36 @@ def main():
                         if mae_hinge_cvi > 1000:
                             mae_hinge_cvi = np.nan
                         
-                        n_preds = len(sanitized_surv_preds)
-                        event_detector_target = np.median(sanitized_cvi['Survival_time'])
+                        n_preds = len(surv_preds)
                         t_total_split_time = time() - split_start_time
 
                         # Calculate the target datasheet TtE
                         if DATASET == 'xjtu':
-                            datasheet_target = estimate_target_rul_xjtu(DATA_PATH, test, test_condition)
+                            #datasheet_target = estimate_target_rul_xjtu(DATA_PATH, test_idx, test_condition)
+                            datasheet_target = 0
                         elif DATASET == 'pronostia':
-                            datasheet_target = estimate_target_rul_pronostia(DATA_PATH, test, test_condition)
+                            datasheet_target = estimate_target_rul_pronostia(DATA_PATH, test_idx, test_condition)
 
-                        print(f"Evaluated {model_print_name} - {ft_selector_print_name} - {percentage}" +
-                            f" - CI={round(c_index_cvi, 3)} - IBS={round(brier_score_cvi, 3)} - MED={round(median_survival_time, 3)}" +
-                            f" - EDTarget={round(event_detector_target, 3)} - MAE={round(mae_hinge_cvi, 3)} - DCalib={d_calib}" +
-                            f" - T={round(t_total_split_time, 3)}")
+                        print(f"Evaluated {model_name} - {ft_selector_name} - {pct}" +
+                              f" - CI={round(c_index_cvi, 3)} - IBS={round(brier_score_cvi, 3)} - MED={round(median_survival_time, 3)}" +
+                              f" - MAE={round(mae_hinge_cvi, 3)} - DCalib={d_calib} - T={round(t_total_split_time, 3)}")
 
                         # Indexing the result table
-                        res_sr = pd.Series([model_print_name, ft_selector_print_name, c_index_cvi, brier_score_cvi,
+                        res_sr = pd.Series([ft_selector_name, ft_selector_name, c_index_cvi, brier_score_cvi,
                                             median_survival_time, mae_hinge_cvi, d_calib, event_detector_target, datasheet_target,
-                                            n_preds, t_total_split_time, best_params, list(selected_fts), y_delta],
+                                            n_preds, t_total_split_time, best_params, list(selected_fts)],
                                             index=["ModelName", "FtSelectorName", "CIndex", "BrierScore",
-                                                   "MedianSurvTime", "MAEHinge", "DCalib", "EDTarget", "DatasheetTarget",
-                                                   "Npreds", "TTotalSplit", "BestParams", "SelectedFts", "DeltaY"])
+                                                   "MedianSurvTime", "MAEHinge", "DCalib", "EDTarget", "DSTarget",
+                                                   "Npreds", "TTotalSplit", "BestParams", "SelectedFts"])
                         model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
                  
                 # Indexing the file name linked to the DATASET condition
                 if DATASET == "xjtu":
                     index = re.search(r"\d\d", cfg.RAW_DATA_PATH_XJTU[test_condition])
-                    condition_name = cfg.RAW_DATA_PATH_XJTU[test_condition][index.start():-1] + "_" + str(int(CENSORING[censor_condition] * 100))
+                    condition_name = cfg.RAW_DATA_PATH_XJTU[test_condition][index.start():-1] + "_" + str(int(CENSORING_LEVEL[censoring_condition] * 100))
                 elif DATASET == "pronostia":
                     index = re.search(r"\d\d", cfg.RAW_DATA_PATH_PRONOSTIA[test_condition])
-                    condition_name = cfg.RAW_DATA_PATH_PRONOSTIA[test_condition][index.start():-1] + "_" + str(int(CENSORING[censor_condition] * 100))
+                    condition_name = cfg.RAW_DATA_PATH_PRONOSTIA[test_condition][index.start():-1] + "_" + str(int(CENSORING_LEVEL[censoring_condition] * 100))
                 
                 file_name = f"{model_name}_{condition_name}_results.csv"
 
@@ -311,7 +309,10 @@ def main():
                     address = 'bootstrap'
                 
                 # Save the results to the proper DATASET type folder
-                model_results.to_csv(f"data/logs/{DATASET}/{address}/" + file_name)
+                #model_results.to_csv(f"data/logs/{DATASET}/{address}/" + file_name)
+            
+        print(np.mean(trainset_sizes))
+        print(np.mean(testset_sizes))
 
 if __name__ == "__main__":
     main()

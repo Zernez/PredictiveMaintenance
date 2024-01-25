@@ -28,7 +28,25 @@ class DataETL:
             self.folder_size = self.total_bearings * self.fixed_time_split
         self.event_detector_goal = cfg.EVENT_DETECTOR_CONFIG
 
-
+    def make_moving_average(self, timeseries_data, event_time, idx, window_size, lag):
+        bearing_cols = [col for col in timeseries_data if col.startswith(f'B{idx}_')]
+        df = timeseries_data.loc[:,bearing_cols].dropna()
+        df.columns = df.columns.str.replace(r'^B\d+_','')
+        df = df.loc[:event_time, :] # select data up to event
+        df['Survival_time'] = range(int(event_time)+1, 0, -1) # annotate the event
+        cols = list(df.columns.drop(['Event']))
+        total_df = pd.DataFrame()
+        for ft_col in cols: # Compute moving average
+            roll = df[ft_col].rolling(window_size)
+            ma = roll.mean().shift(lag).reset_index(0, drop=True)
+            if ft_col == "Survival_time":
+                total_df[ft_col] = ma.transform(np.floor)
+            else:
+                total_df[ft_col] = ma
+        total_df = total_df.dropna().reset_index(drop=True)
+        total_df['Event'] = True
+        return total_df
+                
     def make_surv_data_bootstrap (self, 
             covariates: dict, 
             set_boot: pd.DataFrame, 
