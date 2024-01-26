@@ -114,11 +114,13 @@ def main():
                 event_detector_target[idx] = event_time
                 transformed_data = data_util.make_moving_average(timeseries_data, event_time, idx, window_size, lag)
                 train_data = pd.concat([train_data, transformed_data], axis=0)
+                train_data = train_data.reset_index(drop=True)
             for idx in test_idx:
                 event_time = data_util.event_analyzer(idx, info_pack)
                 event_detector_target[idx] = event_time
                 transformed_data = data_util.make_moving_average(timeseries_data, event_time, idx, window_size, lag)
                 test_data = pd.concat([test_data, transformed_data], axis=0)
+                test_data = test_data.reset_index(drop=True)
             
             for pct in CENSORING_LEVEL:
                 # Add random censoring
