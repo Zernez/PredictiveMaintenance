@@ -19,18 +19,15 @@ from utility.printer import Suppressor
 from tools.formatter import Formatter
 from tools.evaluator import LifelinesEvaluator
 from tools.Evaluations.util import predict_median_survival_time
-from tools.Evaluations.TargetRUL import estimate_target_rul_xjtu
-from tools.Evaluations.TargetRUL import estimate_target_rul_pronostia
 from utility.survival import make_event_times
 from tools.cross_validator import run_cross_validation
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import KFold
 import argparse
-from itertools import combinations
 
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
-NEW_DATASET = False
+NEW_DATASET = True
 N_ITER = 10
 N_OUTER_SPLITS = 5
 N_INNER_SPLITS = 3
