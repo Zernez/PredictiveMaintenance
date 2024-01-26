@@ -8,7 +8,7 @@ from sksurv.util import Surv
 from sklearn.model_selection import ParameterSampler
 from sklearn.model_selection import KFold
 from tools.feature_selectors import PHSelector
-from tools.regressors import CoxPH, RSF, DeepSurv, DSM, BNNmcd, CoxBoost
+from tools.regressors import CoxPH, RSF, DeepSurv, DSM, BNNmcd
 from tools.file_reader import FileReader
 from tools.data_ETL import DataETL
 from utility.builder import Builder
@@ -30,7 +30,7 @@ from itertools import combinations
 
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
-NEW_DATASET = True
+NEW_DATASET = False
 N_ITER = 10
 N_OUTER_SPLITS = 5
 N_INNER_SPLITS = 3
@@ -87,7 +87,7 @@ def main():
         Builder(DATASET, N_BOOT).build_new_dataset(bootstrap=N_BOOT)
 
     # Insert the models and feature name selector for CV hyperparameter search and initialize the DataETL instance
-    models = [RSF] # CoxPH, RSF, CoxBoost, DeepSurv, BNNmcd
+    models = [CoxPH, RSF, DeepSurv, DSM, BNNmcd]
     ft_selectors = [PHSelector]
     data_util = DataETL(DATASET, N_BOOT)
 
@@ -245,15 +245,20 @@ def main():
                         n_preds = len(surv_preds)
                         t_total_split_time = time() - split_start_time
 
-                        # Calculate the target datasheet TtE
-                        datasheet_target = estimate_target_rul_xjtu(DATA_PATH, test_idx, test_condition)
-
                         if test_condition == 0:
                             cond_name = "C1"
                         elif test_condition == 1:
                             cond_name = "C2"
                         else:
                             cond_name = "C3"
+                            
+                        # Get bearing lifetime
+                        bearing_indicies =  [(x + 1) // 2 for x in test_idx]
+                        real_lifetimes = cfg.DATASHEET_LIFETIMES
+                        lifetimes = []
+                        for idx in bearing_indicies:
+                            lifetimes.append(real_lifetimes[f'{DATASET}_{cond_name.lower()}_b{idx}'])
+                        datasheet_target = np.median(lifetimes)
                             
                         print(f"Evaluated {cond_name} - {model_name} - {ft_selector_name} - {pct}" +
                               f" - CI={round(c_index_cvi, 3)} - IBS={round(brier_score_cvi, 3)} - MED={round(median_survival_time, 3)}" +
@@ -268,31 +273,6 @@ def main():
                                                    "Npreds", "TTotalSplit", "BestParams", "SelectedFts"])
                         model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
                 
-        """
-        # Indexing the file name linked to the DATASET condition
-        if DATASET == "xjtu":
-            index = re.search(r"\d\d", cfg.RAW_DATA_PATH_XJTU[test_condition])
-            condition_name = cfg.RAW_DATA_PATH_XJTU[test_condition][index.start():-1] + "_" + str(int(CENSORING_LEVEL[censoring_condition] * 100))
-        elif DATASET == "pronostia":
-            index = re.search(r"\d\d", cfg.RAW_DATA_PATH_PRONOSTIA[test_condition])
-            condition_name = cfg.RAW_DATA_PATH_PRONOSTIA[test_condition][index.start():-1] + "_" + str(int(CENSORING_LEVEL[censoring_condition] * 100))
-        
-        if test_condition == 0:
-            cond = "c1"
-        elif test_condition == 1:
-            cond = "c2"
-        else:
-            cond = "c3"
-        file_name = f"model_results.csv"
-
-        if TYPE == "correlated":
-            address = 'correlated'
-        elif TYPE == "not_correlated":
-            address = 'not_correlated'
-        else:
-            address = 'bootstrap'
-        """
-            
     # Save the results to the proper DATASET type folder
     model_results.to_csv(f"{cfg.RESULTS_PATH}/model_results.csv")
 

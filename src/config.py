@@ -42,6 +42,23 @@ FREQUENCY_BANDS5 = {'pronostia_start': [11, 26, 98, 153, 203],
 FREQUENCY_BANDS6 = {'pronostia_start': [12, 29, 107, 167, 216],
                        'pronostia_stop': [14, 31, 109, 169, 218]}
 
+DATASHEET_LIFETIMES = {'xjtu_c1_b1': 123,
+                       'xjtu_c1_b2': 161,
+                       'xjtu_c1_b1': 158,
+                       'xjtu_c1_b1': 122,
+                       'xjtu_c1_b1': 52,
+                       'xjtu_c2_b1': 491,
+                       'xjtu_c2_b2': 161,
+                       'xjtu_c2_b3': 533,
+                       'xjtu_c2_b4': 42,
+                       'xjtu_c2_b5': 339,
+                       'xjtu_c3_b1': 2538,
+                       'xjtu_c3_b2': 2496,
+                       'xjtu_c3_b3': 371,
+                       'xjtu_c3_b4': 1515,
+                       'xjtu_c3_b5': 114
+}
+
 PH_EXCLUSION = {'xjtu_c1': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH',
                             'FrH', 'FrpH', 'FcaH', 'noise', 'std',
                             'kurtosis', 'rms', 'crest', 'impulse'],
