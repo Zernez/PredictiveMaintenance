@@ -8,7 +8,7 @@ from sksurv.util import Surv
 from sklearn.model_selection import ParameterSampler
 from sklearn.model_selection import KFold
 from tools.feature_selectors import PHSelector
-from tools.regressors import CoxPH, RSF, DeepSurv, DSM, BNNmcd
+from tools.regressors import CoxPH, RSF, DeepSurv, DSM, BNNmcd, CoxBoost
 from tools.file_reader import FileReader
 from tools.data_ETL import DataETL
 from utility.builder import Builder
@@ -26,6 +26,7 @@ from tools.cross_validator import run_cross_validation
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import KFold
 import argparse
+from itertools import combinations
 
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
@@ -59,7 +60,6 @@ def main():
     args = parser.parse_args()
     
     global DATASET
-    global TYPE
     global N_CONDITION
     global N_BEARING
     global CENSORING_LEVEL
@@ -74,12 +74,8 @@ def main():
     
     #DATASET = "xjtu"
     #TYPE = "not_correlated"
-
-    if TYPE == "bootstrap":
-        N_BOOT = 16
-    else:
-        N_BOOT = 0
-
+    
+    N_BOOT = 0
     DATA_PATH = cfg.RAW_DATA_PATH_XJTU
     DATASET_PATH = cfg.DATASET_PATH_XJTU
     N_CONDITION = len(cfg.RAW_DATA_PATH_XJTU)
@@ -88,29 +84,29 @@ def main():
     
     # For the first time running, a NEW_DATASET is needed
     if NEW_DATASET== True:
-        Builder(DATASET, N_BOOT, TYPE).build_new_dataset(bootstrap=N_BOOT)
+        Builder(DATASET, N_BOOT).build_new_dataset(bootstrap=N_BOOT)
 
     # Insert the models and feature name selector for CV hyperparameter search and initialize the DataETL instance
-    models = [CoxPH, RSF, DeepSurv, DSM, BNNmcd]
+    models = [RSF] # CoxPH, RSF, CoxBoost, DeepSurv, BNNmcd
     ft_selectors = [PHSelector]
     data_util = DataETL(DATASET, N_BOOT)
 
     # Extract information from the dataset selected from the config file
     model_results = pd.DataFrame()    
     for test_condition in range (0, N_CONDITION):
-        timeseries_data, boot, info_pack = FileReader(DATASET, DATASET_PATH, TYPE).read_data(test_condition, N_BOOT)
-        #trainset_sizes, testset_sizes = [], []
-        
+        timeseries_data, boot, info_pack = FileReader(DATASET, DATASET_PATH).read_data(test_condition, N_BOOT)
+
         # Split in train and test set
         kf = KFold(n_splits=N_OUTER_SPLITS)
         bearing_indicies =  list(range(1, (N_BEARING*2)+1)) # number of real bearings x2
         for _, (train_idx, test_idx) in enumerate(kf.split(bearing_indicies)):
+            # Track time
             split_start_time = time()
             
             # Adjust indicies to match bearing numbers
             train_idx = train_idx + 1
             test_idx = test_idx + 1
-
+            
             # Compute moving average for training/testing
             train_data, test_data = pd.DataFrame(), pd.DataFrame()
             window_size = get_window_size(test_condition)
@@ -126,8 +122,6 @@ def main():
                 event_detector_target[idx] = event_time
                 transformed_data = data_util.make_moving_average(timeseries_data, event_time, idx, window_size, lag)
                 test_data = pd.concat([test_data, transformed_data], axis=0)
-            #trainset_sizes.append(len(train_data))
-            #testset_sizes.append(len(test_data))
             
             for pct in CENSORING_LEVEL:
                 # Add random censoring
@@ -160,7 +154,7 @@ def main():
                         # Create model instance and find best features
                         model = model_builder().get_estimator()
                         if ft_selector_name == "PHSelector":
-                            ft_selector = ft_selector_builder(ti[0], ti[1], estimator=[DATASET, TYPE, test_condition])
+                            ft_selector = ft_selector_builder(ti[0], ti[1], estimator=[DATASET, test_condition])
                         else:
                             ft_selector = ft_selector_builder(ti[0], ti[1], estimator=model)
                         
@@ -252,10 +246,7 @@ def main():
                         t_total_split_time = time() - split_start_time
 
                         # Calculate the target datasheet TtE
-                        if DATASET == 'xjtu':
-                            datasheet_target = estimate_target_rul_xjtu(DATA_PATH, test_idx, test_condition)
-                        elif DATASET == 'pronostia':
-                            datasheet_target = estimate_target_rul_pronostia(DATA_PATH, test_idx, test_condition)
+                        datasheet_target = estimate_target_rul_xjtu(DATA_PATH, test_idx, test_condition)
 
                         if test_condition == 0:
                             cond_name = "C1"
@@ -302,9 +293,6 @@ def main():
             address = 'bootstrap'
         """
             
-        #print(np.mean(trainset_sizes))
-        #print(np.mean(testset_sizes))
-    
     # Save the results to the proper DATASET type folder
     model_results.to_csv(f"{cfg.RESULTS_PATH}/model_results.csv")
 

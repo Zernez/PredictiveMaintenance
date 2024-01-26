@@ -23,8 +23,7 @@ class SelectPHFeatures ():
         self.x = X
         self.y = y
         self.dataset = data_info[0]
-        self.type = data_info[1]
-        self.cond = data_info[2]
+        self.cond = data_info[1]
         self.features = []
 
     def fit (self, X, y=None):

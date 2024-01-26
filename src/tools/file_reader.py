@@ -6,9 +6,9 @@ import config as cfg
 
 class FileReader:
 
-    def __init__ (self, dataset, dataset_path, type):
+    def __init__ (self, dataset, dataset_path):
         if (dataset == "xjtu"):
-            self.dataset_path = dataset_path + f'{type}/'
+            self.dataset_path = dataset_path
         elif (dataset == "pronostia"):
             self.dataset_path = dataset_path
         self.dataset= dataset

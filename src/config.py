@@ -47,7 +47,7 @@ PH_EXCLUSION = {'xjtu_c1': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH',
                             'kurtosis', 'rms', 'crest', 'impulse'],
                 'xjtu_c2': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH',
                             'FrH', 'FrpH', 'FcaH', 'noise', 'mean',
-                            'entropy', 'p2p', 'crest', 'clearence' 'impulse'],
+                            'entropy', 'p2p', 'crest', 'clearence', 'impulse'],
                 'xjtu_c3': ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH',
                             'FrH', 'FrpH', 'FcaH', 'noise', 'mean', 'kurtosis',
                             'crest', 'clearence', 'shape', 'impulse']}
