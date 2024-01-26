@@ -213,17 +213,17 @@ class DataETL:
                 if label == "Event" or label == "Survival_time":
                     if label == "Survival_time":
                         
-                        # At the last slice take the time-to-event as is, otherwise take the mean of the window
+                        # At the last window take the event within the first slice, otherwise take the mean of the lasts windows near the event 
                         if timepoints - 2 < moving_window:
-                            proportional_value= columnSeriesObj                                     
+                            proportional_value= np.mean([0, self.post])                                     
                         else:
-                            proportional_value= np.mean([low, high])
-                        
+                            proportional_value= columnSeriesObj - np.mean([low, high])
+
                         row [label] = pd.Series(proportional_value).T 
                     else:
                         row [label] = pd.Series(columnSeriesObj).T   
                 else:
-                    # Take the slice near to the time-to-event or the last                                 
+                    # Take the covariates slice near to the event or the last                                 
                     time_slice = columnSeriesObj.iloc[low:high]
                     
                     # Average the covariates value to transform time-series to survival data
@@ -330,7 +330,7 @@ class DataETL:
                 if label == "Event" or label == "Survival_time":
                     if label == "Survival_time":
 
-                        # For the last slice take the time-to-event as is, otherwise take value of the moving window
+                        # For the last window take the time-to-event as is, otherwise take value of the moving window
                         if timepoints - 2 < moving_window:
                             proportional_value = columnSeriesObj                                                                       
                         else:
@@ -339,7 +339,7 @@ class DataETL:
                     else:
                         row [label] = pd.Series(columnSeriesObj).T   
                 else:
-                    # For the last slice take the covariates as is, otherwise take lasts time slices        
+                    # For the last window take the covariates as is, otherwise take lasts time slices        
                     if timepoints - 2 < moving_window: 
                         time_slice = columnSeriesObj
                     else:
