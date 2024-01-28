@@ -24,6 +24,7 @@ from tools.cross_validator import run_cross_validation
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import KFold
 import argparse
+from utility.data import get_window_size, get_lag
 
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
@@ -31,20 +32,6 @@ NEW_DATASET = True
 N_ITER = 10
 N_OUTER_SPLITS = 5
 N_INNER_SPLITS = 3
-
-def get_window_size(n_condition):
-    if n_condition == 0:
-        return 2
-    elif n_condition == 1:
-        return 4
-    return 6
-
-def get_lag(n_condition):
-    if n_condition == 0:
-        return -1
-    elif n_condition == 1:
-        return -3
-    return -5
 
 def main():
     parser = argparse.ArgumentParser()
