@@ -263,6 +263,25 @@ class Formatter:
         return ti_NN , y_ti_NN, cvi_NN, durations_test, events_test, val_NN
 
     @staticmethod
+    def add_random_censoring (
+            X: pd.DataFrame, 
+            percentage: float
+        ) -> pd.DataFrame:
+        """
+        Adds random censoring
+        """
+        samples_to_censor = X.sample(frac=percentage)
+        df_rest = X.loc[~X.index.isin(samples_to_censor.index)]
+        samples_to_censor['Survival_time'] = samples_to_censor.apply(
+            lambda x: np.random.randint(0, x['Survival_time']), axis=1)
+        samples_to_censor.loc[samples_to_censor['Survival_time'].eq(0),
+                              'Survival_time'] = 1 # avoid zero time
+        samples_to_censor['Event'] = False
+        new_dataset = pd.concat([samples_to_censor, df_rest])
+        new_dataset = new_dataset.reset_index(drop=True)
+        return new_dataset
+        
+    @staticmethod
     def control_censored_data (
             X: pd.DataFrame, 
             percentage: float

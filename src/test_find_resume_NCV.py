@@ -28,12 +28,13 @@ from utility.data import get_window_size, get_lag
 
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
-NEW_DATASET = True
+NEW_DATASET = False
 N_ITER = 10
 N_OUTER_SPLITS = 5
 N_INNER_SPLITS = 3
 
 def main():
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str,
                         required=True,
@@ -42,29 +43,28 @@ def main():
                         required=True,
                         default=None)
     args = parser.parse_args()
+    """
     
     global DATASET
     global N_CONDITION
     global N_BEARING
-    global CENSORING_LEVEL
     global N_BOOT
-    
+    """
     if args.dataset:
         DATASET = args.dataset
         cfg.DATASET_NAME = args.dataset
 
     if args.typedata:
         TYPE = args.typedata
+    """
     
-    #DATASET = "xjtu"
-    #TYPE = "not_correlated"
+    DATASET = "xjtu"
+    TYPE = "not_correlated"
     
     N_BOOT = 0
-    DATA_PATH = cfg.RAW_DATA_PATH_XJTU
     DATASET_PATH = cfg.DATASET_PATH_XJTU
     N_CONDITION = len(cfg.RAW_DATA_PATH_XJTU)
     N_BEARING = cfg.N_REAL_BEARING_XJTU
-    CENSORING_LEVEL = cfg.CENSORING_LEVEL
     
     # For the first time running, a NEW_DATASET is needed
     if NEW_DATASET== True:
@@ -109,10 +109,10 @@ def main():
                 test_data = pd.concat([test_data, transformed_data], axis=0)
                 test_data = test_data.reset_index(drop=True)
             
-            for pct in CENSORING_LEVEL:
+            for pct in cfg.CENSORING_LEVELS:
                 # Add random censoring
-                train_data = Formatter.control_censored_data(train_data, percentage=pct)
-                test_data = Formatter.control_censored_data(test_data, percentage=pct)
+                train_data = Formatter.add_random_censoring(train_data, percentage=pct)
+                test_data = Formatter.add_random_censoring(test_data, percentage=pct)
                 
                 # For all models
                 for model_builder in models:
