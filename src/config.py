@@ -1,6 +1,6 @@
 DATA_TYPE= ["bootstrap", "not_bootstrap"]
 DATASET_NAME= ["xjtu", "pronostia"]
-EVENT_DETECTOR_CONFIG = "predictive_maintenance_sensitive" # "predictive_maintenance_sensitive" or "predictive_maintenance_robust" or "labeler_median" or "labeler_mean"
+EVENT_DETECTOR_CONFIG = "labeler_max" # "predictive_maintenance_sensitive" or "predictive_maintenance_robust" or "labeler_median" or "labeler_mean"
 #N_BOOT= 3
 #N_BOOT_FOLD_XJTU= (2 + N_BOOT) * 2
 #N_BOOT_FOLD_UPSAMPLING= N_BOOT_FOLD_XJTU * 20

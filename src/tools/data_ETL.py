@@ -517,6 +517,8 @@ class DataETL:
             result = round(np.median(data_sd), 1)
         elif self.event_detector_goal == "labeler_mean":
             result= round(np.mean(data_sd), 1)
+        elif self.event_detector_goal == "labeler_max":
+            result = round(np.max(data_sd), 1)
 
         return result
 

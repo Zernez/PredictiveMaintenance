@@ -28,39 +28,13 @@ from utility.data import get_window_size, get_lag
 
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
-NEW_DATASET = False
+NEW_DATASET = True
 N_ITER = 10
 N_OUTER_SPLITS = 5
 N_INNER_SPLITS = 3
 
 def main():
-    """
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str,
-                        required=True,
-                        default=None)
-    parser.add_argument('--typedata', type=str,
-                        required=True,
-                        default=None)
-    args = parser.parse_args()
-    """
-    
-    global DATASET
-    global N_CONDITION
-    global N_BEARING
-    global N_BOOT
-    """
-    if args.dataset:
-        DATASET = args.dataset
-        cfg.DATASET_NAME = args.dataset
-
-    if args.typedata:
-        TYPE = args.typedata
-    """
-    
     DATASET = "xjtu"
-    TYPE = "not_correlated"
-    
     N_BOOT = 0
     DATASET_PATH = cfg.DATASET_PATH_XJTU
     N_CONDITION = len(cfg.RAW_DATA_PATH_XJTU)
@@ -76,7 +50,7 @@ def main():
     data_util = DataETL(DATASET, N_BOOT)
 
     # Extract information from the dataset selected from the config file
-    model_results = pd.DataFrame()    
+    model_results = pd.DataFrame()
     for test_condition in range (0, N_CONDITION):
         timeseries_data, boot, info_pack = FileReader(DATASET, DATASET_PATH).read_data(test_condition, N_BOOT)
 
@@ -95,16 +69,15 @@ def main():
             train_data, test_data = pd.DataFrame(), pd.DataFrame()
             window_size = get_window_size(test_condition)
             lag = get_lag(test_condition)
-            event_detector_target = {}
+            event_detector_target = []
             for idx in train_idx:
                 event_time = data_util.event_analyzer(idx, info_pack)
-                event_detector_target[idx] = event_time
                 transformed_data = data_util.make_moving_average(timeseries_data, event_time, idx, window_size, lag)
                 train_data = pd.concat([train_data, transformed_data], axis=0)
                 train_data = train_data.reset_index(drop=True)
             for idx in test_idx:
                 event_time = data_util.event_analyzer(idx, info_pack)
-                event_detector_target[idx] = event_time
+                event_detector_target.append(event_time)
                 transformed_data = data_util.make_moving_average(timeseries_data, event_time, idx, window_size, lag)
                 test_data = pd.concat([test_data, transformed_data], axis=0)
                 test_data = test_data.reset_index(drop=True)
@@ -238,7 +211,10 @@ def main():
                         else:
                             cond_name = "C3"
                             
-                        # Get bearing lifetime
+                        # Calculate median event detector target
+                        median_ed_target = np.median(event_detector_target)
+                            
+                        # Calculate bearing datasheet lifetime
                         bearing_indicies =  [(x + 1) // 2 for x in test_idx]
                         real_lifetimes = cfg.DATASHEET_LIFETIMES
                         lifetimes = []
@@ -252,7 +228,7 @@ def main():
 
                         # Indexing the result table
                         res_sr = pd.Series([cond_name, model_name, ft_selector_name, pct, c_index_cvi, brier_score_cvi,
-                                            median_survival_time, mae_hinge_cvi, d_calib, event_detector_target, datasheet_target,
+                                            median_survival_time, mae_hinge_cvi, d_calib, median_ed_target, datasheet_target,
                                             n_preds, t_total_split_time, best_params, list(selected_fts)],
                                             index=["Condition", "ModelName", "FtSelectorName", "CensoringLevel", "CIndex",
                                                    "BrierScore", "MedianSurvTime", "MAEHinge", "DCalib", "EDTarget", "DSTarget",
