@@ -313,6 +313,6 @@ class BNNmcd(BaseRegressor):
 
     def get_best_hyperparams(self):
         return {'batch_size' : 32,
-                'learning_rate' : 1e-2,
+                'learning_rate' : 1e-3,
                 'num_epochs': 10,
                 'layers': [32]}
