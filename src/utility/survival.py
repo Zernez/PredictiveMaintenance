@@ -4,6 +4,43 @@ import math
 import torch
 from typing import Optional
 
+def coverage(time_bins, upper, lower, true_times, true_indicator) -> float:
+    '''Courtesy of https://github.com/shi-ang/BNN-ISD/tree/main'''
+    time_bins = check_and_convert(time_bins)
+    upper, lower = check_and_convert(upper, lower)
+    true_times, true_indicator = check_and_convert(true_times, true_indicator)
+    true_indicator = true_indicator.astype(bool)
+    covered = 0
+    upper_median_times = predict_median_survival_times(upper, time_bins, round_up=True)
+    lower_median_times = predict_median_survival_times(lower, time_bins, round_up=False)
+    covered += 2 * np.logical_and(upper_median_times[true_indicator] >= true_times[true_indicator],
+                                  lower_median_times[true_indicator] <= true_times[true_indicator]).sum()
+    covered += np.sum(upper_median_times[~true_indicator] >= true_times[~true_indicator])
+    total = 2 * true_indicator.sum() + (~true_indicator).sum()
+    return covered / total
+
+def predict_median_survival_times(
+        survival_curves: np.ndarray,
+        times_coordinate: np.ndarray,
+        round_up: bool = True
+):
+    median_probability_times = np.zeros(survival_curves.shape[0])
+    max_time = times_coordinate[-1]
+    slopes = (1 - survival_curves[:, -1]) / (0 - max_time)
+
+    if round_up:
+        # Find the first index in each row that are smaller or equal than 0.5
+        times_indices = np.where(survival_curves <= 0.5, survival_curves, -np.inf).argmax(axis=1)
+    else:
+        # Find the last index in each row that are larger or equal than 0.5
+        times_indices = np.where(survival_curves >= 0.5, survival_curves, np.inf).argmin(axis=1)
+
+    need_extend = survival_curves[:, -1] > 0.5
+    median_probability_times[~need_extend] = times_coordinate[times_indices][~need_extend]
+    median_probability_times[need_extend] = (max_time + (0.5 - survival_curves[:, -1]) / slopes)[need_extend]
+
+    return median_probability_times
+
 def convert_to_structured (T, E):
     default_dtypes = {"names": ("event", "time"), "formats": ("bool", "f8")}
     concat = list(zip(E, T))
@@ -89,6 +126,72 @@ def compute_unique_counts(
     n_at_risk = n_samples - torch.cumsum(total_count, dim=0)
 
     return uniq_times, uniq_events, n_at_risk[:-1], n_censored
+
+def check_and_convert(*args):
+    """ Makes sure that the given inputs are numpy arrays, list,
+        tuple, panda Series, pandas DataFrames, or torch Tensors.
+
+        Also makes sure that the given inputs have the same shape.
+
+        Then convert the inputs to numpy array.
+
+        Parameters
+        ----------
+        * args : tuple of objects
+                 Input object to check / convert.
+
+        Returns
+        -------
+        * result : tuple of numpy arrays
+                   The converted and validated arg.
+
+        If the input isn't numpy arrays, list or pandas DataFrames, it will
+        fail and ask to provide the valid format.
+    """
+
+    result = ()
+    last_length = ()
+    for i, arg in enumerate(args):
+
+        if len(arg) == 0:
+            error = " The input is empty. "
+            error += "Please provide at least 1 element in the array."
+            raise IndexError(error)
+
+        else:
+
+            if isinstance(arg, np.ndarray):
+                x = (arg.astype(np.double),)
+            elif isinstance(arg, list):
+                x = (np.asarray(arg).astype(np.double),)
+            elif isinstance(arg, tuple):
+                x = (np.asarray(arg).astype(np.double),)
+            elif isinstance(arg, pd.Series):
+                x = (arg.values.astype(np.double),)
+            elif isinstance(arg, pd.DataFrame):
+                x = (arg.values.astype(np.double),)
+            elif isinstance(arg, torch.Tensor):
+                x = (arg.cpu().numpy().astype(np.double),)
+            else:
+                error = """{arg} is not a valid data format. Only use 'list', 'tuple', 'np.ndarray', 'torch.Tensor', 
+                        'pd.Series', 'pd.DataFrame'""".format(arg=type(arg))
+                raise TypeError(error)
+
+            if np.sum(np.isnan(x)) > 0.:
+                error = "The #{} argument contains null values"
+                error = error.format(i + 1)
+                raise ValueError(error)
+
+            if len(args) > 1:
+                if i > 0:
+                    assert x[0].shape == last_length, """Shapes between {}-th input array and 
+                    {}-th input array are not consistent""".format(i - 1, i)
+                result += x
+                last_length = x[0].shape
+            else:
+                result = x[0]
+
+    return result
 
 class Survival:
 
