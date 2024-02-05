@@ -24,7 +24,11 @@ from tools.cross_validator import run_cross_validation
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import KFold
 import argparse
+import torch
+import math
 from utility.data import get_window_size, get_lag
+from utility.survival import coverage
+from scipy.stats._stats_py import chisquare
 
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
@@ -32,6 +36,7 @@ NEW_DATASET = True
 N_ITER = 10
 N_OUTER_SPLITS = 5
 N_INNER_SPLITS = 3
+N_POST_SAMPLES = 1000
 
 def main():
     DATASET = "xjtu"
@@ -162,7 +167,7 @@ def main():
                         if model_name == "DeepSurv" or model_name == "DSM" or model_name == "BNNmcd":
                             xte = cvi_new[0].to_numpy()
                             with Suppressor():
-                                surv_preds = Survival.predict_survival_function(model, xte, times, n_post_samples=1000)
+                                surv_preds = Survival.predict_survival_function(model, xte, times, n_post_samples=N_POST_SAMPLES)
                         else:
                             with Suppressor():
                                 surv_preds = Survival.predict_survival_function(model, cvi_new[0], times)
@@ -210,6 +215,29 @@ def main():
                             cond_name = "C2"
                         else:
                             cond_name = "C3"
+                        
+                        # Calucate C-cal for BNN model
+                        if model_name == "BNNmcd":
+                            surv_probs = model.predict_survival(xte, event_times=times, n_post_samples=N_POST_SAMPLES)
+                            credible_region_sizes = np.arange(0.1, 1, 0.1)
+                            surv_times = torch.from_numpy(surv_probs)
+                            coverage_stats = {}
+                            for percentage in credible_region_sizes:
+                                drop_num = math.floor(0.5 * N_POST_SAMPLES * (1 - percentage))
+                                lower_outputs = torch.kthvalue(surv_times, k=1 + drop_num, dim=0)[0]
+                                upper_outputs = torch.kthvalue(surv_times, k=N_POST_SAMPLES - drop_num, dim=0)[0]
+                                coverage_stats[percentage] = coverage(times, upper_outputs, lower_outputs,
+                                                                      cvi_new[1]["Survival_time"], cvi_new[1]["Event"])
+                            data = [list(coverage_stats.keys()), list(coverage_stats.values())]
+                            _, pvalue = chisquare(data)
+                            alpha = 0.05
+                            if pvalue[0] <= alpha:
+                                c_calib = 0
+                            else:
+                                c_calib = 1
+                        else:
+                            c_calib = 0
+                            
                             
                         # Calculate median event detector target
                         median_ed_target = np.median(event_detector_target)
@@ -228,10 +256,10 @@ def main():
 
                         # Indexing the result table
                         res_sr = pd.Series([cond_name, model_name, ft_selector_name, pct, c_index_cvi, brier_score_cvi,
-                                            median_survival_time, mae_hinge_cvi, d_calib, median_ed_target, datasheet_target,
+                                            median_survival_time, mae_hinge_cvi, d_calib, c_calib, median_ed_target, datasheet_target,
                                             n_preds, t_total_split_time, best_params, list(selected_fts)],
                                             index=["Condition", "ModelName", "FtSelectorName", "CensoringLevel", "CIndex",
-                                                   "BrierScore", "MedianSurvTime", "MAEHinge", "DCalib", "EDTarget", "DSTarget",
+                                                   "BrierScore", "MedianSurvTime", "MAEHinge", "DCalib", "CCalib", "EDTarget", "DSTarget",
                                                    "Npreds", "TTotalSplit", "BestParams", "SelectedFts"])
                         model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
                 
