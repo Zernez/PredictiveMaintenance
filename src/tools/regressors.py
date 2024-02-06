@@ -274,7 +274,7 @@ class DeepSurv(BaseRegressor):
     def get_best_hyperparams(self):
         return {'batch_size' : 32,
                 'learning_rate' : 1e-2,
-                'iters': 300,
+                'iters': 1000,
                 'layers': [32]}
     
 class DSM(BaseRegressor):
