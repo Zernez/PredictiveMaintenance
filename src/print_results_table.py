@@ -10,11 +10,10 @@ if __name__ == "__main__":
     conditions = ["C1", "C2", "C3"]
     censoring = [0.25, 0.5, 0.75]
     model_names = ["CoxPH", "RSF", "DeepSurv", "DSM", "BNNmcd"]
-    model_citations = ["\cite{cox_regression_1972}", "\cite{ishwaran_random_2008}", "\cite{katzman_deepsurv_2018}", "\cite{nagpal_deep_2021}", "\cite{lillelund_uncertainty_2023}"]
     for cond in conditions:
-        for index, (model_name, model_citation) in enumerate(zip(model_names, model_citations)):
+        for index, model_name in enumerate(model_names):
             text = ""            
-            text += f"& {model_name} {model_citation} & "            
+            text += f"& {model_name} & "            
             for cens in censoring:
                 ci = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['CIndex']
                 ibs = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['BrierScore']

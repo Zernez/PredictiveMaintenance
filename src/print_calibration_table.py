@@ -15,12 +15,14 @@ if __name__ == "__main__":
             text = ""            
             text += f"& {model_name} & "
             for cens in censoring:
-                tte_surv = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['MedianSurvTime']
-                tte_ed = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['EDTarget']
-                median_tte_surv = round(np.median(tte_surv.dropna()), 1)
-                median_tte_ed = round(np.median(tte_ed.dropna()), 1)
-                error = round(median_tte_surv-median_tte_ed, 2)
-                text += f"{median_tte_surv} & {median_tte_ed} & {error} "
+                d_cal = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['DCalib']
+                c_cal = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['CCalib']
+                sum_d_cal = int(np.nansum(d_cal))
+                sum_c_cal = int(np.nansum(c_cal))
+                if model_name in ["CoxPH", "RSF", "DeepSurv", "DSM"]:
+                    text += f"{sum_d_cal}/5 & - "
+                else:
+                    text += f"{sum_d_cal}/5 & {sum_c_cal}/5 "
                 if cens == 0.75:
                    text += "\\\\"
                 else:

@@ -238,7 +238,6 @@ def main():
                         else:
                             c_calib = 0
                             
-                            
                         # Calculate median event detector target
                         median_ed_target = np.median(event_detector_target)
                             
