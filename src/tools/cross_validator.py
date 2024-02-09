@@ -42,8 +42,11 @@ def run_cross_validation(model_builder, data, param_list, n_internal_splits):
             sanitized_preds = preds.drop(bad_idx).reset_index(drop=True)
             sanitized_t_test = np.delete(t_test, bad_idx)
             sanitized_e_test = np.delete(e_test, bad_idx)
-            lifelines_eval = LifelinesEvaluator(sanitized_preds.T, sanitized_t_test, sanitized_e_test, t_train, e_train)
-            mae = lifelines_eval.mae(method="Hinge")
+            try:
+                lifelines_eval = LifelinesEvaluator(sanitized_preds.T, sanitized_t_test, sanitized_e_test, t_train, e_train)
+                mae = lifelines_eval.mae(method="Hinge")
+            except:
+                mae = np.nan
             res_sr = pd.Series([str(model_name), split_idx, sample, mae],
                             index=["ModelName", "SplitIdx", "Params", "MAE"])
             param_results = pd.concat([param_results, res_sr.to_frame().T], ignore_index=True)
