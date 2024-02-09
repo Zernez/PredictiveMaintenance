@@ -45,8 +45,10 @@ def main():
                         default=None)
     args = parser.parse_args()
     
+    global N_CONDITION
+    
     if args.cond:
-        test_condition = args.cond
+        N_CONDITION = args.cond
     
     DATASET = "xjtu"
     N_BOOT = 0
@@ -64,7 +66,7 @@ def main():
 
     # Extract information from the dataset selected from the config file
     model_results = pd.DataFrame()
-    timeseries_data, boot, info_pack = FileReader(DATASET, DATASET_PATH).read_data(test_condition, N_BOOT)
+    timeseries_data, boot, info_pack = FileReader(DATASET, DATASET_PATH).read_data(N_CONDITION, N_BOOT)
     
     # For level of censoring
     for pct in cfg.CENSORING_LEVELS:
@@ -82,8 +84,8 @@ def main():
             
             # Compute moving average for training/testing
             train_data, test_data = pd.DataFrame(), pd.DataFrame()
-            window_size = get_window_size(test_condition)
-            lag = get_lag(test_condition)
+            window_size = get_window_size(N_CONDITION)
+            lag = get_lag(N_CONDITION)
             event_detector_target = []
             for idx in train_idx:
                 event_time = data_util.event_analyzer(idx, info_pack)
@@ -127,7 +129,7 @@ def main():
                     # Create model instance and find best features
                     model = model_builder().get_estimator()
                     if ft_selector_name == "PHSelector":
-                        ft_selector = ft_selector_builder(ti[0], ti[1], estimator=[DATASET, test_condition])
+                        ft_selector = ft_selector_builder(ti[0], ti[1], estimator=[DATASET, N_CONDITION])
                     else:
                         ft_selector = ft_selector_builder(ti[0], ti[1], estimator=model)
                     
@@ -209,9 +211,9 @@ def main():
                     n_preds = len(surv_preds)
                     t_total_split_time = time() - split_start_time
 
-                    if test_condition == 0:
+                    if N_CONDITION == 0:
                         cond_name = "C1"
-                    elif test_condition == 1:
+                    elif N_CONDITION == 1:
                         cond_name = "C2"
                     else:
                         cond_name = "C3"
@@ -263,7 +265,7 @@ def main():
                     model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
                 
     # Save the results to the proper DATASET type folder
-    model_results.to_csv(f"{cfg.RESULTS_PATH}/model_results_{test_condition}.csv")
+    model_results.to_csv(f"{cfg.RESULTS_PATH}/model_results_{N_CONDITION}.csv")
 
 if __name__ == "__main__":
     main()
