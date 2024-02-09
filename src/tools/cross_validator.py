@@ -4,6 +4,7 @@ from sklearn.model_selection import KFold
 from utility.printer import Suppressor
 from utility.survival import make_event_times, convert_to_structured
 from pycox.evaluation import EvalSurv
+from tools.evaluator import LifelinesEvaluator
 
 def run_cross_validation(model_builder, data, param_list, n_internal_splits):
     sample_results = pd.DataFrame()
@@ -35,14 +36,20 @@ def run_cross_validation(model_builder, data, param_list, n_internal_splits):
                     model.fit(x_train, y_train)
                     preds = pd.DataFrame(np.row_stack([fn(times)
                                                        for fn in model.predict_survival_function(x_test)]), columns=times)
-            pycox_eval = EvalSurv(preds.T, t_test, e_test, censor_surv="km")
-            ctd = pycox_eval.concordance_td()
-            res_sr = pd.Series([str(model_name), split_idx, sample, ctd],
-                            index=["ModelName", "SplitIdx", "Params", "CTD"])
+            
+            preds = preds.fillna(0).replace([np.inf, -np.inf], 0).clip(lower=0.001)
+            bad_idx = preds[preds.iloc[:,0] < 0.5].index # check we have a median
+            sanitized_preds = preds.drop(bad_idx).reset_index(drop=True)
+            sanitized_t_test = np.delete(t_test, bad_idx)
+            sanitized_e_test = np.delete(e_test, bad_idx)
+            lifelines_eval = LifelinesEvaluator(sanitized_preds.T, sanitized_t_test, sanitized_e_test, t_train, e_train)
+            mae = lifelines_eval.mae(method="Hinge")
+            res_sr = pd.Series([str(model_name), split_idx, sample, mae],
+                            index=["ModelName", "SplitIdx", "Params", "MAE"])
             param_results = pd.concat([param_results, res_sr.to_frame().T], ignore_index=True)
-        mean_ctd = param_results['CTD'].mean()
-        res_sr = pd.Series([str(model_name), param_results.iloc[0]["Params"], mean_ctd],
-                        index=["ModelName", "Params", "CTD"])
+        mean_mae = param_results['MAE'].mean()
+        res_sr = pd.Series([str(model_name), param_results.iloc[0]["Params"], mean_mae],
+                        index=["ModelName", "Params", "MAE"])
         sample_results = pd.concat([sample_results, res_sr.to_frame().T], ignore_index=True)
-    best_params = sample_results.loc[sample_results['CTD'].astype(float).idxmax()]['Params']
+    best_params = sample_results.loc[sample_results['MAE'].astype(float).idxmin()]['Params']
     return best_params
