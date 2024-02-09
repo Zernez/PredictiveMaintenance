@@ -109,14 +109,14 @@ if __name__ == "__main__":
             #model = CoxPH().make_model(CoxPH().get_best_hyperparams())
 
             # Train the model
-            #model.fit(X_train_scaled, y_train['Survival_time'], y_train['Event'])
+            model.fit(X_train_scaled, y_train['Survival_time'], y_train['Event'])
             #params = DeepSurv().get_best_hyperparams()
             #params = DSM().get_best_hyperparams()
             #model = model.fit(X_train_scaled, y_train['Survival_time'], y_train['Event'],
             #                  vsize=0.3, iters=params['iters'],
             #                  learning_rate=params['learning_rate'],
             #                  batch_size=params['batch_size'])
-            model.fit(X_train_scaled, y_train)
+            #model.fit(X_train_scaled, y_train)
             
             # Predict
             surv_preds = survival.predict_survival_function(model, X_test_scaled, event_times, n_post_samples=N_POST_SAMPLES)

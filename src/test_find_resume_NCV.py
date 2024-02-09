@@ -58,39 +58,41 @@ def main():
     model_results = pd.DataFrame()
     for test_condition in range (0, N_CONDITION):
         timeseries_data, boot, info_pack = FileReader(DATASET, DATASET_PATH).read_data(test_condition, N_BOOT)
-
-        # Split in train and test set
-        kf = KFold(n_splits=N_OUTER_SPLITS)
-        bearing_indicies =  list(range(1, (N_BEARING*2)+1)) # number of real bearings x2
-        for _, (train_idx, test_idx) in enumerate(kf.split(bearing_indicies)):
-            # Track time
-            split_start_time = time()
+        
+        # For level of censoring
+        for pct in cfg.CENSORING_LEVELS:
             
-            # Adjust indicies to match bearing numbers
-            train_idx = train_idx + 1
-            test_idx = test_idx + 1
-            
-            # Compute moving average for training/testing
-            train_data, test_data = pd.DataFrame(), pd.DataFrame()
-            window_size = get_window_size(test_condition)
-            lag = get_lag(test_condition)
-            event_detector_target = []
-            for idx in train_idx:
-                event_time = data_util.event_analyzer(idx, info_pack)
-                transformed_data = data_util.make_moving_average(timeseries_data, event_time, idx, window_size, lag)
-                train_data = pd.concat([train_data, transformed_data], axis=0)
-                train_data = train_data.reset_index(drop=True)
-            for idx in test_idx:
-                event_time = data_util.event_analyzer(idx, info_pack)
-                event_detector_target.append(event_time)
-                transformed_data = data_util.make_moving_average(timeseries_data, event_time, idx, window_size, lag)
-                test_data = pd.concat([test_data, transformed_data], axis=0)
-                test_data = test_data.reset_index(drop=True)
-            
-            for pct in cfg.CENSORING_LEVELS:
+            # Split in train and test set
+            kf = KFold(n_splits=N_OUTER_SPLITS)
+            bearing_indicies =  list(range(1, (N_BEARING*2)+1)) # number of real bearings x2
+            for _, (train_idx, test_idx) in enumerate(kf.split(bearing_indicies)):
+                # Track time
+                split_start_time = time()
+                
+                # Adjust indicies to match bearing numbers
+                train_idx = train_idx + 1
+                test_idx = test_idx + 1
+                
+                # Compute moving average for training/testing
+                train_data, test_data = pd.DataFrame(), pd.DataFrame()
+                window_size = get_window_size(test_condition)
+                lag = get_lag(test_condition)
+                event_detector_target = []
+                for idx in train_idx:
+                    event_time = data_util.event_analyzer(idx, info_pack)
+                    transformed_data = data_util.make_moving_average(timeseries_data, event_time, idx, window_size, lag)
+                    train_data = pd.concat([train_data, transformed_data], axis=0)
+                    train_data = train_data.reset_index(drop=True)
+                for idx in test_idx:
+                    event_time = data_util.event_analyzer(idx, info_pack)
+                    event_detector_target.append(event_time)
+                    transformed_data = data_util.make_moving_average(timeseries_data, event_time, idx, window_size, lag)
+                    test_data = pd.concat([test_data, transformed_data], axis=0)
+                    test_data = test_data.reset_index(drop=True)
+                
                 # Add random censoring
-                train_data = Formatter.add_random_censoring(train_data, percentage=pct)
-                test_data = Formatter.add_random_censoring(test_data, percentage=pct)
+                train_data_cens = Formatter.add_random_censoring(train_data, percentage=pct)
+                test_data_cens = Formatter.add_random_censoring(test_data, percentage=pct)
                 
                 # For all models
                 for model_builder in models:
@@ -101,14 +103,14 @@ def main():
                         ft_selector_name = ft_selector_builder.__name__
                                                 
                         # Shuffle train and test data
-                        train_data = train_data.sample(frac=1, random_state=0)
-                        test_data = test_data.sample(frac=1, random_state=0)
+                        train_data_shuffled = train_data_cens.sample(frac=1, random_state=0)
+                        test_data_shuffled = test_data_cens.sample(frac=1, random_state=0)
                         
                         # Format and scale the data
-                        train_x = train_data.drop(['Event', 'Survival_time'], axis=1)
-                        train_y = Surv.from_dataframe("Event", "Survival_time", train_data)
-                        test_x = test_data.drop(['Event', 'Survival_time'], axis=1)
-                        test_y = Surv.from_dataframe("Event", "Survival_time", test_data)
+                        train_x = train_data_shuffled.drop(['Event', 'Survival_time'], axis=1)
+                        train_y = Surv.from_dataframe("Event", "Survival_time", train_data_shuffled)
+                        test_x = test_data_shuffled.drop(['Event', 'Survival_time'], axis=1)
+                        test_y = Surv.from_dataframe("Event", "Survival_time", test_data_shuffled)
                         features = list(train_x.columns)
                         scaler = StandardScaler()
                         scaler.fit(train_x)
@@ -146,14 +148,14 @@ def main():
                             model = DeepCoxPH(layers=best_params['layers'])
                             with Suppressor():
                                 model = model.fit(x, t, e, vsize=0.3, iters=best_params['iters'],
-                                                  learning_rate=best_params['learning_rate'],
-                                                  batch_size=best_params['batch_size'])
+                                                    learning_rate=best_params['learning_rate'],
+                                                    batch_size=best_params['batch_size'])
                         elif model_name == "DSM":
                             model = DeepSurvivalMachines(layers=best_params['layers'])
                             with Suppressor():
                                 model = model.fit(x, t, e, vsize=0.3, iters=best_params['iters'],
-                                                  learning_rate=best_params['learning_rate'],
-                                                  batch_size=best_params['batch_size'])
+                                                    learning_rate=best_params['learning_rate'],
+                                                    batch_size=best_params['batch_size'])
                         elif model_name == "BNNmcd":
                             model = model_builder().make_model(best_params)
                             with Suppressor():
@@ -198,7 +200,7 @@ def main():
                             d_calib = np.nan
                             
                         if median_survival_time < 0 or median_survival_time > 1000:
-                            median_survival_time = np.nan 
+                            median_survival_time = np.nan
                             
                         if brier_score_cvi < 0 or brier_score_cvi > 1:
                             brier_score_cvi = np.nan
@@ -227,7 +229,7 @@ def main():
                                 lower_outputs = torch.kthvalue(surv_times, k=1 + drop_num, dim=0)[0]
                                 upper_outputs = torch.kthvalue(surv_times, k=N_POST_SAMPLES - drop_num, dim=0)[0]
                                 coverage_stats[percentage] = coverage(times, upper_outputs, lower_outputs,
-                                                                      cvi_new[1]["Survival_time"], cvi_new[1]["Event"])
+                                                                        cvi_new[1]["Survival_time"], cvi_new[1]["Event"])
                             data = [list(coverage_stats.keys()), list(coverage_stats.values())]
                             _, pvalue = chisquare(data)
                             alpha = 0.05
@@ -250,16 +252,16 @@ def main():
                         datasheet_target = np.median(lifetimes)
                             
                         print(f"Evaluated {cond_name} - {model_name} - {ft_selector_name} - {pct}" +
-                              f" - CI={round(c_index_cvi, 3)} - IBS={round(brier_score_cvi, 3)} - MED={round(median_survival_time, 3)}" +
-                              f" - MAE={round(mae_hinge_cvi, 3)} - DCalib={d_calib} - T={round(t_total_split_time, 3)}")
+                                f" - CI={round(c_index_cvi, 3)} - IBS={round(brier_score_cvi, 3)} - MED={round(median_survival_time, 3)}" +
+                                f" - MAE={round(mae_hinge_cvi, 3)} - DCalib={d_calib} - T={round(t_total_split_time, 3)}")
 
                         # Indexing the result table
                         res_sr = pd.Series([cond_name, model_name, ft_selector_name, pct, c_index_cvi, brier_score_cvi,
                                             median_survival_time, mae_hinge_cvi, d_calib, c_calib, median_ed_target, datasheet_target,
                                             n_preds, t_total_split_time, best_params, list(selected_fts)],
                                             index=["Condition", "ModelName", "FtSelectorName", "CensoringLevel", "CIndex",
-                                                   "BrierScore", "MedianSurvTime", "MAEHinge", "DCalib", "CCalib", "EDTarget", "DSTarget",
-                                                   "Npreds", "TTotalSplit", "BestParams", "SelectedFts"])
+                                                    "BrierScore", "MedianSurvTime", "MAEHinge", "DCalib", "CCalib", "EDTarget", "DSTarget",
+                                                    "Npreds", "TTotalSplit", "BestParams", "SelectedFts"])
                         model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
                 
     # Save the results to the proper DATASET type folder
