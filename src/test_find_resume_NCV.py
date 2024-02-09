@@ -40,7 +40,7 @@ N_POST_SAMPLES = 1000
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cond', type=int,
+    parser.add_argument('--cond', type=str,
                         required=True,
                         default=None)
     args = parser.parse_args()
@@ -48,7 +48,7 @@ def main():
     global N_CONDITION
     
     if args.cond:
-        N_CONDITION = args.cond
+        N_CONDITION = int(args.cond)
     
     DATASET = "xjtu"
     N_BOOT = 0
