@@ -190,14 +190,23 @@ def main():
                     sanitized_cvi = np.delete(cvi_new[1], bad_idx)
                     
                     # Calculate scores
-                    pycox_eval = EvalSurv(sanitized_surv_preds.T, sanitized_cvi['Survival_time'], sanitized_cvi['Event'], censor_surv="km")
-                    c_index_cvi = pycox_eval.concordance_td()
-                    lifelines_eval = LifelinesEvaluator(sanitized_surv_preds.T, sanitized_cvi['Survival_time'], sanitized_cvi['Event'],
-                                                        ti_new[1]['Survival_time'], ti_new[1]['Event'])
-                    median_survival_time = np.median(lifelines_eval.predict_time_from_curve(predict_median_survival_time))
-                    brier_score_cvi = lifelines_eval.integrated_brier_score()
-                    mae_hinge_cvi = lifelines_eval.mae(method="Hinge")
-                    d_calib = 1 if lifelines_eval.d_calibration()[0] > 0.05 else 0
+                    try:
+                        pycox_eval = EvalSurv(sanitized_surv_preds.T, sanitized_cvi['Survival_time'], sanitized_cvi['Event'], censor_surv="km")
+                        c_index_cvi = pycox_eval.concordance_td()
+                    except:    
+                        c_index_cvi = np.nan
+                    try:
+                        lifelines_eval = LifelinesEvaluator(sanitized_surv_preds.T, sanitized_cvi['Survival_time'], sanitized_cvi['Event'],
+                                                            ti_new[1]['Survival_time'], ti_new[1]['Event'])
+                        median_survival_time = np.median(lifelines_eval.predict_time_from_curve(predict_median_survival_time))
+                        brier_score_cvi = lifelines_eval.integrated_brier_score()
+                        mae_hinge_cvi = lifelines_eval.mae(method="Hinge")
+                        d_calib = 1 if lifelines_eval.d_calibration()[0] > 0.05 else 0
+                    except:
+                        median_survival_time = np.nan
+                        brier_score_cvi = np.nan
+                        mae_hinge_cvi = np.nan
+                        d_calib = np.nan
 
                     if median_survival_time < 0 or median_survival_time > 1000:
                         median_survival_time = np.nan
