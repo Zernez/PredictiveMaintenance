@@ -36,7 +36,6 @@ def run_cross_validation(model_builder, data, param_list, n_internal_splits):
                     model.fit(x_train, y_train)
                     preds = pd.DataFrame(np.row_stack([fn(times)
                                                        for fn in model.predict_survival_function(x_test)]), columns=times)
-            
             preds = preds.fillna(0).replace([np.inf, -np.inf], 0).clip(lower=0.001)
             bad_idx = preds[preds.iloc[:,0] < 0.5].index # check we have a median
             sanitized_preds = preds.drop(bad_idx).reset_index(drop=True)

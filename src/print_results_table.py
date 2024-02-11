@@ -18,9 +18,9 @@ if __name__ == "__main__":
                 ci = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['CIndex']
                 ibs = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['BrierScore']
                 mae = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['MAEHinge']
-                mean_ci = round(np.mean(ci.dropna()), 2)
-                mean_ibs = round(np.mean(ibs.dropna()), 2)
-                mean_mae = round(np.mean(mae.dropna()), 2)
+                mean_ci = round(np.median(ci.dropna()), 2)
+                mean_ibs = round(np.median(ibs.dropna()), 2)
+                mean_mae = round(np.median(mae.dropna()), 2)
                 std_ci = round(np.std(ci.dropna()), 2)
                 std_ibs = round(np.std(ci.dropna()), 2)
                 std_mae = round(np.std(ci.dropna()), 1)
