@@ -32,6 +32,8 @@ from scipy.stats._stats_py import chisquare
 
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
+np.random.seed(0)
+
 NEW_DATASET = True
 N_ITER = 10
 N_OUTER_SPLITS = 5
@@ -205,7 +207,7 @@ def main():
                         if brier_score_cvi < 0 or brier_score_cvi > 1:
                             brier_score_cvi = np.nan
                         
-                        if mae_hinge_cvi > 1000:
+                        if mae_hinge_cvi > 500:
                             mae_hinge_cvi = np.nan
                         
                         n_preds = len(surv_preds)
