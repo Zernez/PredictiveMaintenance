@@ -270,7 +270,7 @@ class Formatter:
         """
         Adds random censoring
         """
-        samples_to_censor = X.sample(frac=percentage)
+        samples_to_censor = X.sample(frac=percentage, random_state=0)
         df_rest = X.loc[~X.index.isin(samples_to_censor.index)]
         samples_to_censor['Survival_time'] = samples_to_censor.apply(
             lambda x: np.random.randint(0, x['Survival_time']), axis=1)
