@@ -38,7 +38,7 @@ class Event:
         # Initial deviation
         self.initial_deviation = 5
         
-    def make_events (self, set_analytic: pd.DataFrame, test_condition: int ) -> (list, list):
+    def compute_event_times (self, set_analytic: pd.DataFrame, test_condition: int ) -> (list, list):
             """
             Generates events for each bearing based on the given set of analytic data.
 
@@ -51,26 +51,38 @@ class Event:
                 - events_KL (list): The calculated thresholds and breakpoints for each bearing based on KL evaluation.
                 - events_SD (list): The calculated thresholds and breakpoints for each bearing based on SD evaluation.
             """
-            # Initialize the information
-            events_KL = []
-            events_SD = []
-
             # For each bearing, calculate the KL and detect the event
             kl_events = np.zeros((self.total_bearings+1, self.frequency_bins))
+            end_of_lifes = []
             for bearing_no in range(1, self.total_bearings + 1):
                 data = set_analytic[["B{}_FoH".format(bearing_no), "B{}_FiH".format(bearing_no),
                                    "B{}_FrH".format(bearing_no), "B{}_FrpH".format(bearing_no),
                                    "B{}_FcaH".format(bearing_no)]]
                 eol = np.max(data.dropna().index)-1
+                end_of_lifes.append(eol)
                 kl_divergence = self.calculate_kl_divergence(data, eol)
                 kl_event = self.detect_kl_event_by_threshold(kl_divergence, test_condition, eol)
                 kl_events[bearing_no,:] = kl_event
+            return kl_events, end_of_lifes
 
-            #TODO: Mark non-observed failures as censored (CL)
-            #TODO: Use the MIN/MAX/MEAN of the event times (Morten)
-            
-            return events_KL, events_SD
-
+    def get_event_time(self, bearing_idx, events, bearing_eol, strategy="max"):
+        if strategy == "max":
+            event_time = int(np.max(events[bearing_idx,:]))
+        elif strategy == "min":
+            event_time = int(np.min(events[bearing_idx,:]))
+        elif strategy == "mean":
+            event_time = int(np.mean(events[bearing_idx,:]))
+        else:
+            raise ValueError("Please specific a valid strategy: {min,max,mean}")
+        
+        if event_time == 0: # censored, use EOL
+            censored = True
+            event_time = int(bearing_eol)
+        else:
+            censored = False
+        
+        return event_time, censored
+        
     def calculate_kl_divergence(self, x: pd.DataFrame, end_of_life: int) -> np.ndarray:
 
         """
@@ -84,24 +96,16 @@ class Event:
         - results (numpy.ndarray): Matrix containing the KL divergence values for each bearing and window.
         """
         results = np.zeros((x.shape[1], (end_of_life-self.window_size)+1), dtype=np.float32)
-        # For each bearing, calculate the entropy between the reference window and the moving window
         for bin_index, bin_name in enumerate(x.columns):
-            # Calculate reference window
             win_ref = np.array(x.loc[0:self.window_size-1, bin_name], dtype=float)
             end_of_life = np.max(x[x[bin_name].notnull()].index)-1 # max observed index
             time_ref = 0
-            
             kl_values = list()
             while (time_ref + self.window_size) <= end_of_life:
                 actual_window = np.array(x.loc[time_ref:time_ref+self.window_size-1, bin_name], dtype=float)
-
-                # Compute KL
                 kl_values.append(entropy(win_ref, actual_window))
-
                 time_ref += self.time_resolution
-                
             results[bin_index] = kl_values
-    
         return results
 
     def calculate_sd_divergence (self, 

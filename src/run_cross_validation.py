@@ -61,7 +61,7 @@ def main():
     model_results = pd.DataFrame()
     for test_condition in range (0, N_CONDITION):
         covariates, analytic = FileReader(DATASET, DATASET_PATH).read_data(test_condition, N_BOOT)
-        event_kl, event_sd = Event(DATASET).make_events(analytic, test_condition)
+        event_kl, event_sd = Event(DATASET).compute_event_times(analytic, test_condition)
         
         # For level of censoring
         for pct in cfg.CENSORING_LEVELS:
