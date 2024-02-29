@@ -56,24 +56,10 @@ class FileReader:
         """
 
         # Read the timeseries time and frequency data from the csv files
-        set_covariates = pd.read_csv(self.dataset_path + 'covariates_' + str(test_condition) + '.csv')
-        set_analytic = pd.read_csv(self.dataset_path + 'analytic_' + str(test_condition) + '.csv')
-        if bootstrap > 0:
-            set_boot = pd.read_csv(self.dataset_path + 'boot_' + str(test_condition) + '.csv')
-        else:
-            set_boot = []
-
-        # Eventually read the events from the pickle files
-        if from_pickle:
-            event_kl = self.read_pickle(self.dataset_path + "event_kl")
-            event_sd = self.read_pickle(self.dataset_path + "event_sd")
-        else:
-            event_kl, event_sd = Event(self.dataset, bootstrap).make_events(set_analytic, test_condition)
-
-        # Pack the events in a dictionary
-        info_pack = {'KL': event_kl, 'SD': event_sd}
-
-        return set_covariates, set_boot, info_pack
+        covariates = pd.read_csv(self.dataset_path + 'covariates_' + str(test_condition) + '.csv')
+        analytic = pd.read_csv(self.dataset_path + 'analytic_' + str(test_condition) + '.csv')
+        
+        return covariates, analytic
 
     def read_pickle (self, 
         path: str

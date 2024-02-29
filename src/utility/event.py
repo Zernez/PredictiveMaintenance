@@ -5,42 +5,73 @@ import scipy.stats as st
 import statsmodels.stats.weightstats as stat 
 from scipy.stats import entropy
 import config as cfg
+from statsmodels.tsa.stattools import adfuller
+from statsmodels.tsa.stattools import kpss
+
+def padarray(A, size):
+    t = size - len(A)
+    return np.pad(A, pad_width=(0, t), mode='constant')
 
 class Event:
         
-    def __init__ (self, dataset, bootstrap):
+    def __init__ (self, dataset):
         if dataset == "xjtu":
             self.real_bearings = cfg.N_REAL_BEARING_XJTU
-            # 2 real bearings from x and y channel + 2 bootstrapped bearings from x and y channel multiplied by the bootstrap value
-            self.boot_folder_size = (bootstrap * 2) + 2
-            self.total_bearings = self.real_bearings * self.boot_folder_size
+            self.total_bearings = 10 # 5 real bearings per channel
             self.dataset_condition = cfg.RAW_DATA_PATH_XJTU
             self.base_dynamic_load = cfg.BASE_DYNAMIC_LOAD_XJTU
-        elif dataset == "pronostia":
-            self.real_bearings = cfg.N_BEARING_TOT_PRONOSTIA
-            # 2 real bearings from x and y channel + 2 bootstrapped bearings from x and y channel multiplied by the bootstrap value
-            self.boot_folder_size = (bootstrap * 2) + 2
-            self.total_bearings = self.real_bearings * self.boot_folder_size
-            self.dataset_condition = cfg.RAW_DATA_PATH_PRONOSTIA
-            self.base_dynamic_load = cfg.BASE_DYNAMIC_LOAD_PRONOSTIA
-         # Number of frequency bins analyzed to build the event detector
+        else:
+            raise ValueError("Dataset not found")
+        
+        # Number of frequency bins analyzed to build the event detector
         self.frequency_bins = 5           
-        self.data_points_per_window = 10
-        # Percentage of error allowed added to the threshold
-        self.percentage_error = 10
-        # Set up an inital offeset for the derivative safety value that is broken when a high excursion of entropy occurs from the previous state
-        self.anomaly_excursion_offset_kl = 0.5 #0.5
-        # Set up an inital offeset for the derivative safety value that is broken when a high excursion of SD occurs from the previous state
-        self.anomaly_excursion_offset_sd = 0.5 #0.5
-        # The last break out time of KL divergence used in the SD evaluation
-        self.break_out_KL = 0.0
-        # Number of information for each frequency bin, each metrics and bearing: 0: threshold, 1: threshold + error, 2: breakpoint, 3: length of the dataset (windows)
-        self.data_information = 3 + 1
+        
+        # Window size
+        self.window_size = 10 # 10 minutes
+        
+        # Time resolution
+        self.time_resolution = 1 # 1 minute
+        
+        # Lambda for event detection
+        self.lmd = 1
+        
+        # Initial deviation
+        self.initial_deviation = 5
+        
+    def make_events (self, set_analytic: pd.DataFrame, test_condition: int ) -> (list, list):
+            """
+            Generates events for each bearing based on the given set of analytic data.
 
-    def evaluator_KL (self, 
-            x: pd.DataFrame, 
-            data_points_per_window: int
-        ) -> np.ndarray:
+            Args:
+            - set_analytic (DataFrame): The analytic data for all bearings.
+            - test_condition (int): The test condition (0, 1 or 2).
+
+            Returns:
+            tuple: A tuple containing two lists - events_KL and events_SD.
+                - events_KL (list): The calculated thresholds and breakpoints for each bearing based on KL evaluation.
+                - events_SD (list): The calculated thresholds and breakpoints for each bearing based on SD evaluation.
+            """
+            # Initialize the information
+            events_KL = []
+            events_SD = []
+
+            # For each bearing, calculate the KL and detect the event
+            kl_events = np.zeros((self.total_bearings+1, self.frequency_bins))
+            for bearing_no in range(1, self.total_bearings + 1):
+                data = set_analytic[["B{}_FoH".format(bearing_no), "B{}_FiH".format(bearing_no),
+                                   "B{}_FrH".format(bearing_no), "B{}_FrpH".format(bearing_no),
+                                   "B{}_FcaH".format(bearing_no)]]
+                eol = np.max(data.dropna().index)-1
+                kl_divergence = self.calculate_kl_divergence(data, eol)
+                kl_event = self.detect_kl_event_by_threshold(kl_divergence, test_condition, eol)
+                kl_events[bearing_no,:] = kl_event
+
+            #TODO: Mark non-observed failures as censored (CL)
+            #TODO: Use the MIN/MAX/MEAN of the event times (Morten)
+            
+            return events_KL, events_SD
+
+    def calculate_kl_divergence(self, x: pd.DataFrame, end_of_life: int) -> np.ndarray:
 
         """
         Calculate the Kullback-Leibler (KL) divergence between the reference window and the moving window for each bearing.
@@ -52,32 +83,28 @@ class Event:
         Returns:
         - results (numpy.ndarray): Matrix containing the KL divergence values for each bearing and window.
         """
-
-        # Calculate the number of windows for each bearing and initialize the matrix for the results
-        length = int((len(x) - x.iloc[:, 0:1].isna().sum().values[0]) / data_points_per_window)
-        len_col = len(x.columns)
-        results = np.zeros((len_col, length - 1), dtype=float) 
-
+        results = np.zeros((x.shape[1], (end_of_life-self.window_size)+1), dtype=np.float32)
         # For each bearing, calculate the entropy between the reference window and the moving window
-        for BIN, BIN_NAME in enumerate(x.columns):
+        for bin_index, bin_name in enumerate(x.columns):
+            # Calculate reference window
+            win_ref = np.array(x.loc[0:self.window_size-1, bin_name], dtype=float)
+            end_of_life = np.max(x[x[bin_name].notnull()].index)-1 # max observed index
+            time_ref = 0
+            
+            kl_values = list()
+            while (time_ref + self.window_size) <= end_of_life:
+                actual_window = np.array(x.loc[time_ref:time_ref+self.window_size-1, bin_name], dtype=float)
 
-            # For each window, calculate the entropy between the reference window and the moving window
-            for WINDOW, index_actual in enumerate(range(data_points_per_window, len(x), data_points_per_window)):
-                index_future = index_actual + data_points_per_window
+                # Compute KL
+                kl_values.append(entropy(win_ref, actual_window))
 
-                # Check for the end of dataset and save the moving window eventually
-                if index_future <= len(x) and not x.loc[index_actual:index_future, BIN_NAME].isnull().values.any():
-                    temp_window_reference = np.array(x.loc[0:data_points_per_window, BIN_NAME], dtype=float)
-                else:
-                    break
-
-                # Calculate the entropy between the reference window and the moving window
-                moving_window = np.array(x.loc[index_actual:index_future, BIN_NAME], dtype=float)
-                results[BIN][WINDOW] = entropy(temp_window_reference[BIN], moving_window[BIN])
-
+                time_ref += self.time_resolution
+                
+            results[bin_index] = kl_values
+    
         return results
 
-    def evaluator_SD (self, 
+    def calculate_sd_divergence (self, 
             x: pd.DataFrame, 
             data_points_per_window: int
         ) -> np.ndarray:
@@ -116,6 +143,67 @@ class Event:
 
         return results
     
+    def detect_kl_event_by_stationarity(self, kl: np.ndarray) -> np.ndarray:
+
+        """
+        Establishes the time of event using stationarity check of the KL-divergence
+
+        Args:
+        - kl (list): NP array of shape (BINS, MAX_TIME)
+
+        Returns:
+        - thresholds_kl (numpy.ndarray): Matrix containing the calculated thresholds and breakpoints for each frequency bin and metric.
+        """
+        event_times = list()
+        p_values_kpss, p_values_adfuller = list(), list()
+        detected = False
+        for bin in kl:
+            kl_values, kl_deltas = list(), list()
+            for w, kl_value in enumerate(bin):
+                if w == 0:
+                    kl_delta = 0
+                else:
+                    kl_delta = bin[w-1] - bin[w]
+                    
+                kl_values.append(kl_value)
+                kl_deltas.append(kl_delta)
+                
+                if w >= 5:
+                    kpss_result = kpss(kl_deltas, regression='ct')
+                    adfuller_result = adfuller(kl_deltas)
+
+                    p_values_kpss.append(kpss_result[1])
+                    p_values_adfuller.append(adfuller_result[1])
+
+                    alpha = 0.05
+                    if kpss_result[1] < alpha:
+                        event_times.append(w)
+                    if adfuller_result[1] > alpha:
+                        event_times.append(w)
+
+        return np.array(event_times)
+                
+    def detect_kl_event_by_threshold(self, kl: np.ndarray, test_condition: int, eol: int):
+        hz_speed, kn_load = self.datasheet_loader(test_condition)
+        #l10h = int(self.calculate_L10_minute(hz_speed, kn_load))
+        event_times = np.zeros(kl.shape[0])
+        for bin_index, bin_value in enumerate(kl):
+            kl_deltas = list()
+            for w, kl_value in enumerate(bin_value):
+                if w > 1:
+                    kl_delta = bin_value[w]-bin_value[w-1]
+                else:
+                    kl_delta = 0
+                kl_deltas.append(kl_delta)
+                if w > 5:
+                    kl_std = np.std(kl_deltas)
+                    beta = (1/eol)*np.log(self.initial_deviation/self.lmd)
+                    th_kl = self.initial_deviation*kl_std*np.exp(-beta*w)
+                    if np.abs(kl_delta) > th_kl:
+                        event_times[bin_index] = w
+                        break
+        return event_times
+                    
     def evaluator_breakpoint_KL (self, 
             kl: np.ndarray,
             test_condition: int
@@ -133,14 +221,14 @@ class Event:
         """
 
         # Initialize the threshold and breakpoint matrix
-        thresholds_kl = np.zeros((self.frequency_bins, self.data_information), dtype= float)
+        thresholds_kl = np.zeros((self.frequency_bins, self.data_information), dtype=float)
 
         #Percentage of error allowed added to the threshold
         percentage_error = self.percentage_error
 
         # Calculate the L10 RUL in hours given the test condition and the CDF for each window
         hz_speed, kn_load = self.datasheet_loader(test_condition)
-        L10H_windowed = int(self.calculate_L10_minute(hz_speed, kn_load) / self.data_points_per_window)
+        L10H_windowed = int(self.calculate_L10_minute(hz_speed, kn_load) / self.window_size)
         avg_life_group = self.calculate_average_life_group (kl)
 
         for BIN, bin in enumerate(kl):
@@ -247,7 +335,7 @@ class Event:
 
         # Calculate the L10 RUL in hours given the test condition and the CDF for each window
         hz_speed, kn_load = self.datasheet_loader(test_condition)
-        L10H_windowed = int(self.calculate_L10_minute(hz_speed, kn_load) / self.data_points_per_window)
+        L10H_windowed = int(self.calculate_L10_minute(hz_speed, kn_load) / self.window_size)
         avg_life_group = self.calculate_average_life_group (sd)
 
         for BIN, bin in enumerate(sd):
@@ -321,45 +409,6 @@ class Event:
                     previous_derivative = derivative   
 
         return thresholds_sd
-
-    def make_events (self, 
-            set_analytic: pd.DataFrame,
-            test_condition: int
-        ) -> (list, list):
-
-        """
-        Generates events for each bearing based on the given set of analytic data.
-
-        Args:
-        - set_analytic (DataFrame): The analytic data for all bearings.
-        - test_condition (int): The cardinal number of the test condition starting from 0.
-
-        Returns:
-        tuple: A tuple containing two lists - events_KL and events_SD.
-            - events_KL (list): The calculated thresholds and breakpoints for each bearing based on KL evaluation.
-            - events_SD (list): The calculated thresholds and breakpoints for each bearing based on SD evaluation.
-        """
-
-        # Initialize the information
-        evals_KL = []
-        evals_SD = []
-        events_KL = []
-        events_SD = []      
-
-        # For each bearing, evaluate the KL and SD
-        for bearing_no in range(1, self.total_bearings + 1, 1):
-            information_matrix = set_analytic[["B{}_FoH".format(bearing_no), "B{}_FiH".format(bearing_no), "B{}_FrH".format(bearing_no), "B{}_FrpH".format(bearing_no), "B{}_FcaH".format(bearing_no)]]   
-            evals_KL.append(self.evaluator_KL(information_matrix, self.data_points_per_window))
-            evals_SD.append(self.evaluator_SD(information_matrix, self.data_points_per_window))
-
-        # For each bearing, calculate the threshold and breakpoint
-        for eval_KL, eval_SD in zip(evals_KL, evals_SD):
-            bearing_th_and_br_KL = self.evaluator_breakpoint_KL(eval_KL, test_condition)
-            bearing_th_and_br_SD = self.evaluator_breakpoint_SD(eval_SD, test_condition)
-            events_KL.append(bearing_th_and_br_KL)
-            events_SD.append(bearing_th_and_br_SD)
-
-        return events_KL, events_SD
 
     def calculate_L10_minute (self, 
             hz_speed: float, 

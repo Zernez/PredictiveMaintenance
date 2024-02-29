@@ -29,6 +29,7 @@ import math
 from utility.data import get_window_size, get_lag
 from utility.survival import coverage
 from scipy.stats._stats_py import chisquare
+from utility.event import Event
 
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
@@ -59,7 +60,8 @@ def main():
     # Extract information from the dataset selected from the config file
     model_results = pd.DataFrame()
     for test_condition in range (0, N_CONDITION):
-        timeseries_data, boot, info_pack = FileReader(DATASET, DATASET_PATH).read_data(test_condition, N_BOOT)
+        covariates, analytic = FileReader(DATASET, DATASET_PATH).read_data(test_condition, N_BOOT)
+        event_kl, event_sd = Event(DATASET).make_events(analytic, test_condition)
         
         # For level of censoring
         for pct in cfg.CENSORING_LEVELS:
