@@ -29,7 +29,7 @@ import math
 from utility.data import get_window_size, get_lag
 from utility.survival import coverage
 from scipy.stats._stats_py import chisquare
-from utility.event import Event
+from utility.event import EventManager
 
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
@@ -61,7 +61,7 @@ def main():
     model_results = pd.DataFrame()
     for test_condition in range (0, N_CONDITION):
         timeseries_data, frequency_data = FileReader(DATASET, DATASET_PATH).read_data(test_condition, N_BOOT)
-        event_times = Event(DATASET).make_events(frequency_data, test_condition)
+        event_times = EventManager(DATASET).get_event_times(frequency_data, test_condition)
         
         # For level of censoring
         for pct in cfg.CENSORING_LEVELS:

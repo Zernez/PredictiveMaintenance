@@ -1,7 +1,7 @@
 import pickle
 from pathlib import Path
 import pandas as pd
-from utility.event import Event
+from utility.event import EventManager
 import config as cfg
 
 class FileReader:

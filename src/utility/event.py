@@ -13,8 +13,7 @@ def padarray(A, size):
     t = size - len(A)
     return np.pad(A, pad_width=(0, t), mode='constant')
 
-class Event:
-        
+class EventManager:
     def __init__ (self, dataset):
         if dataset == "xjtu":
             self.real_bearings = cfg.N_REAL_BEARING_XJTU
@@ -34,14 +33,23 @@ class Event:
         self.time_resolution = 1 # 1 minute
         
         # Lambda for event detection
-        self.lmd = 1
+        self.lmd = 1.5
         
         # Initial deviation
         self.initial_deviation = 5
-        
-    def make_events (self, set_analytic: pd.DataFrame,
-                     test_condition: int,
-                     strategy: str = "min") -> List:
+    
+    def get_eol_times(self, set_analytic: pd.DataFrame, test_condition: int):
+        eol_times = list()
+        for bearing_no in range(1, self.total_bearings+1):
+            data = set_analytic[["B{}_FoH".format(bearing_no), "B{}_FiH".format(bearing_no),
+                                 "B{}_FrH".format(bearing_no), "B{}_FrpH".format(bearing_no),
+                                 "B{}_FcaH".format(bearing_no)]]
+            eol = np.max(data.dropna().index)-1
+            eol_times.append(eol)
+        return eol_times
+            
+    def get_event_times (self, set_analytic: pd.DataFrame,
+                         test_condition: int, strategy: str = "min") -> List:
         event_times = list()
         for bearing_no in range(1, self.total_bearings+1):
             data = set_analytic[["B{}_FoH".format(bearing_no), "B{}_FiH".format(bearing_no),
@@ -50,6 +58,8 @@ class Event:
             eol = np.max(data.dropna().index)-1
             kl_divergence = self.calculate_kl_divergence(data, eol)
             kl_event = self.detect_kl_event_by_threshold(kl_divergence, test_condition, eol)
+            if np.all(kl_event==0): # event not detected
+                raise ValueError("Event not detected, check lmb")
             if strategy == "min":
                 event_times.append(int(np.min(kl_event[np.nonzero(kl_event)])))
             elif strategy == "max":

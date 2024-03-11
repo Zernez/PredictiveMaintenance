@@ -4,7 +4,7 @@ import warnings
 import config as cfg
 from tools.file_reader import FileReader
 from utility.builder import Builder
-from utility.event import Event
+from utility.event import EventManager
 
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
@@ -25,7 +25,7 @@ def main():
     # Extract information from the dataset selected from the config file
     for test_condition in range(0, N_CONDITION):
         _, analytic = FileReader(DATASET, DATASET_PATH).read_data(test_condition, N_BOOT)
-        event_times = Event(DATASET).make_events(analytic, test_condition)
+        event_times = EventManager(DATASET).get_event_times(analytic, test_condition)
         print(event_times)
         
 if __name__ == "__main__":

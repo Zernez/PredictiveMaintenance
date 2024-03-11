@@ -1,38 +1,33 @@
 import pandas as pd
 import config as cfg
-from glob import glob
 import numpy as np
-import re
+from tools.file_reader import FileReader
+from utility.builder import Builder
+from utility.event import EventManager
+
+NEW_DATASET = False
 
 if __name__ == "__main__":
-    bearing_indicies = []
-    real_lifetimes = cfg.DATASHEET_LIFETIMES
-    lifetimes = []
-    for idx in bearing_indicies:
-        lifetimes.append(real_lifetimes[f'{DATASET}_{cond_name.lower()}_b{idx}'])
-    #TODO
+    DATASET = "xjtu"
+    N_BOOT = 0
+    DATASET_PATH = cfg.DATASET_PATH_XJTU
+    N_CONDITION = len(cfg.RAW_DATA_PATH_XJTU)
     
+    if NEW_DATASET == True:
+        Builder(DATASET, N_BOOT).build_new_dataset(bootstrap=N_BOOT)
     
-    
-    path = cfg.RESULTS_PATH
-    results = pd.read_csv(f'{path}/model_results.csv', index_col=0)
-    conditions = ["C1", "C2", "C3"]
-    censoring = [0.25, 0.5, 0.75]
-    model_names = ["CoxPH", "RSF", "DeepSurv", "DSM", "BNNmcd"]
-    for cond in conditions:
-        for index, model_name in enumerate(model_names):
-            text = ""            
-            text += f"& {model_name} & "
-            for cens in censoring:
-                tte_surv = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['MedianSurvTime']
-                tte_ed = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['EDTarget']
-                median_tte_surv = round(np.median(tte_surv.dropna()), 1)
-                median_tte_ed = round(np.median(tte_ed.dropna()), 1)
-                error = round(median_tte_surv-median_tte_ed, 2)
-                text += f"{median_tte_surv} & {median_tte_ed} & {error} "
-                if cens == 0.75:
-                   text += "\\\\"
-                else:
-                   text += "& "
-            print(text)
+    for test_condition in range(0, N_CONDITION):
+        pct_error_list = list()
+        _, analytic = FileReader(DATASET, DATASET_PATH).read_data(test_condition, N_BOOT)
+        event_manager = EventManager(DATASET)
+        event_times = event_manager.get_event_times(analytic, test_condition)
+        failure_times = event_manager.get_eol_times(analytic, test_condition)
+        for bearing_id in range(1, 10):
+            event_time = event_times[bearing_id-1]
+            failure_time = failure_times[bearing_id-1]
+            error = event_time - failure_time
+            pct_error = ((event_time - failure_time)/ failure_time) * 100
+            pct_error_list.append(pct_error)
+            print(f"{event_time} & {failure_time} & {error} & {round(pct_error, 1)}")
+        #print(f"Mean pct error: {np.mean(pct_error_list)}")
         print()
