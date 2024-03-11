@@ -23,11 +23,10 @@ def main():
         Builder(DATASET, N_BOOT).build_new_dataset(bootstrap=N_BOOT)
     
     # Extract information from the dataset selected from the config file
-    model_results = pd.DataFrame()
-    for test_condition in range (0, N_CONDITION):
-        covariates, analytic = FileReader(DATASET, DATASET_PATH).read_data(test_condition, N_BOOT)
-        event_kl, event_sd = Event(DATASET).make_events(analytic, test_condition)
-        print(0)
+    for test_condition in range(0, N_CONDITION):
+        _, analytic = FileReader(DATASET, DATASET_PATH).read_data(test_condition, N_BOOT)
+        event_times = Event(DATASET).make_events(analytic, test_condition)
+        print(event_times)
         
 if __name__ == "__main__":
     main()

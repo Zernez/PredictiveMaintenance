@@ -5,6 +5,15 @@ import numpy as np
 import re
 
 if __name__ == "__main__":
+    bearing_indicies = []
+    real_lifetimes = cfg.DATASHEET_LIFETIMES
+    lifetimes = []
+    for idx in bearing_indicies:
+        lifetimes.append(real_lifetimes[f'{DATASET}_{cond_name.lower()}_b{idx}'])
+    #TODO
+    
+    
+    
     path = cfg.RESULTS_PATH
     results = pd.read_csv(f'{path}/model_results.csv', index_col=0)
     conditions = ["C1", "C2", "C3"]

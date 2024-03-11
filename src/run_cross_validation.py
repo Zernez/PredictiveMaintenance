@@ -35,11 +35,11 @@ warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
 np.random.seed(0)
 
-NEW_DATASET = True
+NEW_DATASET = False
 N_ITER = 10
 N_OUTER_SPLITS = 5
 N_INNER_SPLITS = 3
-N_POST_SAMPLES = 1000
+N_POST_SAMPLES = 100
 
 def main():
     DATASET = "xjtu"
@@ -60,37 +60,35 @@ def main():
     # Extract information from the dataset selected from the config file
     model_results = pd.DataFrame()
     for test_condition in range (0, N_CONDITION):
-        covariates, analytic = FileReader(DATASET, DATASET_PATH).read_data(test_condition, N_BOOT)
-        event_kl, event_sd = Event(DATASET).make_events(analytic, test_condition)
+        timeseries_data, frequency_data = FileReader(DATASET, DATASET_PATH).read_data(test_condition, N_BOOT)
+        event_times = Event(DATASET).make_events(frequency_data, test_condition)
         
         # For level of censoring
         for pct in cfg.CENSORING_LEVELS:
             
             # Split in train and test set
             kf = KFold(n_splits=N_OUTER_SPLITS)
-            bearing_indicies =  list(range(1, (N_BEARING*2)+1)) # number of real bearings x2
+            bearing_indicies = list(range(1, (N_BEARING*2)+1)) # number of real bearings x 2
             for _, (train_idx, test_idx) in enumerate(kf.split(bearing_indicies)):
                 # Track time
                 split_start_time = time()
-                
-                # Adjust indicies to match bearing numbers
-                train_idx = train_idx + 1
-                test_idx = test_idx + 1
                 
                 # Compute moving average for training/testing
                 train_data, test_data = pd.DataFrame(), pd.DataFrame()
                 window_size = get_window_size(test_condition)
                 lag = get_lag(test_condition)
-                event_detector_target = []
                 for idx in train_idx:
-                    event_time = data_util.event_analyzer(idx, info_pack)
-                    transformed_data = data_util.make_moving_average(timeseries_data, event_time, idx, window_size, lag)
+                    event_time = event_times[idx]
+                    bearing_id = idx + 1
+                    transformed_data = data_util.make_moving_average(timeseries_data, event_time,
+                                                                     bearing_id, window_size, lag)
                     train_data = pd.concat([train_data, transformed_data], axis=0)
                     train_data = train_data.reset_index(drop=True)
                 for idx in test_idx:
-                    event_time = data_util.event_analyzer(idx, info_pack)
-                    event_detector_target.append(event_time)
-                    transformed_data = data_util.make_moving_average(timeseries_data, event_time, idx, window_size, lag)
+                    event_time = event_times[idx]
+                    bearing_id = idx + 1
+                    transformed_data = data_util.make_moving_average(timeseries_data, event_time,
+                                                                     bearing_id, window_size, lag)
                     test_data = pd.concat([test_data, transformed_data], axis=0)
                     test_data = test_data.reset_index(drop=True)
                 
@@ -244,27 +242,16 @@ def main():
                         else:
                             c_calib = 0
                             
-                        # Calculate median event detector target
-                        median_ed_target = np.median(event_detector_target)
-                            
-                        # Calculate bearing datasheet lifetime
-                        bearing_indicies =  [(x + 1) // 2 for x in test_idx]
-                        real_lifetimes = cfg.DATASHEET_LIFETIMES
-                        lifetimes = []
-                        for idx in bearing_indicies:
-                            lifetimes.append(real_lifetimes[f'{DATASET}_{cond_name.lower()}_b{idx}'])
-                        datasheet_target = np.median(lifetimes)
-                            
                         print(f"Evaluated {cond_name} - {model_name} - {ft_selector_name} - {pct}" +
                                 f" - CI={round(c_index_cvi, 3)} - IBS={round(brier_score_cvi, 3)} - MED={round(median_survival_time, 3)}" +
                                 f" - MAE={round(mae_hinge_cvi, 3)} - DCalib={d_calib} - T={round(t_total_split_time, 3)}")
 
                         # Indexing the result table
-                        res_sr = pd.Series([cond_name, model_name, ft_selector_name, pct, c_index_cvi, brier_score_cvi,
-                                            median_survival_time, mae_hinge_cvi, d_calib, c_calib, median_ed_target, datasheet_target,
+                        res_sr = pd.Series([cond_name, model_name, ft_selector_name, pct, c_index_cvi,
+                                            brier_score_cvi, median_survival_time, mae_hinge_cvi, d_calib, c_calib,
                                             n_preds, t_total_split_time, best_params, list(selected_fts)],
                                             index=["Condition", "ModelName", "FtSelectorName", "CensoringLevel", "CIndex",
-                                                    "BrierScore", "MedianSurvTime", "MAEHinge", "DCalib", "CCalib", "EDTarget", "DSTarget",
+                                                    "BrierScore", "MedianSurvTime", "MAEHinge", "DCalib", "CCalib",
                                                     "Npreds", "TTotalSplit", "BestParams", "SelectedFts"])
                         model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
                     

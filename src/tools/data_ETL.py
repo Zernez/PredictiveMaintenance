@@ -28,8 +28,8 @@ class DataETL:
             self.folder_size = self.total_bearings * self.fixed_time_split
         self.event_detector_goal = cfg.EVENT_DETECTOR_CONFIG
 
-    def make_moving_average(self, timeseries_data, event_time, idx, window_size, lag):
-        bearing_cols = [col for col in timeseries_data if col.startswith(f'B{idx}_')]
+    def make_moving_average(self, timeseries_data, event_time, bearing_id, window_size, lag):
+        bearing_cols = [col for col in timeseries_data if col.startswith(f'B{bearing_id}_')]
         df = timeseries_data.loc[:,bearing_cols].dropna()
         df.columns = df.columns.str.replace(r'^B\d+_','')
         df = df.loc[:event_time, :] # select data up to event

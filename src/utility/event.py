@@ -7,6 +7,7 @@ from scipy.stats import entropy
 import config as cfg
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.tsa.stattools import kpss
+from typing import List
 
 def padarray(A, size):
     t = size - len(A)
@@ -38,51 +39,26 @@ class Event:
         # Initial deviation
         self.initial_deviation = 5
         
-    def make_events (self, set_analytic: pd.DataFrame, test_condition: int ) -> (list, list):
-            """
-            Generates events for each bearing based on the given set of analytic data.
-
-            Args:
-            - set_analytic (DataFrame): The analytic data for all bearings.
-            - test_condition (int): The test condition (0, 1 or 2).
-
-            Returns:
-            tuple: A tuple containing two lists - events_KL and events_SD.
-                - events_KL (list): The calculated thresholds and breakpoints for each bearing based on KL evaluation.
-                - events_SD (list): The calculated thresholds and breakpoints for each bearing based on SD evaluation.
-            """
-            # Initialize the information
-            events_KL = []
-            events_SD = []
-
-            # For each bearing, calculate the KL and detect the event
-            kl_events = np.zeros((self.total_bearings+1, self.frequency_bins))
-            for bearing_no in range(1, self.total_bearings + 1):
-                data = set_analytic[["B{}_FoH".format(bearing_no), "B{}_FiH".format(bearing_no),
-                                   "B{}_FrH".format(bearing_no), "B{}_FrpH".format(bearing_no),
-                                   "B{}_FcaH".format(bearing_no)]]
-                eol = np.max(data.dropna().index)-1
-                kl_divergence = self.calculate_kl_divergence(data, eol)
-                kl_event = self.detect_kl_event_by_threshold(kl_divergence, test_condition, eol)
-                kl_events[bearing_no,:] = kl_event
-
-            #TODO: Mark non-observed failures as censored (CL)
-            #TODO: Use the MIN/MAX/MEAN of the event times (Morten)
-            
-            return events_KL, events_SD
+    def make_events (self, set_analytic: pd.DataFrame,
+                     test_condition: int,
+                     strategy: str = "min") -> List:
+        event_times = list()
+        for bearing_no in range(1, self.total_bearings+1):
+            data = set_analytic[["B{}_FoH".format(bearing_no), "B{}_FiH".format(bearing_no),
+                                 "B{}_FrH".format(bearing_no), "B{}_FrpH".format(bearing_no),
+                                 "B{}_FcaH".format(bearing_no)]]
+            eol = np.max(data.dropna().index)-1
+            kl_divergence = self.calculate_kl_divergence(data, eol)
+            kl_event = self.detect_kl_event_by_threshold(kl_divergence, test_condition, eol)
+            if strategy == "min":
+                event_times.append(int(np.min(kl_event[np.nonzero(kl_event)])))
+            elif strategy == "max":
+                event_times.append(int(np.max(kl_event[np.nonzero(kl_event)])))
+            else:
+                raise ValueError("Select valid strategy, {min/max}")
+        return event_times
 
     def calculate_kl_divergence(self, x: pd.DataFrame, end_of_life: int) -> np.ndarray:
-
-        """
-        Calculate the Kullback-Leibler (KL) divergence between the reference window and the moving window for each bearing.
-
-        Parameters:
-        - x (DataFrame): DataFrame containing the data points for each bearing.
-        - data_points_per_window (int): Number of data points in each window.
-
-        Returns:
-        - results (numpy.ndarray): Matrix containing the KL divergence values for each bearing and window.
-        """
         results = np.zeros((x.shape[1], (end_of_life-self.window_size)+1), dtype=np.float32)
         # For each bearing, calculate the entropy between the reference window and the moving window
         for bin_index, bin_name in enumerate(x.columns):
