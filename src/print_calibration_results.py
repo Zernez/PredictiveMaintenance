@@ -1,8 +1,8 @@
 import pandas as pd
 import config as cfg
-from glob import glob
 import numpy as np
-import re
+
+ALPHA = 0.05
 
 if __name__ == "__main__":
     path = cfg.RESULTS_PATH
@@ -17,8 +17,8 @@ if __name__ == "__main__":
             for cens in censoring:
                 d_cal = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['DCalib']
                 c_cal = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['CCalib']
-                sum_d_cal = int(np.nansum(d_cal))
-                sum_c_cal = int(np.nansum(c_cal))
+                sum_d_cal = sum(1 for value in d_cal if value > ALPHA)
+                sum_c_cal = sum(1 for value in c_cal if value > ALPHA)
                 if model_name in ["CoxPH", "RSF", "DeepSurv", "DSM"]:
                     text += f"{sum_d_cal}/5 & - "
                 else:

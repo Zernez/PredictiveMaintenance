@@ -145,14 +145,14 @@ def main():
                             model = DeepCoxPH(layers=best_params['layers'])
                             with Suppressor():
                                 model = model.fit(x, t, e, vsize=0.3, iters=best_params['iters'],
-                                                    learning_rate=best_params['learning_rate'],
-                                                    batch_size=best_params['batch_size'])
+                                                  learning_rate=best_params['learning_rate'],
+                                                  batch_size=best_params['batch_size'])
                         elif model_name == "DSM":
                             model = DeepSurvivalMachines(layers=best_params['layers'])
                             with Suppressor():
                                 model = model.fit(x, t, e, vsize=0.3, iters=best_params['iters'],
-                                                    learning_rate=best_params['learning_rate'],
-                                                    batch_size=best_params['batch_size'])
+                                                  learning_rate=best_params['learning_rate'],
+                                                  batch_size=best_params['batch_size'])
                         elif model_name == "BNNmcd":
                             model = model_builder().make_model(best_params)
                             with Suppressor():

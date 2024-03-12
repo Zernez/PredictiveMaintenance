@@ -1,8 +1,6 @@
 import pandas as pd
 import config as cfg
-from glob import glob
 import numpy as np
-import re
 
 N_DECIMALS = 3
 

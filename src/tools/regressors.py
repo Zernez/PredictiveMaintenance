@@ -41,47 +41,8 @@ class BaseRegressor (ABC):
 
     def get_estimator (self, params=None):
         return self.make_model(params)
-
-class WeibullAFT (BaseRegressor):
-    def make_model (self, params=None):
-        return sklearn_adapter (WeibullAFTFitter, event_col='Event')
     
-    def get_hyperparams (self):
-        return {'alpha': [0.03, 0.05, 0.07],
-                'penalizer': [0.06, 0.07, 0.08]}
-    
-    def get_best_hyperparams (self):
-        return {'alpha': 0.05,
-                'penalizer': 0.07}
- 
-class LogNormalAFT (BaseRegressor):
-    def make_model (self, params=None):
-        return sklearn_adapter (LogNormalAFTFitter, event_col='Event')
-    
-    def get_hyperparams(self):
-        if cfg.DATASET_NAME == "xjtu":
-            return {'alpha': [0.03, 0.05, 0.07],
-                    'penalizer': [0.06, 0.07, 0.08]}
-        elif cfg.DATASET_NAME == "pronostia":
-            return {'alpha': [0.03, 0.05, 0.07],
-                    'penalizer': [0.17, 0.18, 0.19]}
-
-    
-    def get_best_hyperparams(self):
-        return {'alpha': 0.05,
-                'penalizer': 0.07}
-    
-class LogLogisticAFT (BaseRegressor):
-    def make_model (self, params=None):
-        return sklearn_adapter (LogLogisticAFTFitter, event_col='Event')
-    
-    def get_hyperparams (self):
-        return {'alpha': [0.03, 0.05, 0.1]}
-    
-    def get_best_hyperparams (self):
-        return {'alpha': 0.03}
-    
-class CoxPH (BaseRegressor):
+class CoxPH(BaseRegressor):
     def make_model (self, params=None):
         model_params = cfg.PARAMS_CPH
         if params:
@@ -100,64 +61,7 @@ class CoxPH (BaseRegressor):
         return {'tol': 1e-3,
                 'n_iter': 20}
 
-class CphRidge (BaseRegressor):
-    def make_model (self, params=None):
-        model_params = cfg.PARAMS_CPH_RIDGE
-        if params:
-            model_params.update(params)
-        return CoxPHSurvivalAnalysis(**model_params)
-    
-    def get_hyperparams (self):
-        if cfg.DATA_TYPE == "bootstrap":
-            return {'n_iter': [5],
-                    'tol': [1e-1]} 
-        else:
-            return {'n_iter': [10, 15, 20],
-                    'tol': [1e-1, 1e-2]}
-    
-    def get_best_hyperparams (self):
-        return {'tol': 1e-3,
-                'n_iter': 20}
-
-class CphLASSO (BaseRegressor):
-    def make_model (self, params=None):
-        model_params = cfg.PARAMS_CPH_LASSO
-        if params:
-            model_params.update(params)
-        return CoxnetSurvivalAnalysis(**model_params)
-    
-    def get_hyperparams (self):
-        return {'n_alphas': [50, 100, 200],
-                'normalize': [True, False],
-                'tol': [1e-1, 1e-3, 1e-5],
-                'max_iter': [100]}
-    
-    def get_best_hyperparams (self):
-        return {'tol': 1e-03,
-                'normalize': True,
-                'n_alphas': 50,
-                'max_iter': 100}
-
-class CphElastic (BaseRegressor):
-    def make_model (self, params=None):
-        model_params = cfg.PARAMS_CPH_ELASTIC
-        if params:
-            model_params.update(params)
-        return CoxnetSurvivalAnalysis(**model_params)
-    
-    def get_hyperparams (self):
-        return {'n_alphas': [50, 100, 200],
-                'normalize': [True, False],
-                'tol': [1e-1, 1e-3, 1e-5],
-                'max_iter': [100]}
-    
-    def get_best_hyperparams (self):
-        return {'tol': 1e-03,
-                'normalize': True,
-                'n_alphas': 50,
-                'max_iter': 100}
-
-class RSF (BaseRegressor):
+class RSF(BaseRegressor):
     def make_model (self, params=None):
         model_params = cfg.PARAMS_RSF
         if params:
@@ -184,10 +88,10 @@ class DeepSurv(BaseRegressor):
         return DeepCoxPH(layers=model_params['layers'])
     
     def get_hyperparams(self):
-        return {'batch_size' : [32],
-                'learning_rate' : [1e-2, 1e-3],
+        return {'batch_size' : [32, 64, 128],
+                'learning_rate' : [1e-2, 5e-3, 1e-3],
                 'iters': [100, 300, 500, 1000],
-                'layers': [[16], [32]]
+                'layers': [[16], [32], [64]]
                 }
     
     def get_best_hyperparams(self):
@@ -204,10 +108,10 @@ class DSM(BaseRegressor):
         return DeepSurvivalMachines(layers=model_params['layers'])
     
     def get_hyperparams(self):
-        return {'batch_size' : [32],
-                'learning_rate' : [1e-2, 1e-3],
+        return {'batch_size' : [32, 64, 128],
+                'learning_rate' : [1e-2, 5e-3, 1e-3],
                 'iters': [100, 300, 500, 1000],
-                'layers': [[16], [32]]
+                'layers': [[16], [32], [64]]
                 }
             
     def get_best_hyperparams(self):
@@ -224,10 +128,10 @@ class BNNmcd(BaseRegressor):
         return models.MCD(**model_params)
     
     def get_hyperparams(self):
-        return {'batch_size' : [32],
-                'learning_rate' : [1e-2, 1e-3],
-                'num_epochs': [5, 10],
-                'layers': [[16], [32]]
+        return {'batch_size' : [32, 64, 128],
+                'learning_rate' : [1e-2, 5e-3, 1e-3],
+                'num_epochs': [10, 25, 50],
+                'layers': [[16], [32], [64]]
                 }
 
     def get_best_hyperparams(self):
