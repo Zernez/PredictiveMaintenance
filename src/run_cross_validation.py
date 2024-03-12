@@ -28,6 +28,7 @@ from scipy.stats._stats_py import chisquare
 from utility.event import EventManager
 import tensorflow as tf
 import random
+import torch
 
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
@@ -36,6 +37,10 @@ tf.random.set_seed(0)
 random.seed(0)
 
 tf.config.set_visible_devices([], 'GPU') # use CPU
+
+# Setup device
+device = "cpu" # use CPU
+device = torch.device(device)
 
 NEW_DATASET = False
 N_ITER = 10
