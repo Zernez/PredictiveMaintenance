@@ -30,6 +30,10 @@ from utility.event import EventManager
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
 np.random.seed(0)
+tf.random.set_seed(0)
+random.seed(0)
+
+tf.config.set_visible_devices([], 'GPU') # use CPU
 
 NEW_DATASET = False
 N_ITER = 10
