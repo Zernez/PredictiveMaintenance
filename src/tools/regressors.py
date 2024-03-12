@@ -9,6 +9,7 @@ from sksurv.svm import FastSurvivalSVM
 from auton_survival import DeepCoxPH
 from auton_survival import DeepSurvivalMachines
 from bnnsurv import models
+import numpy as np
 
 class BaseRegressor (ABC):
     """
@@ -50,12 +51,8 @@ class CoxPH(BaseRegressor):
         return CoxPHSurvivalAnalysis(**model_params)
     
     def get_hyperparams (self):
-        if cfg.DATA_TYPE == "bootstrap":
-            return {'n_iter': [5],
-                    'tol': [1e-1]} 
-        else:
-            return {'n_iter': [10, 15, 20],
-                    'tol': [1e-1, 1e-2]}
+        return {'n_iter': [10, 50, 100],
+                'tol': [1e-1, 1e-5, 1e-9]}
     
     def get_best_hyperparams (self):
         return {'tol': 1e-3,
@@ -70,12 +67,12 @@ class RSF(BaseRegressor):
     
     def get_hyperparams (self):
         return {'max_depth': [3, 5, 7],
-                'n_estimators': [50, 100, 200],
-                'min_samples_split': [2, 5, 8],
-                'min_samples_leaf': [1, 2, 3]}
+                'n_estimators': [100, 200, 400],
+                'min_samples_split': [float(x) for x in np.linspace(0.1, 0.9, 5, endpoint=True)],
+                'min_samples_leaf': [float(x) for x in np.linspace(0.1, 0.5, 5, endpoint=True)]}
     
     def get_best_hyperparams (self):
-        return  {'n_estimators': 3, 
+        return  {'n_estimators': 3,
                  'min_samples_split': 15,
                  'min_samples_leaf': 600, 
                  'max_depth': 5}
@@ -111,8 +108,7 @@ class DSM(BaseRegressor):
         return {'batch_size' : [32, 64, 128],
                 'learning_rate' : [1e-2, 5e-3, 1e-3],
                 'iters': [100, 300, 500, 1000],
-                'layers': [[16], [32], [64]]
-                }
+                'layers': [[16], [32], [64]]}
             
     def get_best_hyperparams(self):
         return {'batch_size' : 32,
