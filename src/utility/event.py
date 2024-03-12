@@ -71,24 +71,16 @@ class EventManager:
 
     def calculate_kl_divergence(self, x: pd.DataFrame, end_of_life: int) -> np.ndarray:
         results = np.zeros((x.shape[1], (end_of_life-self.window_size)+1), dtype=np.float32)
-        # For each bearing, calculate the entropy between the reference window and the moving window
         for bin_index, bin_name in enumerate(x.columns):
-            # Calculate reference window
             win_ref = np.array(x.loc[0:self.window_size-1, bin_name], dtype=float)
             end_of_life = np.max(x[x[bin_name].notnull()].index)-1 # max observed index
             time_ref = 0
-            
             kl_values = list()
             while (time_ref + self.window_size) <= end_of_life:
                 actual_window = np.array(x.loc[time_ref:time_ref+self.window_size-1, bin_name], dtype=float)
-
-                # Compute KL
                 kl_values.append(entropy(win_ref, actual_window))
-
                 time_ref += self.time_resolution
-                
             results[bin_index] = kl_values
-    
         return results
 
     def calculate_sd_divergence (self, 

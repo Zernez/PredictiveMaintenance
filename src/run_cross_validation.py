@@ -42,33 +42,33 @@ N_INNER_SPLITS = 3
 N_POST_SAMPLES = 100
 
 def main():
-    DATASET = "xjtu"
-    N_BOOT = 0
-    DATASET_PATH = cfg.DATASET_PATH_XJTU
-    N_CONDITION = len(cfg.RAW_DATA_PATH_XJTU)
-    N_BEARING = cfg.N_REAL_BEARING_XJTU
+    dataset = "xjtu"
+    n_boot = 0
+    dataset_path = cfg.DATASET_PATH_XJTU
+    n_condition = len(cfg.RAW_DATA_PATH_XJTU)
+    n_bearing = cfg.N_REAL_BEARING_XJTU
     
     # For the first time running, a NEW_DATASET is needed
     if NEW_DATASET== True:
-        Builder(DATASET, N_BOOT).build_new_dataset(bootstrap=N_BOOT)
+        Builder(dataset, n_boot).build_new_dataset(bootstrap=n_boot)
 
     # Insert the models and feature name selector for CV hyperparameter search and initialize the DataETL instance
     models = [CoxPH, RSF, DeepSurv, DSM, BNNmcd]
     ft_selectors = [PHSelector]
-    data_util = DataETL(DATASET, N_BOOT)
+    data_util = DataETL(dataset, n_boot)
 
     # Extract information from the dataset selected from the config file
     model_results = pd.DataFrame()
-    for test_condition in range (0, N_CONDITION):
-        timeseries_data, frequency_data = FileReader(DATASET, DATASET_PATH).read_data(test_condition, N_BOOT)
-        event_times = EventManager(DATASET).get_event_times(frequency_data, test_condition, lmd=get_lmd(test_condition))
+    for test_condition in range (0, n_condition):
+        timeseries_data, frequency_data = FileReader(dataset, dataset_path).read_data(test_condition, n_boot)
+        event_times = EventManager(dataset).get_event_times(frequency_data, test_condition, lmd=get_lmd(test_condition))
         
         # For level of censoring
         for pct in cfg.CENSORING_LEVELS:
             
             # Split in train and test set
             kf = KFold(n_splits=N_OUTER_SPLITS)
-            bearing_indicies = list(range(1, (N_BEARING*2)+1)) # number of real bearings x 2
+            bearing_indicies = list(range(1, (n_bearing*2)+1)) # number of real bearings x 2
             for _, (train_idx, test_idx) in enumerate(kf.split(bearing_indicies)):
                 # Track time
                 split_start_time = time()
@@ -120,7 +120,7 @@ def main():
                         # Create model instance and find best features
                         model = model_builder().get_estimator()
                         if ft_selector_name == "PHSelector":
-                            ft_selector = ft_selector_builder(ti[0], ti[1], estimator=[DATASET, test_condition])
+                            ft_selector = ft_selector_builder(ti[0], ti[1], estimator=[dataset, test_condition])
                         else:
                             ft_selector = ft_selector_builder(ti[0], ti[1], estimator=model)
                         
