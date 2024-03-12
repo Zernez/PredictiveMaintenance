@@ -1,13 +1,11 @@
 import numpy as np
 import pandas as pd
-from time import time
 import warnings
 import config as cfg
-from pycox.evaluation import EvalSurv
 from sksurv.util import Surv
 from sklearn.model_selection import ParameterSampler
 from sklearn.model_selection import KFold
-from tools.feature_selectors import PHSelector
+from tools.feature_selectors import PHSelector, NoneSelector
 from tools.regressors import CoxPH, RSF, DeepSurv, DSM, BNNmcd
 from tools.file_reader import FileReader
 from tools.data_ETL import DataETL
@@ -18,12 +16,10 @@ from auton_survival import DeepSurvivalMachines
 from utility.printer import Suppressor
 from tools.formatter import Formatter
 from tools.evaluator import LifelinesEvaluator
-from tools.Evaluations.util import predict_median_survival_time
 from utility.survival import make_event_times
 from tools.cross_validator import run_cross_validation
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import KFold
-import argparse
 import torch
 import math
 from utility.data import get_window_size, get_lag, get_lmd
@@ -47,14 +43,15 @@ def main():
     dataset_path = cfg.DATASET_PATH_XJTU
     n_condition = len(cfg.RAW_DATA_PATH_XJTU)
     n_bearing = cfg.N_REAL_BEARING_XJTU
-    
+    bearing_ids = list(range(1, (n_bearing*2)+1))
+
     # For the first time running, a NEW_DATASET is needed
     if NEW_DATASET== True:
         Builder(dataset, n_boot).build_new_dataset(bootstrap=n_boot)
 
     # Insert the models and feature name selector for CV hyperparameter search and initialize the DataETL instance
     models = [CoxPH, RSF, DeepSurv, DSM, BNNmcd]
-    ft_selectors = [PHSelector]
+    ft_selectors = [NoneSelector]
     data_util = DataETL(dataset, n_boot)
 
     # Extract information from the dataset selected from the config file
@@ -68,8 +65,7 @@ def main():
             
             # Split in train and test set
             kf = KFold(n_splits=N_OUTER_SPLITS)
-            bearing_indicies = list(range(1, (n_bearing*2)+1)) # number of real bearings x 2
-            for _, (train_idx, test_idx) in enumerate(kf.split(bearing_indicies)):
+            for _, (train_idx, test_idx) in enumerate(kf.split(bearing_ids)):
                 # Compute moving average for training/testing
                 train_data, test_data = pd.DataFrame(), pd.DataFrame()
                 for idx in train_idx:

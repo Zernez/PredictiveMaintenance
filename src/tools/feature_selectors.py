@@ -10,8 +10,8 @@ from tools.vif import VIF
 import umap
 
 class SelectAllFeatures ():
-    def fit (self, X, y=None):
-        X= X.loc[:, ~X.columns.isin(['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise'])] #,'FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise'
+    def fit(self, X, y=None):
+        X = X.loc[:, ~X.columns.isin(['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise'])] #,'FoH', 'FiH', 'FrH', 'FrpH', 'FcaH', 'noise'
         self.features = X.columns
         return self
 
@@ -86,7 +86,7 @@ class NoneSelector (BaseFeatureSelector):
     
 class PHSelector (BaseFeatureSelector):
     def make_model (self):
-        return SelectPHFeatures(X= self.X, y= self.y, data_info= self.estimator)
+        return SelectPHFeatures(X=self.X, y=self.y, data_info=self.estimator)
 
 class LowVar (BaseFeatureSelector):
     def make_model (self):

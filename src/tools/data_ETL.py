@@ -16,23 +16,16 @@ class DataETL:
         self.boot_folder_size = (bootstrap * 2) + 2
         self.lag = 1
         self.post = 2
-        if dataset == "xjtu":
-            self.real_bearings = cfg.N_REAL_BEARING_XJTU
-            self.total_bearings = self.real_bearings * self.boot_folder_size
-            self.total_signals = cfg.N_SIGNALS_XJTU
-            self.folder_size = self.total_bearings * self.fixed_time_split
-        elif dataset == "pronostia":
-            self.real_bearings = cfg.N_REAL_BEARING_PRONOSTIA
-            self.total_bearings = self.real_bearings * self.boot_folder_size
-            self.total_signals = cfg.N_SIGNALS_PRONOSTIA
-            self.folder_size = self.total_bearings * self.fixed_time_split
-        self.event_detector_goal = cfg.EVENT_DETECTOR_CONFIG
+        self.real_bearings = cfg.N_REAL_BEARING_XJTU
+        self.total_bearings = self.real_bearings * self.boot_folder_size
+        self.total_signals = cfg.N_SIGNALS_XJTU
+        self.folder_size = self.total_bearings * self.fixed_time_split
 
     def make_moving_average(self, timeseries_data: pd.DataFrame, event_time: int,
                             bearing_id: int, window_size: int, lag: int):
         bearing_cols = [col for col in timeseries_data if col.startswith(f'B{bearing_id}_')]
         df = timeseries_data.loc[:,bearing_cols].dropna()
-        df.columns = df.columns.str.replace(r'^B\d+_','')
+        df.columns = df.columns.str.replace(r'^B\d+_','', regex=True)
         df = df.loc[:event_time, :] # select data up to event
         df['Survival_time'] = range(int(event_time)+1, 0, -1) # annotate the event
         cols = list(df.columns.drop(['Event']))
@@ -46,6 +39,8 @@ class DataETL:
                 total_df[ft_col] = ma
         total_df = total_df.dropna().reset_index(drop=True)
         total_df['Event'] = True
+        total_df['Survival_time'] = total_df['Survival_time'].astype(int)
+        total_df['Event'] = total_df['Event'].astype(bool)
         return total_df
                 
     def make_surv_data_bootstrap (self, 

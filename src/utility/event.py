@@ -38,7 +38,7 @@ class EventManager:
         # Initial deviation
         self.initial_deviation = 5
     
-    def get_eol_times(self, set_analytic: pd.DataFrame, test_condition: int):
+    def get_eol_times(self, set_analytic: pd.DataFrame):
         eol_times = list()
         for bearing_no in range(1, self.total_bearings+1):
             data = set_analytic[["B{}_FoH".format(bearing_no), "B{}_FiH".format(bearing_no),
