@@ -70,9 +70,6 @@ def main():
             kf = KFold(n_splits=N_OUTER_SPLITS)
             bearing_indicies = list(range(1, (n_bearing*2)+1)) # number of real bearings x 2
             for _, (train_idx, test_idx) in enumerate(kf.split(bearing_indicies)):
-                # Track time
-                split_start_time = time()
-                
                 # Compute moving average for training/testing
                 train_data, test_data = pd.DataFrame(), pd.DataFrame()
                 for idx in train_idx:
@@ -187,7 +184,7 @@ def main():
                             mae_hinge = lifelines_eval.mae(method="Hinge")
                             mae_margin = lifelines_eval.mae(method="Margin")
                             mae_pseudo = lifelines_eval.mae(method="Pseudo_obs")
-                            d_calib = 1 if lifelines_eval.d_calibration()[0] > 0.05 else 0
+                            d_calib = lifelines_eval.d_calibration()[0]
                         except:
                             mae_hinge = np.nan
                             mae_margin = np.nan
@@ -201,9 +198,6 @@ def main():
                         if mae_pseudo > 500:
                             mae_pseudo = np.nan
                         
-                        n_preds = len(surv_preds)
-                        t_total_split_time = time() - split_start_time
-
                         if test_condition == 0:
                             cond_name = "C1"
                         elif test_condition == 1:
@@ -222,24 +216,18 @@ def main():
                                 lower_outputs = torch.kthvalue(surv_times, k=1 + drop_num, dim=0)[0]
                                 upper_outputs = torch.kthvalue(surv_times, k=N_POST_SAMPLES - drop_num, dim=0)[0]
                                 coverage_stats[percentage] = coverage(times, upper_outputs, lower_outputs,
-                                                                        cvi_new[1]["Survival_time"], cvi_new[1]["Event"])
+                                                                      cvi_new[1]["Survival_time"], cvi_new[1]["Event"])
                             data = [list(coverage_stats.keys()), list(coverage_stats.values())]
                             _, pvalue = chisquare(data)
-                            alpha = 0.05
-                            if pvalue[0] <= alpha:
-                                c_calib = 0
-                            else:
-                                c_calib = 1
+                            c_calib = pvalue[0]
                         else:
                             c_calib = 0
                             
                         print(f"Evaluated {cond_name} - {model_name} - {ft_selector_name} - {pct}")
                         res_sr = pd.Series([cond_name, model_name, ft_selector_name, pct,
-                                            mae_hinge, mae_margin, mae_pseudo, d_calib, c_calib,
-                                            n_preds, t_total_split_time, best_params, list(selected_fts)],
+                                            best_params, mae_hinge, mae_margin, mae_pseudo, d_calib, c_calib],
                                             index=["Condition", "ModelName", "FtSelectorName", "CensoringLevel",
-                                                   "MAEHinge", "MAEMargin", "MAEPseudo", "DCalib", "CCalib",
-                                                   "Npreds", "TTotalSplit", "BestParams", "SelectedFts"])
+                                                   "BestParams", "MAEHinge", "MAEMargin", "MAEPseudo", "DCalib", "CCalib"])
                         model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
                         model_results.to_csv(f"{cfg.RESULTS_PATH}/model_results.csv")
 

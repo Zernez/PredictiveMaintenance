@@ -4,6 +4,8 @@ from glob import glob
 import numpy as np
 import re
 
+N_DECIMALS = 3
+
 if __name__ == "__main__":
     path = cfg.RESULTS_PATH
     results = pd.read_csv(f'{path}/model_results.csv', index_col=0)
@@ -15,16 +17,16 @@ if __name__ == "__main__":
             text = ""            
             text += f"& {model_name} & "            
             for cens in censoring:
-                ci = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['CIndex']
-                ibs = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['BrierScore']
-                mae = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['MAEHinge']
-                mean_ci = round(np.mean(ci.dropna()), 2)
-                mean_ibs = round(np.mean(ibs.dropna()), 2)
-                mean_mae = round(np.mean(mae.dropna()), 2)
-                std_ci = round(np.std(ci.dropna()), 2)
-                std_ibs = round(np.std(ci.dropna()), 2)
-                std_mae = round(np.std(ci.dropna()), 1)
-                text += f"{mean_ci}$\pm${std_ci} & {mean_ibs}$\pm${std_ibs} & {mean_mae}$\pm${std_mae}"
+                mae_hinge = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['MAEHinge']
+                mae_margin = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['MAEMargin']
+                mae_pseudo = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['MAEPseudo']
+                mean_mae_hinge = round(np.mean(mae_hinge.dropna()), N_DECIMALS)
+                mean_mae_margin = round(np.mean(mae_margin.dropna()), N_DECIMALS)
+                mean_mae_pseudo = round(np.mean(mae_pseudo.dropna()), N_DECIMALS)
+                std_mae_hinge = round(np.std(mae_hinge.dropna()), N_DECIMALS)
+                std_mae_margin = round(np.std(mae_margin.dropna()), N_DECIMALS)
+                std_mae_pseudo = round(np.std(mae_pseudo.dropna()), N_DECIMALS)
+                text += f"{mean_mae_hinge}$\pm${std_mae_hinge} & {mean_mae_margin}$\pm${std_mae_margin} & {mean_mae_pseudo}$\pm${std_mae_pseudo}"
                 if cens == 0.75:
                    text += "\\\\"
                 else:
