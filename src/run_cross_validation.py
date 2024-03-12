@@ -26,6 +26,8 @@ from utility.data import get_window_size, get_lag, get_lmd
 from utility.survival import coverage
 from scipy.stats._stats_py import chisquare
 from utility.event import EventManager
+import tensorflow as tf
+import random
 
 warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
 
