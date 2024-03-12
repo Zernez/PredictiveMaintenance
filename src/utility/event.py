@@ -33,7 +33,7 @@ class EventManager:
         self.time_resolution = 1 # 1 minute
         
         # Lambda for event detection
-        self.lmd = 1.5
+        self.lmd = 2
         
         # Initial deviation
         self.initial_deviation = 5
@@ -48,8 +48,9 @@ class EventManager:
             eol_times.append(eol)
         return eol_times
             
-    def get_event_times (self, set_analytic: pd.DataFrame,
-                         test_condition: int, strategy: str = "min") -> List:
+    def get_event_times(self, set_analytic: pd.DataFrame,
+                        test_condition: int, lmd: float,
+                        strategy: str = "min") -> List:
         event_times = list()
         for bearing_no in range(1, self.total_bearings+1):
             data = set_analytic[["B{}_FoH".format(bearing_no), "B{}_FiH".format(bearing_no),
@@ -57,9 +58,9 @@ class EventManager:
                                  "B{}_FcaH".format(bearing_no)]]
             eol = np.max(data.dropna().index)-1
             kl_divergence = self.calculate_kl_divergence(data, eol)
-            kl_event = self.detect_kl_event_by_threshold(kl_divergence, test_condition, eol)
+            kl_event = self.detect_kl_event_by_threshold(kl_divergence, test_condition, eol, lmd)
             if np.all(kl_event==0): # event not detected
-                raise ValueError("Event not detected, check lmb")
+                raise ValueError("Event not detected, check lmd")
             if strategy == "min":
                 event_times.append(int(np.min(kl_event[np.nonzero(kl_event)])))
             elif strategy == "max":
@@ -169,8 +170,8 @@ class EventManager:
 
         return np.array(event_times)
                 
-    def detect_kl_event_by_threshold(self, kl: np.ndarray, test_condition: int, eol: int):
-        hz_speed, kn_load = self.datasheet_loader(test_condition)
+    def detect_kl_event_by_threshold(self, kl: np.ndarray, test_condition: int, eol: int, lmd: float):
+        #hz_speed, kn_load = self.datasheet_loader(test_condition)
         #l10h = int(self.calculate_L10_minute(hz_speed, kn_load))
         event_times = np.zeros(kl.shape[0])
         for bin_index, bin_value in enumerate(kl):
@@ -183,7 +184,7 @@ class EventManager:
                 kl_deltas.append(kl_delta)
                 if w > 5:
                     kl_std = np.std(kl_deltas)
-                    beta = (1/eol)*np.log(self.initial_deviation/self.lmd)
+                    beta = (1/eol)*np.log(self.initial_deviation/lmd)
                     th_kl = self.initial_deviation*kl_std*np.exp(-beta*w)
                     if np.abs(kl_delta) > th_kl:
                         event_times[bin_index] = w

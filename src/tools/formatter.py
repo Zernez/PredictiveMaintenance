@@ -263,14 +263,8 @@ class Formatter:
         return ti_NN , y_ti_NN, cvi_NN, durations_test, events_test, val_NN
 
     @staticmethod
-    def add_random_censoring (
-            X: pd.DataFrame, 
-            percentage: float
-        ) -> pd.DataFrame:
-        """
-        Adds random censoring
-        """
-        samples_to_censor = X.sample(frac=percentage, random_state=0)
+    def add_random_censoring (X: pd.DataFrame, pct: float) -> pd.DataFrame:
+        samples_to_censor = X.sample(frac=pct, random_state=0)
         df_rest = X.loc[~X.index.isin(samples_to_censor.index)]
         samples_to_censor['Survival_time'] = samples_to_censor.apply(
             lambda x: np.random.randint(0, x['Survival_time']), axis=1)

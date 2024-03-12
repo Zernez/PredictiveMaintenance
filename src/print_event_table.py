@@ -16,7 +16,7 @@ if __name__ == "__main__":
     if NEW_DATASET == True:
         Builder(DATASET, N_BOOT).build_new_dataset(bootstrap=N_BOOT)
     
-    for test_condition in range(0, N_CONDITION):
+    for test_condition in [2]:
         pct_error_list = list()
         _, analytic = FileReader(DATASET, DATASET_PATH).read_data(test_condition, N_BOOT)
         event_manager = EventManager(DATASET)
@@ -29,5 +29,4 @@ if __name__ == "__main__":
             pct_error = ((event_time - failure_time)/ failure_time) * 100
             pct_error_list.append(pct_error)
             print(f"{event_time} & {failure_time} & {error} & {round(pct_error, 1)}")
-        #print(f"Mean pct error: {np.mean(pct_error_list)}")
         print()

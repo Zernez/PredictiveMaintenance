@@ -67,8 +67,8 @@ if __name__ == "__main__":
             test_event_time = data_util.event_analyzer(test_idx, info_pack)
             test_data = data_util.make_moving_average(timeseries_data, test_event_time, test_idx, window_size, lag)
                     
-            train_data = Formatter.add_random_censoring(train_data, percentage=0.25)
-            test_data = Formatter.add_random_censoring(test_data, percentage=0.25)
+            train_data = Formatter.add_random_censoring(train_data, pct=0.25)
+            test_data = Formatter.add_random_censoring(test_data, pct=0.25)
             train_data = train_data.sample(frac=1, random_state=0)
             test_data = test_data.sample(frac=1, random_state=0)
             
