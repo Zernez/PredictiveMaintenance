@@ -6,7 +6,7 @@ import config as cfg
 from sksurv.util import Surv
 from sklearn.model_selection import train_test_split
 from utility.survival import Survival
-from tools.regressors import CoxPH, RSF, DeepSurv, DSM, BNNmcd
+from tools.regressors import CoxPH, RSF, DeepSurv, DSM, BNNSurv
 from tools.feature_selectors import PHSelector
 from utility.builder import Builder
 from tools.file_reader import FileReader
@@ -103,7 +103,7 @@ if __name__ == "__main__":
             X_test_scaled = scaler.transform(X_test)
 
             #Set up the models
-            model = BNNmcd().make_model(BNNmcd().get_best_hyperparams())
+            model = BNNSurv().make_model(BNNSurv().get_best_hyperparams())
             #model = DeepSurv().make_model(DeepSurv().get_best_hyperparams())
             #model = DSM().make_model(DSM().get_best_hyperparams())
             #model = CoxPH().make_model(CoxPH().get_best_hyperparams())

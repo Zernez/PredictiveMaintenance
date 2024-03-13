@@ -7,9 +7,9 @@ import re
 if __name__ == "__main__":
     path = cfg.RESULTS_PATH
     results = pd.read_csv(f'{path}/model_results.csv', index_col=0)
-    conditions = ["C3æ"]
+    conditions = ["C1"]
     censoring = [0.25]
-    model_names = ["CoxPH", "RSF", "DeepSurv", "DSM", "BNNmcd"]
+    model_names = ["CoxPH", "CoxBoost", "RSF", "MTLR", "BNNSurv"]
     for cond in conditions:
         for index, model_name in enumerate(model_names):
             text = ""            

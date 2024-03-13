@@ -10,6 +10,7 @@ from auton_survival import DeepCoxPH
 from auton_survival import DeepSurvivalMachines
 from bnnsurv import models
 import numpy as np
+from utility.mtlr import mtlr
 
 class BaseRegressor (ABC):
     """
@@ -77,6 +78,32 @@ class RSF(BaseRegressor):
                  'min_samples_leaf': 600, 
                  'max_depth': 5}
     
+class CoxBoost (BaseRegressor):
+    def make_model(self, params=None):
+        model_params = cfg.PARAMS_COXBOOST
+        if params:
+            model_params.update(params)
+        return GradientBoostingSurvivalAnalysis(**model_params)
+    
+    def get_hyperparams(self):
+        return {'learning_rate': [0.1, 0.5, 1.0],
+                'n_estimators': [100, 200, 400],
+                'max_depth': [3, 5, 7],
+                'min_samples_split': [float(x) for x in np.linspace(0.1, 0.9, 5, endpoint=True)],
+                'min_samples_leaf': [float(x) for x in np.linspace(0.1, 0.5, 5, endpoint=True)],
+                'max_features': [None, "log2", "sqrt"],
+                'dropout_rate': [float(x) for x in np.linspace(0.0, 0.9, 10, endpoint=True)],
+                'subsample': [float(x) for x in np.linspace(0.1, 1.0, 10, endpoint=True)]}
+        
+    def get_best_hyperparams(self):
+        return  {'learning_rate': 0.1,
+                 'n_estimators' : 110, 
+                 'loss': 'coxph',
+                 'dropout_rate': 0.0,
+                 'max_depth': 3,
+                 'min_samples_split': 3,
+                 'min_samples_leaf': 2}
+    
 class DeepSurv(BaseRegressor):
     def make_model(self, params=None):
         model_params = cfg.PARAMS_DEEPSURV
@@ -96,7 +123,23 @@ class DeepSurv(BaseRegressor):
                 'learning_rate' : 1e-2,
                 'iters': 300,
                 'layers': [32]}
+        
+class MTLR(BaseRegressor):
+    def make_model(self, num_features, time_bins, params=None):
+        raise NotImplementedError()
     
+    def get_hyperparams(self):
+        return {'batch_size' : [32, 64, 128],
+                'dropout' : [0.25, 0.5, 0.6],
+                'lr' : [0.00008],
+                'c1': [0.01],
+                'num_epochs': [100, 500, 1000, 5000],
+                'hidden_size': [32, 50, 60, 128]
+                }
+    
+    def get_best_hyperparams(self):
+        raise NotImplementedError()
+
 class DSM(BaseRegressor):
     def make_model(self, params=None):
         model_params = cfg.PARAMS_DSM
@@ -116,7 +159,7 @@ class DSM(BaseRegressor):
                 'iters': 100,
                 'layers': [32]}
     
-class BNNmcd(BaseRegressor):
+class BNNSurv(BaseRegressor):
     def make_model(self, params=None):
         model_params = cfg.PARAMS_BNN
         if params:

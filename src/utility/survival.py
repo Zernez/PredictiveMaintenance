@@ -2,7 +2,66 @@ import numpy as np
 import pandas as pd
 import math
 import torch
-from typing import Optional
+from typing import List, Tuple, Optional, Union
+import rpy2.robjects as robjects
+import scipy.integrate as integrate
+from dataclasses import InitVar, dataclass, field
+
+class dotdict(dict):
+    """dot.notation access to dictionary attributes"""
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
+Numeric = Union[float, int, bool]
+NumericArrayLike = Union[List[Numeric], Tuple[Numeric], np.ndarray, pd.Series, pd.DataFrame, torch.Tensor]
+
+def encode_survival(
+        time: Union[float, int, NumericArrayLike],
+        event: Union[int, bool, NumericArrayLike],
+        bins: NumericArrayLike
+) -> torch.Tensor:
+    '''Courtesy of https://github.com/shi-ang/BNN-ISD/tree/main'''
+    # TODO this should handle arrays and (CUDA) tensors
+    if isinstance(time, (float, int, np.ndarray)):
+        time = np.atleast_1d(time)
+        time = torch.tensor(time)
+    if isinstance(event, (int, bool, np.ndarray)):
+        event = np.atleast_1d(event)
+        event = torch.tensor(event)
+
+    if isinstance(bins, np.ndarray):
+        bins = torch.tensor(bins)
+
+    try:
+        device = bins.device
+    except AttributeError:
+        device = "cpu"
+
+    time = np.clip(time, 0, bins.max())
+    # add extra bin [max_time, inf) at the end
+    y = torch.zeros((time.shape[0], bins.shape[0] + 1),
+                    dtype=torch.float,
+                    device=device)
+    # For some reason, the `right` arg in torch.bucketize
+    # works in the _opposite_ way as it does in numpy,
+    # so we need to set it to True
+    bin_idxs = torch.bucketize(time, bins, right=True)
+    for i, (bin_idx, e) in enumerate(zip(bin_idxs, event)):
+        if e == 1:
+            y[i, bin_idx] = 1
+        else:
+            y[i, bin_idx:] = 1
+    return y.squeeze()
+
+def reformat_survival(
+        dataset: pd.DataFrame,
+        time_bins: NumericArrayLike
+) -> (torch.Tensor, torch.Tensor):
+    '''Courtesy of https://github.com/shi-ang/BNN-ISD/tree/main'''
+    x = torch.tensor(dataset.drop(["Survival_time", "Event"], axis=1).values, dtype=torch.float)
+    y = encode_survival(dataset["Survival_time"].values, dataset["Event"].values, time_bins)
+    return x, y
 
 def coverage(time_bins, upper, lower, true_times, true_indicator) -> float:
     '''Courtesy of https://github.com/shi-ang/BNN-ISD/tree/main'''
@@ -51,6 +110,53 @@ def make_event_times (t_train, e_train):
     if 0 not in unique_times:
         unique_times = torch.cat([torch.tensor([0]).to(unique_times.device), unique_times], 0)
     return unique_times.numpy() 
+
+def make_time_bins(
+        times: NumericArrayLike,
+        num_bins: Optional[int] = None,
+        use_quantiles: bool = True,
+        event: Optional[NumericArrayLike] = None
+) -> torch.Tensor:
+    """
+    Courtesy of https://ieeexplore.ieee.org/document/10158019
+    
+    Creates the bins for survival time discretisation.
+
+    By default, sqrt(num_observation) bins corresponding to the quantiles of
+    the survival time distribution are used, as in https://github.com/haiderstats/MTLR.
+
+    Parameters
+    ----------
+    times
+        Array or tensor of survival times.
+    num_bins
+        The number of bins to use. If None (default), sqrt(num_observations)
+        bins will be used.
+    use_quantiles
+        If True, the bin edges will correspond to quantiles of `times`
+        (default). Otherwise, generates equally-spaced bins.
+    event
+        Array or tensor of event indicators. If specified, only samples where
+        event == 1 will be used to determine the time bins.
+
+    Returns
+    -------
+    torch.Tensor
+        Tensor of bin edges.
+    """
+    # TODO this should handle arrays and (CUDA) tensors
+    if event is not None:
+        times = times[event == 1]
+    if num_bins is None:
+        num_bins = math.ceil(math.sqrt(len(times)))
+    if use_quantiles:
+        # NOTE we should switch to using torch.quantile once it becomes
+        # available in the next version
+        bins = np.unique(np.quantile(times, np.linspace(0, 1, num_bins)))
+    else:
+        bins = np.linspace(times.min(), times.max(), num_bins)
+    bins = torch.tensor(bins, dtype=torch.float)
+    return bins
 
 def compute_unique_counts(
         event: torch.Tensor,

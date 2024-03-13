@@ -37,6 +37,7 @@ DATASHEET_LIFETIMES = {'xjtu_c1_b1': 123,
                        'xjtu_c3_b5': 114}
 
 FREQUENCY_FTS = ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH']
+NOISE_FT = ['noise']
 PH_EXCLUSION = {'xjtu_c1': FREQUENCY_FTS + ['noise'] + ['std', 'kurtosis', 'entropy', 'rms', 'max', 'p2p', 'shape'],
                 'xjtu_c2': FREQUENCY_FTS + ['noise'] + ['mean', 'skew', 'entropy', 'rms', 'max', 'crest', 'clearence', 'impulse'],
                 'xjtu_c3': FREQUENCY_FTS + ['noise'] + ['mean', 'std', 'skew', 'entropy', 'rms', 'max', 'clearence']}
@@ -61,3 +62,31 @@ PARAMS_DSM = {'batch_size' : 16,
               'layers': [32]}
 
 PARAMS_BNN = {'layers' : [32]}
+
+PARAMS_MTLR = {
+    'hidden_size': 64,
+    'mu_scale': None,
+    'rho_scale': -5,
+    'sigma1': 1,
+    'sigma2': 0.002,
+    'pi': 0.5,
+    'verbose': False,
+    'lr': 0.00008,
+    'num_epochs': 1000,
+    'dropout': 0.5,
+    'n_samples_train': 10,
+    'n_samples_test': 100,
+    'batch_size': 32,
+    'early_stop': True,
+    'patience': 50}
+
+PARAMS_COXBOOST = {
+    'n_estimators': 100,
+    'learning_rate': 0.1,
+    'max_depth': 3,
+    'loss': 'coxph',
+    'min_samples_split': 2,
+    'min_samples_leaf': 1,
+    'max_features': None,
+    'dropout_rate': 0.0,
+    'subsample': 1.0}
