@@ -69,7 +69,7 @@ def run_cross_validation(model_builder, data, param_list, device, n_internal_spl
                 surv_preds = survival_outputs.numpy()
                 mtlr_times = torch.cat([torch.tensor([0]).to(mtlr_times.device), mtlr_times], 0)
                 preds = pd.DataFrame(surv_preds, columns=mtlr_times.numpy())
-            elif model_name == "BNNmcd":
+            elif model_name == "BNNSurv":
                 model = model_builder().make_model(sample)
                 model.fit(x_train, t_train, e_train)
                 preds = pd.DataFrame(np.mean(model.predict_survival(x_test, km_times), axis=0), columns=km_times)

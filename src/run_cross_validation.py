@@ -178,7 +178,7 @@ def main():
                             model = model.fit(x, t, e, vsize=0.3, iters=best_params['iters'],
                                                 learning_rate=best_params['learning_rate'],
                                                 batch_size=best_params['batch_size'])
-                    elif model_name == "BNNmcd":
+                    elif model_name == "BNNSurv":
                         model = model_builder().make_model(best_params)
                         with Suppressor():
                             model.fit(x, t, e)
@@ -188,7 +188,7 @@ def main():
                             model.fit(ti[0], ti[1])
                     
                     # Get survival predictions for CVI
-                    if model_name == "DeepSurv" or model_name == "DSM" or model_name == "BNNmcd":
+                    if model_name == "DeepSurv" or model_name == "DSM" or model_name == "BNNSurv":
                         xte = cvi[0].to_numpy()
                         surv_preds = Survival.predict_survival_function(model, xte, km_times, n_post_samples=N_POST_SAMPLES)
                     elif model_name == "MTLR":
@@ -239,7 +239,7 @@ def main():
                         cond_name = "C3"
                     
                     # Calucate C-cal for BNN model
-                    if model_name == "BNNmcd":
+                    if model_name == "BNNSurv":
                         xte = cvi[0].to_numpy()
                         surv_probs = model.predict_survival(xte, event_times=km_times, n_post_samples=N_POST_SAMPLES)
                         credible_region_sizes = np.arange(0.1, 1, 0.1)
