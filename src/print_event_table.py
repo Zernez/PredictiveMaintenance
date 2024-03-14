@@ -31,5 +31,7 @@ if __name__ == "__main__":
             error = event_time - failure_time
             pct_error = ((event_time - failure_time)/ failure_time) * 100
             pct_error_list.append(pct_error)
-            print(f"{event_time} & {failure_time} & {error} & {abs(round(pct_error, 1))} \\\\")
+            bearing_idx = (bearing_id+1) // 2
+            bearing_name = f'& Bearing {test_condition+1}\_{bearing_idx}\_{"Y" if bearing_id % 2 == 0 else "X"}'
+            print(f"{bearing_name} & {event_time} & {failure_time} & {error} & {abs(round(pct_error, 1))} \\\\")
         print()

@@ -31,10 +31,7 @@ class EventManager:
         
         # Time resolution
         self.time_resolution = 1 # 1 minute
-        
-        # Lambda for event detection
-        self.lmd = 2
-        
+
         # Initial deviation
         self.initial_deviation = 5
     
@@ -44,7 +41,7 @@ class EventManager:
             data = set_analytic[["B{}_FoH".format(bearing_no), "B{}_FiH".format(bearing_no),
                                  "B{}_FrH".format(bearing_no), "B{}_FrpH".format(bearing_no),
                                  "B{}_FcaH".format(bearing_no)]]
-            eol = np.max(data.dropna().index)-1
+            eol = np.max(data.dropna().index)
             eol_times.append(eol)
         return eol_times
             
@@ -56,7 +53,7 @@ class EventManager:
             data = set_analytic[["B{}_FoH".format(bearing_no), "B{}_FiH".format(bearing_no),
                                  "B{}_FrH".format(bearing_no), "B{}_FrpH".format(bearing_no),
                                  "B{}_FcaH".format(bearing_no)]]
-            eol = np.max(data.dropna().index)-1
+            eol = np.max(data.dropna().index)
             kl_divergence = self.calculate_kl_divergence(data, eol)
             kl_event = self.detect_kl_event_by_threshold(kl_divergence, test_condition, eol, lmd)
             if np.all(kl_event==0): # event not detected
@@ -73,7 +70,7 @@ class EventManager:
         results = np.zeros((x.shape[1], (end_of_life-self.window_size)+1), dtype=np.float32)
         for bin_index, bin_name in enumerate(x.columns):
             win_ref = np.array(x.loc[0:self.window_size-1, bin_name], dtype=float)
-            end_of_life = np.max(x[x[bin_name].notnull()].index)-1 # max observed index
+            end_of_life = np.max(x[x[bin_name].notnull()].index) # max observed index
             time_ref = 0
             kl_values = list()
             while (time_ref + self.window_size) <= end_of_life:
