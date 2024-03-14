@@ -52,7 +52,7 @@ device = "cpu" # use CPU
 device = torch.device(device)
 
 NEW_DATASET = False
-N_ITER = 1 # 10
+N_ITER = 10
 N_OUTER_SPLITS = 5
 N_INNER_SPLITS = 3
 N_POST_SAMPLES = 100
