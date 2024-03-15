@@ -13,6 +13,15 @@ class FileReader:
             self.dataset_path = dataset_path
         self.dataset= dataset
 
+    def map_column_names(self, df):
+        column_names_mapping = {}
+        for old_col_name in df.columns:
+            b_number = int(old_col_name.split('_')[0][1:])
+            feature = old_col_name.split('_')[1]
+            new_b_number = (b_number + 1) // 2
+            new_col_name = f'B{new_b_number}_{feature}'
+            column_names_mapping[old_col_name] = new_col_name
+        return column_names_mapping
 
     def read_data_kaggle(self):
         """
@@ -37,29 +46,21 @@ class FileReader:
     
     def read_data(self, 
             test_condition: int, 
-            bootstrap: int, 
+            axis: str, 
             from_pickle: bool = False
         ) -> (pd.DataFrame, pd.DataFrame, dict):
-
-        """
-        Read the timeseries data from CSV files and optionally load events from pickle files.
-
-        Args:
-        - test_condition (int): The cardinal number of the test condition starting from 0.
-        - bootstrap (int): The multiplier of the bootstrap.
-        - from_pickle (bool, optional): Flag indicating whether to load events from pickle files. Defaults to False.
-
-        Returns:
-        - set_covariates (pandas.DataFrame): The covariates data.
-        - set_boot (pandas.DataFrame): The boot data.
-        - info_pack (dict): A dictionary containing the events data with keys 'KL' and 'SD'.
-        """
-
-        # Read the timeseries time and frequency data from the csv files
         covariates = pd.read_csv(self.dataset_path + 'covariates_' + str(test_condition) + '.csv')
         analytic = pd.read_csv(self.dataset_path + 'analytic_' + str(test_condition) + '.csv')
-        
-        return covariates, analytic
+        if axis == "X":
+            covariates_cols = [col for col in covariates.columns if int(col.split('_')[0][1:]) % 2 != 0]
+            analytic_cols = [col for col in analytic.columns if int(col.split('_')[0][1:]) % 2 != 0]
+            covariates_X = covariates[covariates_cols].copy(deep=True)
+            analytic_X = analytic[analytic_cols].copy(deep=True)
+            covariates_X.rename(columns=self.map_column_names(covariates_X), inplace=True)
+            analytic_X.rename(columns=self.map_column_names(analytic_X), inplace=True)
+        else:
+            raise NotImplementedError()
+        return covariates_X, analytic_X
 
     def read_pickle (self, 
         path: str

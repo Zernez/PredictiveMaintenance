@@ -37,10 +37,9 @@ device = torch.device(device)
 
 new_dataset = False
 dataset = "xjtu"
+axis = "X"
 n_boot = 0
 dataset_path = cfg.DATASET_PATH_XJTU
-n_bearing = cfg.N_REAL_BEARING_XJTU
-bearing_ids = list(range(1, (n_bearing*2)+1))
 pct_censoring = 0.25
 n_post_samples = 100
 
@@ -52,11 +51,11 @@ if __name__ == "__main__":
         Builder(dataset, n_boot).build_new_dataset(bootstrap=n_boot)
     
     for test_condition in [1]: # use C1
-        timeseries_data, frequency_data = FileReader(dataset, dataset_path).read_data(test_condition, n_boot)
+        timeseries_data, frequency_data = FileReader(dataset, dataset_path).read_data(test_condition, axis=axis)
         event_times = EventManager(dataset).get_event_times(frequency_data, test_condition, lmd=get_lmd(test_condition))
         train_data, test_data = pd.DataFrame(), pd.DataFrame()
-        train_idx = list(range(0, 6))
-        test_idx = list(range(6, 10))
+        train_idx = [0, 1, 2, 3] # Bearings 1-4
+        test_idx = [4] # Bearing 5
         for idx in train_idx:
             event_time = event_times[idx]
             transformed_data = data_util.make_moving_average(timeseries_data, event_time, idx+1,

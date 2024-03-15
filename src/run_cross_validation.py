@@ -1,37 +1,29 @@
 import numpy as np
 import pandas as pd
 import warnings
+import torch
+import math
 import config as cfg
 from sksurv.util import Surv
 from sklearn.model_selection import ParameterSampler
 from sklearn.model_selection import KFold
-from tools.feature_selectors import PHSelector, NoneSelector
 from tools.regressors import CoxPH, RSF, DeepSurv, MTLR, BNNSurv, CoxBoost
 from tools.file_reader import FileReader
 from tools.data_ETL import DataETL
 from utility.builder import Builder
-from utility.survival import Survival
-from auton_survival import DeepCoxPH
-from auton_survival import DeepSurvivalMachines
-from utility.printer import Suppressor
+from auton_survival import DeepCoxPH, DeepSurvivalMachines
 from tools.formatter import Formatter
 from tools.evaluator import LifelinesEvaluator
-from utility.survival import make_event_times
+from utility.survival import Survival, make_event_times, coverage, make_time_bins
 from tools.cross_validator import run_cross_validation
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import KFold
-import torch
-import math
+from sklearn.model_selection import KFold, train_test_split
 from utility.data import get_window_size, get_lag, get_lmd
-from utility.survival import coverage
 from scipy.stats._stats_py import chisquare
 from utility.event import EventManager
 import tensorflow as tf
 import random
-import torch
-from utility.survival import make_time_bins
 from utility.mtlr import mtlr, train_mtlr_model, make_mtlr_prediction
-from sklearn.model_selection import train_test_split
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -51,6 +43,10 @@ tf.config.set_visible_devices([], 'GPU') # use CPU
 device = "cpu" # use CPU
 device = torch.device(device)
 
+# Setup TF logging
+import logging
+tf.get_logger().setLevel(logging.ERROR)
+
 NEW_DATASET = False
 N_ITER = 10
 N_OUTER_SPLITS = 5
@@ -59,11 +55,11 @@ N_POST_SAMPLES = 100
 
 def main():
     dataset = "xjtu"
+    axis = "X"
     n_boot = 0
     dataset_path = cfg.DATASET_PATH_XJTU
     n_condition = len(cfg.RAW_DATA_PATH_XJTU)
-    n_bearing = cfg.N_REAL_BEARING_XJTU
-    bearing_ids = list(range(1, (n_bearing*2)+1))
+    bearing_ids = cfg.BEARING_IDS
 
     # For the first time running, a NEW_DATASET is needed
     if NEW_DATASET== True:
@@ -76,8 +72,8 @@ def main():
     # Extract information from the dataset selected from the config file
     model_results = pd.DataFrame()
     for test_condition in range (0, n_condition):
-        timeseries_data, frequency_data = FileReader(dataset, dataset_path).read_data(test_condition, n_boot)
-        event_times = EventManager(dataset).get_event_times(frequency_data, test_condition, lmd=get_lmd(test_condition))
+        df_timeseries, df_frequency = FileReader(dataset, dataset_path).read_data(test_condition, axis=axis)
+        event_times = EventManager(dataset).get_event_times(df_frequency, test_condition, lmd=get_lmd(test_condition))
         
         # For level of censoring
         for pct in cfg.CENSORING_LEVELS:
@@ -88,15 +84,15 @@ def main():
                 # Compute moving average for training/testing
                 train_data, test_data = pd.DataFrame(), pd.DataFrame()
                 for idx in train_idx:
-                    event_time = event_times[idx]
-                    transformed_data = data_util.make_moving_average(timeseries_data, event_time, idx+1,
+                    event_time = event_times[idx] 
+                    transformed_data = data_util.make_moving_average(df_timeseries, event_time, idx+1,
                                                                      get_window_size(test_condition),
                                                                      get_lag(test_condition))
                     train_data = pd.concat([train_data, transformed_data], axis=0)
                     train_data = train_data.reset_index(drop=True)
                 for idx in test_idx:
                     event_time = event_times[idx]
-                    transformed_data = data_util.make_moving_average(timeseries_data, event_time, idx+1,
+                    transformed_data = data_util.make_moving_average(df_timeseries, event_time, idx+1,
                                                                      get_window_size(test_condition),
                                                                      get_lag(test_condition))
                     test_data = pd.concat([test_data, transformed_data], axis=0)
@@ -131,9 +127,9 @@ def main():
                     cvi = (pd.DataFrame(scaler.transform(test_x), columns=features), test_y)
                     
                     # Make event times
-                    event_horizon = make_event_times(ti[1]['Survival_time'].copy(), ti[1]['Event'].copy()).astype(int)
-                    event_horizon = np.unique(event_horizon)
-                    mtlr_times = make_time_bins(ti[1]['Survival_time'].copy(), event=ti[1]['Event'].copy())
+                    continuous_times = make_event_times(ti[1]['Survival_time'].copy(), ti[1]['Event'].copy()).astype(int)
+                    continuous_times = np.unique(continuous_times)
+                    discrete_times = make_time_bins(ti[1]['Survival_time'].copy(), event=ti[1]['Event'].copy())
 
                     # Find hyperparams via inner CV from hyperparamters' space
                     space = model_builder().get_tuneable_params()
@@ -146,10 +142,9 @@ def main():
                     e = ti[1]["Event"]
                     if model_name == "DeepSurv":
                         model = DeepCoxPH(layers=best_params['layers'])
-                        with Suppressor():
-                            model = model.fit(x, t, e, vsize=0.3, iters=best_params['iters'],
-                                                learning_rate=best_params['learning_rate'],
-                                                batch_size=best_params['batch_size'])
+                        model = model.fit(x, t, e, vsize=0.3, iters=best_params['iters'],
+                                            learning_rate=best_params['learning_rate'],
+                                            batch_size=best_params['batch_size'])
                     elif model_name == "MTLR":
                         X_train, X_valid, y_train, y_valid = train_test_split(ti[0], ti[1], test_size=0.3, random_state=0)
                         X_train = X_train.reset_index(drop=True)
@@ -168,41 +163,38 @@ def main():
                         config['num_epochs'] = best_params['num_epochs']
                         config['hidden_size'] = best_params['hidden_size']
                         num_features = ti[0].shape[1]
-                        num_time_bins = len(mtlr_times)
+                        num_time_bins = len(discrete_times)
                         model = mtlr(in_features=num_features, num_time_bins=num_time_bins, config=config)
-                        model = train_mtlr_model(model, data_train, data_valid, mtlr_times,
+                        model = train_mtlr_model(model, data_train, data_valid, discrete_times,
                                                  config, random_state=0, reset_model=True, device=device)
                     elif model_name == "DSM":
                         model = DeepSurvivalMachines(layers=best_params['layers'])
-                        with Suppressor():
-                            model = model.fit(x, t, e, vsize=0.3, iters=best_params['iters'],
-                                                learning_rate=best_params['learning_rate'],
-                                                batch_size=best_params['batch_size'])
+                        model = model.fit(x, t, e, vsize=0.3, iters=best_params['iters'],
+                                            learning_rate=best_params['learning_rate'],
+                                            batch_size=best_params['batch_size'])
                     elif model_name == "BNNSurv":
                         model = model_builder().make_model(best_params)
-                        with Suppressor():
-                            model.fit(x, t, e)
+                        model.fit(x, t, e)
                     else:
                         model = model_builder().make_model(best_params)
-                        with Suppressor():
-                            model.fit(ti[0], ti[1])
+                        model.fit(ti[0], ti[1])
                     
                     # Get survival predictions for CVI
                     if model_name == "DeepSurv" or model_name == "DSM" or model_name == "BNNSurv":
                         xte = cvi[0].to_numpy()
-                        surv_preds = Survival.predict_survival_function(model, xte, event_horizon, n_post_samples=N_POST_SAMPLES)
+                        surv_preds = Survival.predict_survival_function(model, xte, continuous_times, n_post_samples=N_POST_SAMPLES)
                     elif model_name == "MTLR":
                         data_test = cvi[0].copy()
                         data_test["Survival_time"] = pd.Series(cvi[1]['Survival_time'])
                         data_test["Event"] = pd.Series(cvi[1]['Event']).astype(int)
                         baycox_test_data = torch.tensor(data_test.drop(["Survival_time", "Event"], axis=1).values,
                                                         dtype=torch.float, device=device)
-                        survival_outputs, _, _ = make_mtlr_prediction(model, baycox_test_data, mtlr_times, config)
+                        survival_outputs, _, _ = make_mtlr_prediction(model, baycox_test_data, discrete_times, config)
                         surv_preds = survival_outputs.numpy()
-                        mtlr_times = torch.cat([torch.tensor([0]).to(mtlr_times.device), mtlr_times], 0)
-                        surv_preds = pd.DataFrame(surv_preds, columns=mtlr_times.numpy())
+                        discrete_times = torch.cat([torch.tensor([0]).to(discrete_times.device), discrete_times], 0)
+                        surv_preds = pd.DataFrame(surv_preds, columns=discrete_times.numpy())
                     else:
-                        surv_preds = Survival.predict_survival_function(model, cvi[0], event_horizon)
+                        surv_preds = Survival.predict_survival_function(model, cvi[0], continuous_times)
                         
                     # Sanitize
                     surv_preds = surv_preds.fillna(0).replace([np.inf, -np.inf], 0).clip(lower=0.001)
@@ -241,7 +233,7 @@ def main():
                     # Calucate C-cal for BNN model
                     if model_name == "BNNSurv":
                         xte = cvi[0].to_numpy()
-                        surv_probs = model.predict_survival(xte, event_times=event_horizon, n_post_samples=N_POST_SAMPLES)
+                        surv_probs = model.predict_survival(xte, event_times=continuous_times, n_post_samples=N_POST_SAMPLES)
                         credible_region_sizes = np.arange(0.1, 1, 0.1)
                         surv_times = torch.from_numpy(surv_probs)
                         coverage_stats = {}
@@ -249,7 +241,7 @@ def main():
                             drop_num = math.floor(0.5 * N_POST_SAMPLES * (1 - percentage))
                             lower_outputs = torch.kthvalue(surv_times, k=1 + drop_num, dim=0)[0]
                             upper_outputs = torch.kthvalue(surv_times, k=N_POST_SAMPLES - drop_num, dim=0)[0]
-                            coverage_stats[percentage] = coverage(event_horizon, upper_outputs, lower_outputs,
+                            coverage_stats[percentage] = coverage(continuous_times, upper_outputs, lower_outputs,
                                                                     cvi[1]["Survival_time"], cvi[1]["Event"])
                         data = [list(coverage_stats.keys()), list(coverage_stats.values())]
                         _, pvalue = chisquare(data)
@@ -257,7 +249,7 @@ def main():
                     else:
                         c_calib = 0
                         
-                    print(f"Evaluated {cond_name} - {model_name} - {pct}")
+                    print(f"Evaluated {cond_name} - {model_name} - {pct} - {round(mae_hinge)} - {round(mae_margin)} - {round(mae_pseudo)}")
                     res_sr = pd.Series([cond_name, model_name, pct, best_params,
                                         mae_hinge, mae_margin, mae_pseudo, d_calib, c_calib],
                                         index=["Condition", "ModelName", "CensoringLevel", "BestParams",

@@ -16,8 +16,7 @@ def padarray(A, size):
 class EventManager:
     def __init__ (self, dataset):
         if dataset == "xjtu":
-            self.real_bearings = cfg.N_REAL_BEARING_XJTU
-            self.total_bearings = 10 # 5 real bearings per channel
+            self.n_bearings = cfg.N_REAL_BEARING_XJTU
             self.dataset_condition = cfg.RAW_DATA_PATH_XJTU
             self.base_dynamic_load = cfg.BASE_DYNAMIC_LOAD_XJTU
         else:
@@ -37,7 +36,7 @@ class EventManager:
     
     def get_eol_times(self, set_analytic: pd.DataFrame):
         eol_times = list()
-        for bearing_no in range(1, self.total_bearings+1):
+        for bearing_no in range(1, self.n_bearings+1):
             data = set_analytic[["B{}_FoH".format(bearing_no), "B{}_FiH".format(bearing_no),
                                  "B{}_FrH".format(bearing_no), "B{}_FrpH".format(bearing_no),
                                  "B{}_FcaH".format(bearing_no)]]
@@ -49,7 +48,7 @@ class EventManager:
                         test_condition: int, lmd: float,
                         strategy: str = "min") -> List:
         event_times = list()
-        for bearing_no in range(1, self.total_bearings+1):
+        for bearing_no in range(1, self.n_bearings+1):
             data = set_analytic[["B{}_FoH".format(bearing_no), "B{}_FiH".format(bearing_no),
                                  "B{}_FrH".format(bearing_no), "B{}_FrpH".format(bearing_no),
                                  "B{}_FcaH".format(bearing_no)]]

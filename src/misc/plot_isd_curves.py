@@ -41,53 +41,43 @@ device = torch.device(device)
 
 new_dataset = False
 dataset = "xjtu"
+axis = "X"
 n_boot = 0
 dataset_path = cfg.DATASET_PATH_XJTU
-n_bearing = cfg.N_REAL_BEARING_XJTU
-bearing_ids = list(range(1, (n_bearing*2)+1))
+bearing_ids = [1, 2, 3, 4, 5]
 pct_censoring = 0.25
 n_post_samples = 100
-bearing_axis = "X"
 
 if __name__ == "__main__":
     data_util = DataETL(dataset, n_boot)
     event_manager = EventManager(dataset)
     fig, axes = plt.subplots(5, 3, figsize=(12, 16), sharey=True, layout='constrained')
     
-    x_bearings = [idx for idx in list(range(0, 10)) if idx % 2 == 0]
-    y_bearings = [idx for idx in list(range(0, 10)) if idx % 2 != 0]
-    
     if new_dataset == True:
         Builder(dataset, n_boot).build_new_dataset(bootstrap=n_boot)
     
     for test_condition in [0, 1, 2]:
-        timeseries_data, frequency_data = FileReader(dataset, dataset_path).read_data(test_condition, n_boot)
+        timeseries_data, frequency_data = FileReader(dataset, dataset_path).read_data(test_condition, axis=axis)
         event_times = EventManager(dataset).get_event_times(frequency_data, test_condition, lmd=get_lmd(test_condition))
         
-        # Perform ISD on X/Y bearings
-        if bearing_axis == "X":
-            bearings = x_bearings
-        else:
-            bearings = y_bearings
-            
         plot_indicies = [0, 1, 2, 3, 4]
-        for test_idx, plot_idx in zip(bearings, plot_indicies):
-            train_idx = [x for x in bearings if x != test_idx]
+        for test_bearing_id, plot_idx in zip(bearing_ids, plot_indicies):
+            train_ids = [x for x in bearing_ids if x != test_bearing_id]
             train_data = pd.DataFrame()
             
             # Load train data
-            for idx in train_idx:
-                event_time = event_times[idx]
-                transformed_data = data_util.make_moving_average(timeseries_data, event_time, idx+1,
-                                                                 get_window_size(test_condition),
-                                                                 get_lag(test_condition))
+            for train_bearing_id in train_ids:
+                event_time = event_times[train_bearing_id-1]
+                transformed_data = data_util.make_moving_average(timeseries_data, event_time, train_bearing_id,
+                                                                get_window_size(test_condition),
+                                                                get_lag(test_condition))
                 train_data = pd.concat([train_data, transformed_data], axis=0)
             
             # Load test data
-            test_event_time = event_times[test_idx]
-            test_data = data_util.make_moving_average(timeseries_data, test_event_time, test_idx+1,
-                                                      get_window_size(test_condition),
-                                                      get_lag(test_condition))
+            test_event_time = event_times[test_bearing_id-1]
+            test_data = data_util.make_moving_average(timeseries_data, test_event_time, test_bearing_id,
+                                                    get_window_size(test_condition),
+                                                    get_lag(test_condition))
             
             train_data = train_data.reset_index(drop=True)
             test_data = test_data.reset_index(drop=True)
@@ -149,7 +139,7 @@ if __name__ == "__main__":
             p3 = axes[plot_idx, test_condition].axvline(x=test_event_time, linestyle= "dashed",
                                                         color='green', linewidth=2.0, label=f'$y_i$ = {int(test_event_time)}')
             axes[plot_idx, test_condition].axvline(x=int(pred_survival_time), linestyle= "dashed", color='blue', linewidth=2.0)
-            axes[plot_idx, test_condition].set_title(f'Bearing {test_condition+1}_{plot_idx+1}_{bearing_axis}')
+            axes[plot_idx, test_condition].set_title(f'Bearing {test_condition+1}_{plot_idx+1}')
             axes[plot_idx, test_condition].set_xlabel("Time (min)")
             text = f'Error = {int(pred_survival_time-test_event_time)}'
             extra = Rectangle((0, 0), 1, 1, fc="w", fill=False, edgecolor='none', linewidth=0)
@@ -157,4 +147,4 @@ if __name__ == "__main__":
             if test_condition == 0:
                 axes[plot_idx, test_condition].set_ylabel("Survival probability S(t)")
             axes[plot_idx, test_condition].grid(True)
-    plt.savefig(f'{cfg.PLOTS_PATH}/individual_survival_axis_{bearing_axis.lower()}.pdf', format='pdf', bbox_inches="tight")
+    plt.savefig(f'{cfg.PLOTS_PATH}/isd.pdf', format='pdf', bbox_inches="tight")

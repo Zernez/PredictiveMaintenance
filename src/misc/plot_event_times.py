@@ -14,10 +14,11 @@ from utility.event import EventManager
 
 new_dataset = False
 dataset = "xjtu"
+axis = "X"
 n_boot = 0
 dataset_path = cfg.DATASET_PATH_XJTU
 n_bearing = cfg.N_REAL_BEARING_XJTU
-bearing_ids = list(range(1, (n_bearing*2)+1))
+bearing_ids = [1, 2, 3, 4, 5]
 
 if __name__ == "__main__":
     data_util = DataETL(dataset, n_boot)
@@ -27,7 +28,7 @@ if __name__ == "__main__":
         Builder(dataset, n_boot).build_new_dataset(bootstrap=n_boot)
     
     for test_condition in [0, 1, 2]:
-        timeseries_data, frequency_data = FileReader(dataset, dataset_path).read_data(test_condition, n_boot)
+        timeseries_data, frequency_data = FileReader(dataset, dataset_path).read_data(test_condition, axis=axis)
         event_times = EventManager(dataset).get_event_times(frequency_data, test_condition, lmd=get_lmd(test_condition))
         data = pd.DataFrame()
         for bearing_id in bearing_ids:
@@ -38,7 +39,7 @@ if __name__ == "__main__":
             data = pd.concat([data, transformed_data], axis=0)
         data = data.drop(cfg.FREQUENCY_FTS + cfg.NOISE_FT, axis=1)
         data = data.reset_index(drop=True)
-        for pct in [0.5]:
+        for pct in cfg.CENSORING_LEVELS:
             data_censored = Formatter.add_random_censoring(data.copy(), pct=pct)
             fig, ax = plt.subplots()
             val, bins, patches = plt.hist((data_censored["Survival_time"][data_censored["Event"]],

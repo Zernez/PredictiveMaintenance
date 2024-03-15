@@ -21,13 +21,13 @@ def run_cross_validation(model_builder, data, param_list, device, n_internal_spl
     for sample in param_list:
         param_results = pd.DataFrame()
         kf = KFold(n_splits=n_internal_splits, random_state=0, shuffle=True)
-        for split_idx, (train_in, test_in) in enumerate(kf.split(data[0], data[1])):
-            t_train = np.array(data[1][train_in]["Survival_time"])
-            e_train = np.array(data[1][train_in]["Event"])
-            t_test = np.array(data[1][test_in]["Survival_time"])
-            e_test = np.array(data[1][test_in]["Event"])
-            x_train =  np.array(data[0].iloc[train_in])
-            x_test =  np.array(data[0].iloc[test_in])
+        for split_idx, (train_idx, test_idx) in enumerate(kf.split(data[0], data[1])):
+            t_train = np.array(data[1][train_idx]["Survival_time"])
+            e_train = np.array(data[1][train_idx]["Event"])
+            t_test = np.array(data[1][test_idx]["Survival_time"])
+            e_test = np.array(data[1][test_idx]["Event"])
+            x_train =  np.array(data[0].iloc[train_idx])
+            x_test =  np.array(data[0].iloc[test_idx])
             event_horizon = make_event_times(t_train, e_train).astype(int)
             mtlr_times = make_time_bins(t_train, event=e_train)
             if model_name in ["DeepSurv", "DSM"]:
@@ -38,7 +38,7 @@ def run_cross_validation(model_builder, data, param_list, device, n_internal_spl
                                   batch_size=sample['batch_size'])
                 preds = pd.DataFrame(model.predict_survival(x_test, t=list(event_horizon)), columns=event_horizon)
             elif model_name == "MTLR":
-                X_train, X_valid, y_train, y_valid = train_test_split(data[0].iloc[train_in], data[1][train_in],
+                X_train, X_valid, y_train, y_valid = train_test_split(data[0].iloc[train_idx], data[1][train_idx],
                                                                       test_size=0.3, random_state=0)
                 X_train = X_train.reset_index(drop=True)
                 X_valid = X_valid.reset_index(drop=True)
@@ -48,7 +48,7 @@ def run_cross_validation(model_builder, data, param_list, device, n_internal_spl
                 data_valid = X_valid.copy()
                 data_valid["Survival_time"] = pd.Series(y_valid['Survival_time'])
                 data_valid["Event"] = pd.Series(y_valid['Event']).astype(int)
-                data_test = data[0].iloc[test_in].copy()
+                data_test = data[0].iloc[test_idx].copy()
                 data_test["Survival_time"] = pd.Series(t_test)
                 data_test["Event"] = pd.Series(e_test).astype(int)
                 config = dotdict(cfg.PARAMS_MTLR)

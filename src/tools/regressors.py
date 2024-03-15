@@ -58,8 +58,8 @@ class CoxPH(BaseRegressor):
         return CoxPHSurvivalAnalysis(**model_params)
     
     def get_hyperparams (self):
-        return {'n_iter': [10, 50, 100],
-                'tol': [1e-1, 1e-5, 1e-9]}
+        return {'n_iter': [10, 20, 30, 40, 50, 100, 200, 500, 1000],
+                'tol': [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9]}
     
     def get_best_hyperparams (self):
         return {'tol': 1e-3,
@@ -179,8 +179,8 @@ class BNNSurv(BaseRegressor):
     def get_hyperparams(self):
         return {'batch_size' : [32, 64, 128],
                 'learning_rate' : [1e-2, 5e-3, 1e-3],
-                'num_epochs': [10, 25, 50],
-                'layers': [[16], [32], [64]]
+                'num_epochs': [5, 10, 15, 20],
+                'layers': [[16], [32], [64], [128]]
                 }
 
     def get_best_hyperparams(self):

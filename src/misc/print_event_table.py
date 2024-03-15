@@ -10,17 +10,18 @@ NEW_DATASET = False
 
 if __name__ == "__main__":
     dataset = "xjtu"
+    axis = "X"
     n_boot = 0
     dataset_path = cfg.DATASET_PATH_XJTU
     n_condition = len(cfg.RAW_DATA_PATH_XJTU)
-    bearing_ids = list(range(1, (cfg.N_REAL_BEARING_XJTU*2)+1))
+    bearing_ids = [1, 2, 3, 4, 5]
     
     if NEW_DATASET == True:
         Builder(dataset, n_boot).build_new_dataset(bootstrap=n_boot)
     
     for test_condition in [0, 1, 2]:
         pct_error_list = list()
-        _, analytic = FileReader(dataset, dataset_path).read_data(test_condition, n_boot)
+        _, analytic = FileReader(dataset, dataset_path).read_data(test_condition, axis=axis)
         event_manager = EventManager(dataset)
         event_times = event_manager.get_event_times(analytic, test_condition,
                                                     get_lmd(test_condition))
@@ -31,7 +32,6 @@ if __name__ == "__main__":
             error = event_time - failure_time
             pct_error = ((event_time - failure_time)/ failure_time) * 100
             pct_error_list.append(pct_error)
-            bearing_idx = (bearing_id+1) // 2
-            bearing_name = f'& Bearing {test_condition+1}\_{bearing_idx}\_{"Y" if bearing_id % 2 == 0 else "X"}'
+            bearing_name = f'& Bearing {test_condition+1}\_{bearing_id}'
             print(f"{bearing_name} & {event_time} & {failure_time} & {error} & {abs(round(pct_error, 1))} \\\\")
         print()

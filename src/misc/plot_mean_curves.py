@@ -37,10 +37,11 @@ device = torch.device(device)
 
 new_dataset = False
 dataset = "xjtu"
+axis = "X"
 n_boot = 0
 dataset_path = cfg.DATASET_PATH_XJTU
 n_bearing = cfg.N_REAL_BEARING_XJTU
-bearing_ids = list(range(1, (n_bearing*2)+1))
+bearing_ids = cfg.BEARING_IDS
 pct_censoring = 0.25
 n_post_samples = 1000
 
@@ -52,21 +53,21 @@ if __name__ == "__main__":
         Builder(dataset, n_boot).build_new_dataset(bootstrap=n_boot)
     
     for test_condition in [0, 1, 2]:
-        timeseries_data, frequency_data = FileReader(dataset, dataset_path).read_data(test_condition, n_boot)
+        timeseries_data, frequency_data = FileReader(dataset, dataset_path).read_data(test_condition, axis=axis)
         event_times = EventManager(dataset).get_event_times(frequency_data, test_condition, lmd=get_lmd(test_condition))
         train_data, test_data = pd.DataFrame(), pd.DataFrame()
-        train_idx = list(range(0, 6))
-        test_idx = list(range(6, 10))
-        for idx in train_idx:
-            event_time = event_times[idx]
-            transformed_data = data_util.make_moving_average(timeseries_data, event_time, idx+1,
+        train_ids = [1, 2, 3, 4] # Bearings 1-4
+        test_ids = [5] # Bearing 5
+        for train_bearing_id in train_ids:
+            event_time = event_times[train_bearing_id-1]
+            transformed_data = data_util.make_moving_average(timeseries_data, event_time, train_bearing_id,
                                                              get_window_size(test_condition),
                                                              get_lag(test_condition))
             train_data = pd.concat([train_data, transformed_data], axis=0)
             train_data = train_data.reset_index(drop=True)
-        for idx in test_idx:
-            event_time = event_times[idx]
-            transformed_data = data_util.make_moving_average(timeseries_data, event_time, idx+1,
+        for test_bearing_id in test_ids:
+            event_time = event_times[test_bearing_id-1]
+            transformed_data = data_util.make_moving_average(timeseries_data, event_time, test_bearing_id,
                                                              get_window_size(test_condition),
                                                              get_lag(test_condition))
             test_data = pd.concat([test_data, transformed_data], axis=0)
