@@ -108,8 +108,8 @@ def main():
                 test_data = test_data.drop(unused_features, axis=1)
                 
                 # Add random censoring
-                train_data_cens = Formatter.add_random_censoring(train_data, pct=pct)
-                test_data_cens = Formatter.add_random_censoring(test_data, pct=pct)
+                train_data_cens = Formatter.add_random_censoring(train_data, pct)
+                test_data_cens = Formatter.add_random_censoring(test_data, pct)
                 
                 # For all models
                 for model_builder in models:
@@ -131,8 +131,8 @@ def main():
                     cvi = (pd.DataFrame(scaler.transform(test_x), columns=features), test_y)
                     
                     # Make event times
-                    km_times = make_event_times(ti[1]['Survival_time'].copy(), ti[1]['Event'].copy()).astype(int)
-                    km_times = np.unique(km_times)
+                    event_horizon = make_event_times(ti[1]['Survival_time'].copy(), ti[1]['Event'].copy()).astype(int)
+                    event_horizon = np.unique(event_horizon)
                     mtlr_times = make_time_bins(ti[1]['Survival_time'].copy(), event=ti[1]['Event'].copy())
 
                     # Find hyperparams via inner CV from hyperparamters' space
@@ -190,7 +190,7 @@ def main():
                     # Get survival predictions for CVI
                     if model_name == "DeepSurv" or model_name == "DSM" or model_name == "BNNSurv":
                         xte = cvi[0].to_numpy()
-                        surv_preds = Survival.predict_survival_function(model, xte, km_times, n_post_samples=N_POST_SAMPLES)
+                        surv_preds = Survival.predict_survival_function(model, xte, event_horizon, n_post_samples=N_POST_SAMPLES)
                     elif model_name == "MTLR":
                         data_test = cvi[0].copy()
                         data_test["Survival_time"] = pd.Series(cvi[1]['Survival_time'])
@@ -202,7 +202,7 @@ def main():
                         mtlr_times = torch.cat([torch.tensor([0]).to(mtlr_times.device), mtlr_times], 0)
                         surv_preds = pd.DataFrame(surv_preds, columns=mtlr_times.numpy())
                     else:
-                        surv_preds = Survival.predict_survival_function(model, cvi[0], km_times)
+                        surv_preds = Survival.predict_survival_function(model, cvi[0], event_horizon)
                         
                     # Sanitize
                     surv_preds = surv_preds.fillna(0).replace([np.inf, -np.inf], 0).clip(lower=0.001)
@@ -241,7 +241,7 @@ def main():
                     # Calucate C-cal for BNN model
                     if model_name == "BNNSurv":
                         xte = cvi[0].to_numpy()
-                        surv_probs = model.predict_survival(xte, event_times=km_times, n_post_samples=N_POST_SAMPLES)
+                        surv_probs = model.predict_survival(xte, event_times=event_horizon, n_post_samples=N_POST_SAMPLES)
                         credible_region_sizes = np.arange(0.1, 1, 0.1)
                         surv_times = torch.from_numpy(surv_probs)
                         coverage_stats = {}
@@ -249,7 +249,7 @@ def main():
                             drop_num = math.floor(0.5 * N_POST_SAMPLES * (1 - percentage))
                             lower_outputs = torch.kthvalue(surv_times, k=1 + drop_num, dim=0)[0]
                             upper_outputs = torch.kthvalue(surv_times, k=N_POST_SAMPLES - drop_num, dim=0)[0]
-                            coverage_stats[percentage] = coverage(km_times, upper_outputs, lower_outputs,
+                            coverage_stats[percentage] = coverage(event_horizon, upper_outputs, lower_outputs,
                                                                     cvi[1]["Survival_time"], cvi[1]["Event"])
                         data = [list(coverage_stats.keys()), list(coverage_stats.values())]
                         _, pvalue = chisquare(data)

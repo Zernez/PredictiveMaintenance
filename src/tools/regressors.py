@@ -12,6 +12,12 @@ from bnnsurv import models
 import numpy as np
 from utility.mtlr import mtlr
 
+class dotdict(dict):
+    """dot.notation access to dictionary attributes"""
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
 class BaseRegressor (ABC):
     """
     Base class for regressors.
@@ -115,8 +121,7 @@ class DeepSurv(BaseRegressor):
         return {'batch_size' : [32, 64, 128],
                 'learning_rate' : [1e-2, 5e-3, 1e-3],
                 'iters': [100, 300, 500, 1000],
-                'layers': [[16], [32], [64]]
-                }
+                'layers': [[16], [32], [64]]}
     
     def get_best_hyperparams(self):
         return {'batch_size' : 32,
@@ -125,20 +130,25 @@ class DeepSurv(BaseRegressor):
                 'layers': [32]}
         
 class MTLR(BaseRegressor):
-    def make_model(self, num_features, time_bins, params=None):
-        raise NotImplementedError()
-    
+    def make_model(self, num_features, num_time_bins, config):
+        model = mtlr(in_features=num_features, num_time_bins=num_time_bins, config=config)
+        return model
+        
     def get_hyperparams(self):
         return {'batch_size' : [32, 64, 128],
                 'dropout' : [0.25, 0.5, 0.6],
                 'lr' : [0.00008],
                 'c1': [0.01],
                 'num_epochs': [100, 500, 1000, 5000],
-                'hidden_size': [32, 50, 60, 128]
-                }
+                'hidden_size': [32, 50, 60, 128]}
     
     def get_best_hyperparams(self):
-        raise NotImplementedError()
+        return {'batch_size' : 32,
+                'dropout': 0.5,
+                'lr' : 0.00008,
+                'c1': 0.01,
+                'num_epochs': 5000,
+                'hidden_size': 50}
 
 class DSM(BaseRegressor):
     def make_model(self, params=None):

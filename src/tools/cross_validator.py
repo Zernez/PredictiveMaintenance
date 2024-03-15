@@ -28,7 +28,7 @@ def run_cross_validation(model_builder, data, param_list, device, n_internal_spl
             e_test = np.array(data[1][test_in]["Event"])
             x_train =  np.array(data[0].iloc[train_in])
             x_test =  np.array(data[0].iloc[test_in])
-            km_times = make_event_times(t_train, e_train).astype(int)
+            event_horizon = make_event_times(t_train, e_train).astype(int)
             mtlr_times = make_time_bins(t_train, event=e_train)
             if model_name in ["DeepSurv", "DSM"]:
                 model = model_builder().make_model(sample)
@@ -36,7 +36,7 @@ def run_cross_validation(model_builder, data, param_list, device, n_internal_spl
                                   iters=sample['iters'],
                                   learning_rate=sample['learning_rate'],
                                   batch_size=sample['batch_size'])
-                preds = pd.DataFrame(model.predict_survival(x_test, t=list(km_times)), columns=km_times)
+                preds = pd.DataFrame(model.predict_survival(x_test, t=list(event_horizon)), columns=event_horizon)
             elif model_name == "MTLR":
                 X_train, X_valid, y_train, y_valid = train_test_split(data[0].iloc[train_in], data[1][train_in],
                                                                       test_size=0.3, random_state=0)
@@ -72,13 +72,13 @@ def run_cross_validation(model_builder, data, param_list, device, n_internal_spl
             elif model_name == "BNNSurv":
                 model = model_builder().make_model(sample)
                 model.fit(x_train, t_train, e_train)
-                preds = pd.DataFrame(np.mean(model.predict_survival(x_test, km_times), axis=0), columns=km_times)
+                preds = pd.DataFrame(np.mean(model.predict_survival(x_test, event_horizon), axis=0), columns=event_horizon)
             else:
                 model = model_builder().make_model(sample)
                 y_train = convert_to_structured(t_train, e_train)
                 model.fit(x_train, y_train)
-                preds = pd.DataFrame(np.row_stack([fn(km_times)
-                                                    for fn in model.predict_survival_function(x_test)]), columns=km_times)
+                preds = pd.DataFrame(np.row_stack([fn(event_horizon)
+                                                    for fn in model.predict_survival_function(x_test)]), columns=event_horizon)
             preds = preds.fillna(0).replace([np.inf, -np.inf], 0).clip(lower=0.001)
             bad_idx = preds[preds.iloc[:,0] < 0.5].index # check we have a median
             sanitized_preds = preds.drop(bad_idx).reset_index(drop=True)
