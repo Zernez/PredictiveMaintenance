@@ -248,8 +248,8 @@ def main():
                         c_calib = pvalue[0]
                     else:
                         c_calib = 0
-                        
-                    print(f"Evaluated {cond_name} - {model_name} - {pct} - {round(mae_hinge)} - {round(mae_margin)} - {round(mae_pseudo)}")
+                    
+                    print(f"Evaluated {cond_name} - {model_name} - {pct}")
                     res_sr = pd.Series([cond_name, model_name, pct, best_params,
                                         mae_hinge, mae_margin, mae_pseudo, d_calib, c_calib],
                                         index=["Condition", "ModelName", "CensoringLevel", "BestParams",
