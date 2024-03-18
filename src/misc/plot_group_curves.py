@@ -54,8 +54,8 @@ if __name__ == "__main__":
         timeseries_data, frequency_data = FileReader(dataset, dataset_path).read_data(test_condition, axis=axis)
         event_times = EventManager(dataset).get_event_times(frequency_data, test_condition, lmd=get_lmd(test_condition))
         train_data, test_data = pd.DataFrame(), pd.DataFrame()
-        train_idx = [0, 1, 2, 3] # Bearings 1-4
-        test_idx = [4] # Bearing 5
+        train_idx = [0, 1, 2] # Bearings 1-3
+        test_idx = [3, 4] # Bearing 4-5
         for idx in train_idx:
             event_time = event_times[idx]
             transformed_data = data_util.make_moving_average(timeseries_data, event_time, idx+1,
@@ -106,7 +106,7 @@ if __name__ == "__main__":
             scaler.fit(X_train_feature)
             X_train_scaled = scaler.transform(X_train_feature)
             
-            model = BNNSurv().make_model(BNNSurv().get_best_hyperparams())
+            model = BNNSurv().make_model(BNNSurv().get_best_hyperparams(test_condition))
             model.fit(X_train_scaled, t_train, e_train)
             
             # Split data

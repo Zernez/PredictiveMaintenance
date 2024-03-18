@@ -2,7 +2,7 @@ import pandas as pd
 import config as cfg
 import numpy as np
 
-N_DECIMALS = 3
+N_DECIMALS = 1
 
 if __name__ == "__main__":
     path = cfg.RESULTS_PATH

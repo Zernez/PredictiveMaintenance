@@ -43,7 +43,7 @@ dataset_path = cfg.DATASET_PATH_XJTU
 n_bearing = cfg.N_REAL_BEARING_XJTU
 bearing_ids = cfg.BEARING_IDS
 pct_censoring = 0.25
-n_post_samples = 1000
+n_post_samples = 100
 
 if __name__ == "__main__":
     data_util = DataETL(dataset, n_boot)
@@ -56,8 +56,8 @@ if __name__ == "__main__":
         timeseries_data, frequency_data = FileReader(dataset, dataset_path).read_data(test_condition, axis=axis)
         event_times = EventManager(dataset).get_event_times(frequency_data, test_condition, lmd=get_lmd(test_condition))
         train_data, test_data = pd.DataFrame(), pd.DataFrame()
-        train_ids = [1, 2, 3, 4] # Bearings 1-4
-        test_ids = [5] # Bearing 5
+        train_ids = [1, 2, 3] # Bearings 1-3
+        test_ids = [4, 5] # Bearing 4-5
         for train_bearing_id in train_ids:
             event_time = event_times[train_bearing_id-1]
             transformed_data = data_util.make_moving_average(timeseries_data, event_time, train_bearing_id,
@@ -116,12 +116,12 @@ if __name__ == "__main__":
         data_valid["Event"] = pd.Series(y_valid['Event']).astype(int)
         
         # Make models
-        cph_model = CoxPH().make_model(CoxPH().get_best_hyperparams())
-        coxboost_model = CoxBoost().make_model(CoxBoost().get_best_hyperparams())
-        rsf_model = RSF().make_model(RSF().get_best_hyperparams())
-        bnn_model = BNNSurv().make_model(BNNSurv().get_best_hyperparams())
+        cph_model = CoxPH().make_model(CoxPH().get_best_hyperparams(test_condition))
+        coxboost_model = CoxBoost().make_model(CoxBoost().get_best_hyperparams(test_condition))
+        rsf_model = RSF().make_model(RSF().get_best_hyperparams(test_condition))
+        bnn_model = BNNSurv().make_model(BNNSurv().get_best_hyperparams(test_condition))
         config = dotdict(cfg.PARAMS_MTLR)
-        best_params = MTLR().get_best_hyperparams()
+        best_params = MTLR().get_best_hyperparams(test_condition)
         config['batch_size'] = best_params['batch_size']
         config['dropout'] = best_params['dropout']
         config['lr'] = best_params['lr']

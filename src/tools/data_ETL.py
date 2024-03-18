@@ -10,7 +10,7 @@ import config as cfg
 
 class DataETL:
 
-    def __init__ (self, dataset, bootstrap):
+    def __init__ (self, dataset, bootstrap=0):
         # 2 real bearings from x and y channel + 2 bootstrapped bearings from x and y channel multiplied by the bootstrap value
         self.fixed_time_split = 1
         self.boot_folder_size = (bootstrap * 2) + 2
@@ -43,7 +43,7 @@ class DataETL:
         total_df['Event'] = total_df['Event'].astype(bool)
         return total_df
                 
-    def make_surv_data_bootstrap (self, 
+    def make_surv_data_bootstrap (self,
             covariates: dict, 
             set_boot: pd.DataFrame, 
             info_pack: dict, 

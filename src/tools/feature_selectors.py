@@ -35,7 +35,7 @@ class SelectPHFeatures ():
             cond = "c3" 
         data_type = f"{self.dataset}_{cond}"
         
-        exclusion_list = cfg.PH_EXCLUSION[data_type]
+        exclusion_list = cfg.NON_PH_FTS[data_type]
         for feature in exclusion_list:
             X = X.drop(feature, axis=1)
 

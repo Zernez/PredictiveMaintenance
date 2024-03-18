@@ -39,9 +39,9 @@ DATASHEET_LIFETIMES = {'xjtu_c1_b1': 123,
 
 FREQUENCY_FTS = ['Fca','Fi','Fo','Fr','Frp','FoH', 'FiH', 'FrH', 'FrpH', 'FcaH']
 NOISE_FT = ['noise']
-PH_EXCLUSION = {'xjtu_c1': FREQUENCY_FTS + ['noise'] + ['std', 'kurtosis', 'entropy', 'rms', 'max', 'p2p', 'shape'],
-                'xjtu_c2': FREQUENCY_FTS + ['noise'] + ['mean', 'skew', 'entropy', 'rms', 'max', 'crest', 'clearence', 'impulse'],
-                'xjtu_c3': FREQUENCY_FTS + ['noise'] + ['mean', 'std', 'skew', 'entropy', 'rms', 'max', 'clearence']}
+NON_PH_FTS = {'xjtu_c1': ['skew', 'p2p'],
+              'xjtu_c2': ['mean', 'skew', 'kurtosis', 'entropy', 'rms', 'p2p', 'clearence', 'shape'],
+              'xjtu_c3': ['std', 'skew', 'kurtosis', 'rms', 'crest', 'shape', 'impulse']}
                 
 PARAMS_CPH = {'alpha': 0.0001,
               'tol': 0.1, 

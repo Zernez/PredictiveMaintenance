@@ -24,6 +24,7 @@ from utility.event import EventManager
 import tensorflow as tf
 import random
 from utility.mtlr import mtlr, train_mtlr_model, make_mtlr_prediction
+from tools.data_loader import DataLoader
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -47,79 +48,53 @@ device = torch.device(device)
 import logging
 tf.get_logger().setLevel(logging.ERROR)
 
-NEW_DATASET = False
+DATASET_NAME = "xjtu"
+AXIS = "X"
 N_ITER = 10
 N_OUTER_SPLITS = 5
 N_INNER_SPLITS = 3
 N_POST_SAMPLES = 100
+BEARING_IDS = [1, 2, 3, 4, 5]
+N_CONDITION = len(cfg.RAW_DATA_PATH_XJTU)
 
 def main():
-    dataset = "xjtu"
-    axis = "X"
-    n_boot = 0
-    dataset_path = cfg.DATASET_PATH_XJTU
-    n_condition = len(cfg.RAW_DATA_PATH_XJTU)
-    bearing_ids = cfg.BEARING_IDS
-
-    # For the first time running, a NEW_DATASET is needed
-    if NEW_DATASET== True:
-        Builder(dataset, n_boot).build_new_dataset(bootstrap=n_boot)
-
-    # Insert the models and feature name selector for CV hyperparameter search and initialize the DataETL instance
     models = [CoxPH, CoxBoost, RSF, MTLR, BNNSurv]
-    data_util = DataETL(dataset, n_boot)
-
-    # Extract information from the dataset selected from the config file
     model_results = pd.DataFrame()
-    for test_condition in range (0, n_condition):
-        df_timeseries, df_frequency = FileReader(dataset, dataset_path).read_data(test_condition, axis=axis)
-        event_times = EventManager(dataset).get_event_times(df_frequency, test_condition, lmd=get_lmd(test_condition))
-        
-        # For level of censoring
+    
+    # Run cross-validation per condition and censoring level
+    for condition in range(0, N_CONDITION):
+        dl = DataLoader(DATASET_NAME, AXIS, condition).load_data()
         for pct in cfg.CENSORING_LEVELS:
-            
-            # Split in train and test set
             kf = KFold(n_splits=N_OUTER_SPLITS)
-            for _, (train_idx, test_idx) in enumerate(kf.split(bearing_ids)):
-                # Compute moving average for training/testing
+            for _, (train_idx, test_idx) in enumerate(kf.split(BEARING_IDS)):
+
+                # Load data
                 train_data, test_data = pd.DataFrame(), pd.DataFrame()
                 for idx in train_idx:
-                    event_time = event_times[idx] 
-                    transformed_data = data_util.make_moving_average(df_timeseries, event_time, idx+1,
-                                                                     get_window_size(test_condition),
-                                                                     get_lag(test_condition))
-                    train_data = pd.concat([train_data, transformed_data], axis=0)
-                    train_data = train_data.reset_index(drop=True)
+                    df = dl.make_moving_average(idx+1, drop_non_ph_fts=False)
+                    df = Formatter.add_random_censoring(df, pct)
+                    df = df.sample(frac=1, random_state=0)
+                    train_data = pd.concat([train_data, df], axis=0)
                 for idx in test_idx:
-                    event_time = event_times[idx]
-                    transformed_data = data_util.make_moving_average(df_timeseries, event_time, idx+1,
-                                                                     get_window_size(test_condition),
-                                                                     get_lag(test_condition))
-                    test_data = pd.concat([test_data, transformed_data], axis=0)
-                    test_data = test_data.reset_index(drop=True)
+                    df = dl.make_moving_average(idx+1, drop_non_ph_fts=False)
+                    df = Formatter.add_random_censoring(df, pct)
+                    df = df.sample(frac=1, random_state=0)
+                    test_data = pd.concat([test_data, df], axis=0)
                 
-                # Remove frequency and noise features
-                unused_features = cfg.FREQUENCY_FTS + cfg.NOISE_FT
-                train_data = train_data.drop(unused_features, axis=1)
-                test_data = test_data.drop(unused_features, axis=1)
+                # Reset index
+                train_data = train_data.reset_index(drop=True)
+                test_data = test_data.reset_index(drop=True)
                 
-                # Add random censoring
-                train_data_cens = Formatter.add_random_censoring(train_data, pct)
-                test_data_cens = Formatter.add_random_censoring(test_data, pct)
-                
-                # For all models
                 for model_builder in models:
                     model_name = model_builder.__name__
                     
-                    # Shuffle train and test data
-                    train_data_shuffled = train_data_cens.sample(frac=1, random_state=0)
-                    test_data_shuffled = test_data_cens.sample(frac=1, random_state=0)
+                    # Format data
+                    train_x = train_data.drop(['Event', 'Survival_time'], axis=1)
+                    train_y = Surv.from_dataframe("Event", "Survival_time", train_data)
+                    test_x = test_data.drop(['Event', 'Survival_time'], axis=1)
+                    test_y = Surv.from_dataframe("Event", "Survival_time", test_data)
                     
-                    # Format and scale the data
-                    train_x = train_data_shuffled.drop(['Event', 'Survival_time'], axis=1)
-                    train_y = Surv.from_dataframe("Event", "Survival_time", train_data_shuffled)
-                    test_x = test_data_shuffled.drop(['Event', 'Survival_time'], axis=1)
-                    test_y = Surv.from_dataframe("Event", "Survival_time", test_data_shuffled)
+                    # Scale data
                     features = list(train_x.columns)
                     scaler = StandardScaler()
                     scaler.fit(train_x)
@@ -223,9 +198,9 @@ def main():
                     if mae_pseudo > 500:
                         mae_pseudo = np.nan
                     
-                    if test_condition == 0:
+                    if condition == 0:
                         cond_name = "C1"
-                    elif test_condition == 1:
+                    elif condition == 1:
                         cond_name = "C2"
                     else:
                         cond_name = "C3"
@@ -249,7 +224,11 @@ def main():
                     else:
                         c_calib = 0
                     
-                    print(f"Evaluated {cond_name} - {model_name} - {pct}")
+                    try:
+                        print(f"Evaluated {cond_name} - {model_name} - {pct} - {round(mae_hinge)} - {round(mae_margin)} - {round(mae_pseudo)}")
+                    except:
+                        print("Print failed, probably has NaN in results...")
+                        
                     res_sr = pd.Series([cond_name, model_name, pct, best_params,
                                         mae_hinge, mae_margin, mae_pseudo, d_calib, c_calib],
                                         index=["Condition", "ModelName", "CensoringLevel", "BestParams",

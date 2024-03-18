@@ -19,7 +19,7 @@ if __name__ == "__main__":
                 c_cal = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['CCalib']
                 sum_d_cal = sum(1 for value in d_cal if value > ALPHA)
                 sum_c_cal = sum(1 for value in c_cal if value > ALPHA)
-                if model_name in ["CoxPH", "RSF", "DeepSurv", "DSM"]:
+                if model_name in ["CoxPH", "CoxBoost", "RSF", "MTLR"]:
                     text += f"{sum_d_cal}/5 & - "
                 else:
                     text += f"{sum_d_cal}/5 & {sum_c_cal}/5 "

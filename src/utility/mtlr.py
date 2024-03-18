@@ -153,7 +153,6 @@ def make_mtlr_prediction(
         pred = model.forward(x)
         end_time = datetime.now()
         inference_time = end_time - start_time
-        print(f"Inference time: {inference_time.total_seconds()}")
         survival_curves = mtlr_survival(pred, with_sample=False)
 
     time_bins = torch.cat([torch.tensor([0]), time_bins], dim=0).to(survival_curves.device)
@@ -214,10 +213,8 @@ def train_mtlr_model(
                 best_val_nll = eval_nll
                 best_ep = i
             if (i - best_ep) > config.patience:
-                print(f"Validation loss converges at {best_ep}-th epoch.")
                 break
     end_time = datetime.now()
     training_time = end_time - start_time
-    print(f"Training time: {training_time.total_seconds()}")
     # model.eval()
     return model

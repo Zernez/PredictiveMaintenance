@@ -7,7 +7,7 @@ import re
 if __name__ == "__main__":
     path = cfg.RESULTS_PATH
     results = pd.read_csv(f'{path}/model_results.csv', index_col=0)
-    conditions = ["C1"]
+    conditions = ["C1", "C2", "C3"]
     censoring = [0.25]
     model_names = ["CoxPH", "CoxBoost", "RSF", "MTLR", "BNNSurv"]
     for cond in conditions:

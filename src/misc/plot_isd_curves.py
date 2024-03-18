@@ -45,6 +45,7 @@ axis = "X"
 n_boot = 0
 dataset_path = cfg.DATASET_PATH_XJTU
 bearing_ids = [1, 2, 3, 4, 5]
+plot_indicies = [0, 1, 2, 3, 4]
 pct_censoring = 0.25
 n_post_samples = 100
 
@@ -60,12 +61,11 @@ if __name__ == "__main__":
         timeseries_data, frequency_data = FileReader(dataset, dataset_path).read_data(test_condition, axis=axis)
         event_times = EventManager(dataset).get_event_times(frequency_data, test_condition, lmd=get_lmd(test_condition))
         
-        plot_indicies = [0, 1, 2, 3, 4]
         for test_bearing_id, plot_idx in zip(bearing_ids, plot_indicies):
             train_ids = [x for x in bearing_ids if x != test_bearing_id]
-            train_data = pd.DataFrame()
             
             # Load train data
+            train_data = pd.DataFrame()            
             for train_bearing_id in train_ids:
                 event_time = event_times[train_bearing_id-1]
                 transformed_data = data_util.make_moving_average(timeseries_data, event_time, train_bearing_id,
@@ -115,7 +115,7 @@ if __name__ == "__main__":
             e_test = y_test['Event']
             
             #Set up the models on test
-            model = BNNSurv().make_model(BNNSurv().get_best_hyperparams())
+            model = BNNSurv().make_model(BNNSurv().get_best_hyperparams(test_condition))
 
             # Train the model
             model.fit(X_train_scaled, t_train, e_train)

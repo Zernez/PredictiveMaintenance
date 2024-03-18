@@ -38,7 +38,7 @@ class BaseRegressor (ABC):
         """Method"""
 
     @abstractmethod
-    def get_best_hyperparams (self):
+    def get_best_hyperparams (self, condition):
         """Method"""
 
     def get_tuneable_params (self):
@@ -61,29 +61,16 @@ class CoxPH(BaseRegressor):
         return {'n_iter': [10, 20, 30, 40, 50, 100, 200, 500, 1000],
                 'tol': [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9]}
     
-    def get_best_hyperparams (self):
-        return {'tol': 1e-3,
-                'n_iter': 20}
-
-class RSF(BaseRegressor):
-    def make_model (self, params=None):
-        model_params = cfg.PARAMS_RSF
-        if params:
-            model_params.update(params)
-        return RandomSurvivalForest(**model_params)
-    
-    def get_hyperparams (self):
-        return {'max_depth': [3, 5, 7],
-                'n_estimators': [100, 200, 400],
-                'min_samples_split': [float(x) for x in np.linspace(0.1, 0.9, 5, endpoint=True)],
-                'min_samples_leaf': [float(x) for x in np.linspace(0.1, 0.5, 5, endpoint=True)]}
-    
-    def get_best_hyperparams (self):
-        return  {'n_estimators': 3,
-                 'min_samples_split': 15,
-                 'min_samples_leaf': 600, 
-                 'max_depth': 5}
-    
+    def get_best_hyperparams (self, condition):
+        if condition == 0:
+            return {'tol': 0.01, 'n_iter': 200}
+        elif condition == 1:
+            return {'tol': 1e-09, 'n_iter': 500}
+        elif condition == 2:
+            return {'tol': 1e-08, 'n_iter': 200}
+        else:
+            raise ValueError("Invalid condition for XJTU-SY dataset, choose {0, 1, 2}")
+        
 class CoxBoost (BaseRegressor):
     def make_model(self, params=None):
         model_params = cfg.PARAMS_COXBOOST
@@ -101,14 +88,38 @@ class CoxBoost (BaseRegressor):
                 'dropout_rate': [float(x) for x in np.linspace(0.0, 0.9, 10, endpoint=True)],
                 'subsample': [float(x) for x in np.linspace(0.1, 1.0, 10, endpoint=True)]}
         
-    def get_best_hyperparams(self):
-        return  {'learning_rate': 0.1,
-                 'n_estimators' : 110, 
-                 'loss': 'coxph',
-                 'dropout_rate': 0.0,
-                 'max_depth': 3,
-                 'min_samples_split': 3,
-                 'min_samples_leaf': 2}
+    def get_best_hyperparams(self, condition):
+        if condition == 0:
+            return {'learning_rate': 1.0, 'n_estimators': 200, 'loss': 'coxph', 'dropout_rate': 0.4, 'max_features': 'log2', 'max_depth': 5, 'min_samples_split': 0.9, 'min_samples_leaf': 0.1, 'subsample': 1.0}
+        elif condition == 1:
+            return {'learning_rate': 1.0, 'n_estimators': 200, 'loss': 'coxph', 'dropout_rate': 0.4, 'max_features': 'log2', 'max_depth': 5, 'min_samples_split': 0.9, 'min_samples_leaf': 0.1, 'subsample': 1.0}
+        elif condition == 2:
+            return {'learning_rate': 1.0, 'n_estimators': 200, 'loss': 'coxph', 'dropout_rate': 0.4, 'max_features': 'log2', 'max_depth': 5, 'min_samples_split': 0.9, 'min_samples_leaf': 0.1, 'subsample': 1.0}
+        else:
+            raise ValueError("Invalid condition for XJTU-SY dataset, choose {0, 1, 2}")
+        
+class RSF(BaseRegressor):
+    def make_model (self, params=None):
+        model_params = cfg.PARAMS_RSF
+        if params:
+            model_params.update(params)
+        return RandomSurvivalForest(**model_params)
+    
+    def get_hyperparams (self):
+        return {'max_depth': [3, 5, 7],
+                'n_estimators': [100, 200, 400],
+                'min_samples_split': [float(x) for x in np.linspace(0.1, 0.9, 5, endpoint=True)],
+                'min_samples_leaf': [float(x) for x in np.linspace(0.1, 0.5, 5, endpoint=True)]}
+    
+    def get_best_hyperparams (self, n_condition):
+        if n_condition == 0:
+            return  {'n_estimators': 100, 'min_samples_split': 0.1, 'min_samples_leaf': 0.1,  'max_depth': 5}
+        elif n_condition == 1:
+            return  {'n_estimators': 100, 'min_samples_split': 0.1, 'min_samples_leaf': 0.1,  'max_depth': 5}
+        elif n_condition == 2:
+            return  {'n_estimators': 100, 'min_samples_split': 0.1, 'min_samples_leaf': 0.1,  'max_depth': 5}
+        else:
+            raise ValueError("Invalid condition for XJTU-SY dataset, choose {0, 1, 2}")
     
 class DeepSurv(BaseRegressor):
     def make_model(self, params=None):
@@ -123,11 +134,8 @@ class DeepSurv(BaseRegressor):
                 'iters': [100, 300, 500, 1000],
                 'layers': [[16], [32], [64]]}
     
-    def get_best_hyperparams(self):
-        return {'batch_size' : 32,
-                'learning_rate' : 1e-2,
-                'iters': 300,
-                'layers': [32]}
+    def get_best_hyperparams(self, condition):
+        raise NotImplementedError()
         
 class MTLR(BaseRegressor):
     def make_model(self, num_features, num_time_bins, config):
@@ -142,13 +150,15 @@ class MTLR(BaseRegressor):
                 'num_epochs': [100, 500, 1000, 5000],
                 'hidden_size': [32, 50, 60, 128]}
     
-    def get_best_hyperparams(self):
-        return {'batch_size' : 32,
-                'dropout': 0.5,
-                'lr' : 0.00008,
-                'c1': 0.01,
-                'num_epochs': 5000,
-                'hidden_size': 50}
+    def get_best_hyperparams(self, condition):
+        if condition == 0:
+            return {'batch_size': 32, 'dropout': 0.25, 'lr': 0.00008, 'c1': 0.01, 'num_epochs': 5000, 'hidden_size': 50}
+        elif condition == 1:
+            return {'batch_size': 32, 'dropout': 0.25, 'lr': 0.00008, 'c1': 0.01, 'num_epochs': 5000, 'hidden_size': 50}
+        elif condition == 2:
+            return {'batch_size': 32, 'dropout': 0.25, 'lr': 0.00008, 'c1': 0.01, 'num_epochs': 5000, 'hidden_size': 50}
+        else:
+            raise ValueError("Invalid condition for XJTU-SY dataset, choose {0, 1, 2}")
 
 class DSM(BaseRegressor):
     def make_model(self, params=None):
@@ -163,11 +173,8 @@ class DSM(BaseRegressor):
                 'iters': [100, 300, 500, 1000],
                 'layers': [[16], [32], [64]]}
             
-    def get_best_hyperparams(self):
-        return {'batch_size' : 32,
-                'learning_rate' : 1e-3,
-                'iters': 100,
-                'layers': [32]}
+    def get_best_hyperparams(self, condition):
+        raise NotImplementedError()
     
 class BNNSurv(BaseRegressor):
     def make_model(self, params=None):
@@ -179,12 +186,15 @@ class BNNSurv(BaseRegressor):
     def get_hyperparams(self):
         return {'batch_size' : [32, 64, 128],
                 'learning_rate' : [1e-2, 5e-3, 1e-3],
-                'num_epochs': [5, 10, 15, 20],
-                'layers': [[16], [32], [64], [128]]
-                }
+                'num_epochs': [5, 10, 15],
+                'layers': [[16], [32], [64], [128]]}
 
-    def get_best_hyperparams(self):
-        return {'batch_size' : 32,
-                'learning_rate' : 1e-2,
-                'num_epochs': 10,
-                'layers': [32]}
+    def get_best_hyperparams(self, condition):
+        if condition == 0:
+            return {'batch_size' : 32, 'learning_rate' : 0.01, 'num_epochs': 10, 'layers': [32]}
+        elif condition == 1:
+            return {'batch_size' : 32, 'learning_rate' : 0.01, 'num_epochs': 10, 'layers': [32]}
+        elif condition == 2:
+            return {'batch_size' : 32, 'learning_rate' : 0.005, 'num_epochs': 15, 'layers': [32]}
+        else:
+            raise ValueError("Invalid condition for XJTU-SY dataset, choose {0, 1, 2}")
