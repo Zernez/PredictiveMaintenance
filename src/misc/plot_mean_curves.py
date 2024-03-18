@@ -16,6 +16,14 @@ from utility.survival import Survival
 from utility.mtlr import mtlr, train_mtlr_model, make_mtlr_prediction
 import torch
 from sklearn.model_selection import train_test_split
+import tensorflow as tf
+import random
+from tools.data_loader import DataLoader
+
+np.random.seed(0)
+tf.random.set_seed(0)
+torch.manual_seed(0)
+random.seed(0)
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -35,60 +43,39 @@ plt.rcParams.update({'axes.labelsize': 'medium',
 device = "cpu" # use CPU
 device = torch.device(device)
 
-new_dataset = False
-dataset = "xjtu"
-axis = "X"
-n_boot = 0
-dataset_path = cfg.DATASET_PATH_XJTU
-n_bearing = cfg.N_REAL_BEARING_XJTU
-bearing_ids = cfg.BEARING_IDS
-pct_censoring = 0.25
-n_post_samples = 100
+DATASET_NAME = "xjtu"
+AXIS = "X"
+PCT_CENSORING = 0.25
+N_POST_SAMPLES = 100
 
 if __name__ == "__main__":
-    data_util = DataETL(dataset, n_boot)
-    event_manager = EventManager(dataset)
-    
-    if new_dataset == True:
-        Builder(dataset, n_boot).build_new_dataset(bootstrap=n_boot)
-    
-    for test_condition in [0, 1, 2]:
-        timeseries_data, frequency_data = FileReader(dataset, dataset_path).read_data(test_condition, axis=axis)
-        event_times = EventManager(dataset).get_event_times(frequency_data, test_condition, lmd=get_lmd(test_condition))
+    for condition in [0, 1, 2]:
+        dl = DataLoader(DATASET_NAME, AXIS, condition).load_data()
         train_data, test_data = pd.DataFrame(), pd.DataFrame()
         train_ids = [1, 2, 3] # Bearings 1-3
         test_ids = [4, 5] # Bearing 4-5
-        for train_bearing_id in train_ids:
-            event_time = event_times[train_bearing_id-1]
-            transformed_data = data_util.make_moving_average(timeseries_data, event_time, train_bearing_id,
-                                                             get_window_size(test_condition),
-                                                             get_lag(test_condition))
-            train_data = pd.concat([train_data, transformed_data], axis=0)
-            train_data = train_data.reset_index(drop=True)
-        for test_bearing_id in test_ids:
-            event_time = event_times[test_bearing_id-1]
-            transformed_data = data_util.make_moving_average(timeseries_data, event_time, test_bearing_id,
-                                                             get_window_size(test_condition),
-                                                             get_lag(test_condition))
-            test_data = pd.concat([test_data, transformed_data], axis=0)
-            test_data = test_data.reset_index(drop=True)
+        for bearing_id in train_ids:
+            df = dl.make_moving_average(bearing_id)
+            df = Formatter.add_random_censoring(df, PCT_CENSORING)
+            df = df.sample(frac=1, random_state=0)
+            train_data = pd.concat([train_data, df], axis=0)
+        for bearing_id in test_ids:
+           df = dl.make_moving_average(bearing_id)
+           df = Formatter.add_random_censoring(df, PCT_CENSORING)
+           df = df.sample(frac=1, random_state=0)
+           test_data = pd.concat([test_data, df], axis=0)
         
         train_data = train_data.reset_index(drop=True)
         test_data = test_data.reset_index(drop=True)
-        unused_features = cfg.FREQUENCY_FTS + cfg.NOISE_FT
-        train_data = train_data.drop(unused_features, axis=1)
-        test_data = test_data.drop(unused_features, axis=1)
-        train_data = Formatter.add_random_censoring(train_data, pct=pct_censoring)
-        test_data = Formatter.add_random_censoring(test_data, pct=pct_censoring)
-        train_data = train_data.sample(frac=1, random_state=0)
-        test_data = test_data.sample(frac=1, random_state=0)
-        
+
         X_train = train_data.drop(['Event', 'Survival_time'], axis=1)
         y_train = Surv.from_dataframe("Event", "Survival_time", train_data)
         X_test = test_data.drop(['Event', 'Survival_time'], axis=1)
         y_test = Surv.from_dataframe("Event", "Survival_time", test_data)
-        
-        # Make discrete times
+
+        # Make times
+        continuous_times = make_event_times(np.array(y_train['Survival_time']), np.array(y_train['Event'])).astype(int)
+        continuous_times = np.unique(continuous_times)
         discrete_times = make_time_bins(y_train['Survival_time'].copy(), event=y_train['Event'].copy())
         
         # Scale data
@@ -116,12 +103,12 @@ if __name__ == "__main__":
         data_valid["Event"] = pd.Series(y_valid['Event']).astype(int)
         
         # Make models
-        cph_model = CoxPH().make_model(CoxPH().get_best_hyperparams(test_condition))
-        coxboost_model = CoxBoost().make_model(CoxBoost().get_best_hyperparams(test_condition))
-        rsf_model = RSF().make_model(RSF().get_best_hyperparams(test_condition))
-        bnn_model = BNNSurv().make_model(BNNSurv().get_best_hyperparams(test_condition))
+        cph_model = CoxPH().make_model(CoxPH().get_best_hyperparams(condition))
+        coxboost_model = CoxBoost().make_model(CoxBoost().get_best_hyperparams(condition))
+        rsf_model = RSF().make_model(RSF().get_best_hyperparams(condition))
+        bnn_model = BNNSurv().make_model(BNNSurv().get_best_hyperparams(condition))
         config = dotdict(cfg.PARAMS_MTLR)
-        best_params = MTLR().get_best_hyperparams(test_condition)
+        best_params = MTLR().get_best_hyperparams(condition)
         config['batch_size'] = best_params['batch_size']
         config['dropout'] = best_params['dropout']
         config['lr'] = best_params['lr']
@@ -141,17 +128,16 @@ if __name__ == "__main__":
         bnn_model.fit(X_train_arr, t_train, e_train)
         mtlr_model = train_mtlr_model(mtlr_model, data_train, data_valid, discrete_times,
                                       config, random_state=0, reset_model=True, device=device)
-        #Predict
-        unique_times = make_event_times(y_train['Survival_time'].copy(), y_train['Event'].copy()).astype(int)
-        unique_times = np.unique(unique_times)
+        
+        # Predict
         km_mean, km_high, km_low = calculate_kaplan_vectorized(y_test['Survival_time'].reshape(1,-1),
                                                                y_test['Event'].reshape(1,-1),
-                                                               unique_times)
-        cph_surv_func = Survival().predict_survival_function(cph_model, X_test, unique_times)
-        coxboost_surv_func = Survival().predict_survival_function(coxboost_model, X_test, unique_times)
-        rsf_surv_func = Survival().predict_survival_function(rsf_model, X_test, unique_times)
-        bnn_surv_func = Survival().predict_survival_function(bnn_model, X_test_arr, unique_times,
-                                                             n_post_samples=n_post_samples)
+                                                               continuous_times)
+        cph_surv_func = Survival().predict_survival_function(cph_model, X_test, continuous_times)
+        coxboost_surv_func = Survival().predict_survival_function(coxboost_model, X_test, continuous_times)
+        rsf_surv_func = Survival().predict_survival_function(rsf_model, X_test, continuous_times)
+        bnn_surv_func = Survival().predict_survival_function(bnn_model, X_test_arr, continuous_times,
+                                                             n_post_samples=N_POST_SAMPLES)
         data_test = X_test.copy()
         data_test["Survival_time"] = pd.Series(y_test['Survival_time'])
         data_test["Event"] = pd.Series(y_test['Event']).astype(int)
@@ -164,15 +150,15 @@ if __name__ == "__main__":
 
         fig = plt.figure(figsize=(6, 4))
         plt.plot(km_mean.columns, km_mean.iloc[0], 'k--', linewidth=2, alpha=0.5, label=r"$\mathbb{E}[S(t)]$ Kaplan-Meier", color="black")
-        plt.plot(unique_times, np.mean(cph_surv_func, axis=0), label=r"$\mathbb{E}[S(t|\bm{X})]$ CoxPH", linewidth=2)
-        plt.plot(unique_times, np.mean(coxboost_surv_func, axis=0), label=r"$\mathbb{E}[S(t|\bm{X})]$ CoxBoost", linewidth=2)
-        plt.plot(unique_times, np.mean(rsf_surv_func, axis=0), label=r"$\mathbb{E}[S(t|\bm{X})]$ RSF", linewidth=2)
+        plt.plot(continuous_times, np.mean(cph_surv_func, axis=0), label=r"$\mathbb{E}[S(t|\bm{X})]$ CoxPH", linewidth=2)
+        plt.plot(continuous_times, np.mean(coxboost_surv_func, axis=0), label=r"$\mathbb{E}[S(t|\bm{X})]$ CoxBoost", linewidth=2)
+        plt.plot(continuous_times, np.mean(rsf_surv_func, axis=0), label=r"$\mathbb{E}[S(t|\bm{X})]$ RSF", linewidth=2)
         plt.plot(discrete_times, np.mean(mtlr_surv_func, axis=0), label=r"$\mathbb{E}[S(t|\bm{X})]$ MTLR", linewidth=2)
-        plt.plot(unique_times, np.mean(bnn_surv_func, axis=0), label=r"$\mathbb{E}[S(t|\bm{X})]$ BNNSurv", linewidth=2)
+        plt.plot(continuous_times, np.mean(bnn_surv_func, axis=0), label=r"$\mathbb{E}[S(t|\bm{X})]$ BNNSurv", linewidth=2)
         plt.xlabel("Time (min)")
         plt.ylabel("Survival probability S(t)")
         plt.tight_layout()
         plt.grid()
         plt.legend()
-        plt.savefig(f'{cfg.PLOTS_PATH}/mean_survival_C{test_condition+1}.pdf', format='pdf', bbox_inches="tight")
+        plt.savefig(f'{cfg.PLOTS_PATH}/mean_survival_C{condition+1}.pdf', format='pdf', bbox_inches="tight")
         

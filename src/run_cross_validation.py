@@ -72,12 +72,12 @@ def main():
                 # Load data
                 train_data, test_data = pd.DataFrame(), pd.DataFrame()
                 for idx in train_idx:
-                    df = dl.make_moving_average(idx+1, drop_non_ph_fts=False)
+                    df = dl.make_moving_average(idx+1)
                     df = Formatter.add_random_censoring(df, pct)
                     df = df.sample(frac=1, random_state=0)
                     train_data = pd.concat([train_data, df], axis=0)
                 for idx in test_idx:
-                    df = dl.make_moving_average(idx+1, drop_non_ph_fts=False)
+                    df = dl.make_moving_average(idx+1)
                     df = Formatter.add_random_censoring(df, pct)
                     df = df.sample(frac=1, random_state=0)
                     test_data = pd.concat([test_data, df], axis=0)

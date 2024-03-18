@@ -16,6 +16,14 @@ from utility.survival import Survival
 from utility.mtlr import mtlr, train_mtlr_model, make_mtlr_prediction
 import torch
 from sklearn.model_selection import train_test_split
+import tensorflow as tf
+import random
+from tools.data_loader import DataLoader
+
+np.random.seed(0)
+tf.random.set_seed(0)
+torch.manual_seed(0)
+random.seed(0)
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -35,51 +43,32 @@ plt.rcParams.update({'axes.labelsize': 'medium',
 device = "cpu" # use CPU
 device = torch.device(device)
 
-new_dataset = False
-dataset = "xjtu"
-axis = "X"
-n_boot = 0
-dataset_path = cfg.DATASET_PATH_XJTU
-pct_censoring = 0.25
-n_post_samples = 100
+DATASET_NAME = "xjtu"
+AXIS = "X"
+PCT_CENSORING = 0.25
+N_POST_SAMPLES = 100
 
 if __name__ == "__main__":
-    data_util = DataETL(dataset, n_boot)
-    event_manager = EventManager(dataset)
-    
-    if new_dataset == True:
-        Builder(dataset, n_boot).build_new_dataset(bootstrap=n_boot)
-    
-    for test_condition in [1]: # use C1
-        timeseries_data, frequency_data = FileReader(dataset, dataset_path).read_data(test_condition, axis=axis)
-        event_times = EventManager(dataset).get_event_times(frequency_data, test_condition, lmd=get_lmd(test_condition))
-        train_data, test_data = pd.DataFrame(), pd.DataFrame()
-        train_idx = [0, 1, 2] # Bearings 1-3
-        test_idx = [3, 4] # Bearing 4-5
-        for idx in train_idx:
-            event_time = event_times[idx]
-            transformed_data = data_util.make_moving_average(timeseries_data, event_time, idx+1,
-                                                             get_window_size(test_condition),
-                                                             get_lag(test_condition))
-            train_data = pd.concat([train_data, transformed_data], axis=0)
-            train_data = train_data.reset_index(drop=True)
-        for idx in test_idx:
-            event_time = event_times[idx]
-            transformed_data = data_util.make_moving_average(timeseries_data, event_time, idx+1,
-                                                             get_window_size(test_condition),
-                                                             get_lag(test_condition))
-            test_data = pd.concat([test_data, transformed_data], axis=0)
-            test_data = test_data.reset_index(drop=True)
+    for condition in [1]: # use C1
+        dl = DataLoader(DATASET_NAME, AXIS, condition).load_data()
         
+        train_ids = [1, 2, 3] # Bearings 1-3
+        test_ids = [4, 5] # Bearing 4-5
+        train_data, test_data = pd.DataFrame(), pd.DataFrame()
+        for bearing_id in train_ids:
+           df = dl.make_moving_average(bearing_id)
+           df = Formatter.add_random_censoring(df, PCT_CENSORING)
+           df = df.sample(frac=1, random_state=0)
+           train_data = pd.concat([train_data, df], axis=0)
+        for bearing_id in test_ids:
+           df = dl.make_moving_average(bearing_id)
+           df = Formatter.add_random_censoring(df, PCT_CENSORING)
+           df = df.sample(frac=1, random_state=0)
+           test_data = pd.concat([test_data, df], axis=0)
+        
+        # Reset index
         train_data = train_data.reset_index(drop=True)
         test_data = test_data.reset_index(drop=True)
-        unused_features = cfg.FREQUENCY_FTS + cfg.NOISE_FT
-        train_data = train_data.drop(unused_features, axis=1)
-        test_data = test_data.drop(unused_features, axis=1)
-        train_data = Formatter.add_random_censoring(train_data, pct=pct_censoring)
-        test_data = Formatter.add_random_censoring(test_data, pct=pct_censoring)
-        train_data = train_data.sample(frac=1, random_state=0)
-        test_data = test_data.sample(frac=1, random_state=0)
         
         X_train = train_data.drop(['Event', 'Survival_time'], axis=1)
         y_train = Surv.from_dataframe("Event", "Survival_time", train_data)
@@ -106,7 +95,7 @@ if __name__ == "__main__":
             scaler.fit(X_train_feature)
             X_train_scaled = scaler.transform(X_train_feature)
             
-            model = BNNSurv().make_model(BNNSurv().get_best_hyperparams(test_condition))
+            model = BNNSurv().make_model(BNNSurv().get_best_hyperparams(condition))
             model.fit(X_train_scaled, t_train, e_train)
             
             # Split data
@@ -129,17 +118,17 @@ if __name__ == "__main__":
         
                 # Predict for mean and two groups
                 surv_probs = Survival().predict_survival_function(model, X_test_scaled, unique_times,
-                                                                  n_post_samples=n_post_samples)
+                                                                  n_post_samples=N_POST_SAMPLES)
                 km_mean, km_high, km_low = calculate_kaplan_vectorized(y_test['Survival_time'].reshape(1,-1),
                                                                     y_test['Event'].reshape(1,-1),
                                                                     unique_times)
                 surv_probs_g1 = Survival().predict_survival_function(model, X_test_g1_scaled, unique_times,
-                                                                     n_post_samples=n_post_samples)
+                                                                     n_post_samples=N_POST_SAMPLES)
                 km_mean_g1, km_high_g1, km_low_g1 = calculate_kaplan_vectorized(y_test_g1['Survival_time'].reshape(1,-1),
                                                                                 y_test_g1['Event'].reshape(1,-1),
                                                                                 unique_times)
                 surv_probs_g2 = Survival().predict_survival_function(model, X_test_g2_scaled, unique_times,
-                                                                     n_post_samples=n_post_samples)
+                                                                     n_post_samples=N_POST_SAMPLES)
                 
                 surv_probs_mean = np.mean(surv_probs, axis=0)
                 surv_probs_g1_mean = np.mean(surv_probs_g1, axis=0)
@@ -153,6 +142,6 @@ if __name__ == "__main__":
                 axes[i].set_ylabel("Survival probability S(t)")
                 axes[i].legend(loc='upper right')
                 axes[i].grid(True)
-            plt.savefig(f'{cfg.PLOTS_PATH}/group_survival_{feature}_C{test_condition+1}.pdf',
+            plt.savefig(f'{cfg.PLOTS_PATH}/group_survival_{feature}_C{condition+1}.pdf',
                         format='pdf', bbox_inches="tight")
         

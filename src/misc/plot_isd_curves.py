@@ -20,6 +20,14 @@ from tools.evaluator import LifelinesEvaluator
 from tools.Evaluations.util import predict_median_survival_time
 from matplotlib.patches import Rectangle
 import math
+import tensorflow as tf
+import random
+from tools.data_loader import DataLoader
+
+np.random.seed(0)
+tf.random.set_seed(0)
+torch.manual_seed(0)
+random.seed(0)
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -39,58 +47,38 @@ plt.rcParams.update({'axes.labelsize': 'medium',
 device = "cpu" # use CPU
 device = torch.device(device)
 
-new_dataset = False
-dataset = "xjtu"
-axis = "X"
-n_boot = 0
-dataset_path = cfg.DATASET_PATH_XJTU
-bearing_ids = [1, 2, 3, 4, 5]
-plot_indicies = [0, 1, 2, 3, 4]
-pct_censoring = 0.25
-n_post_samples = 100
+DATASET_NAME = "xjtu"
+AXIS = "X"
+BEARING_IDS = [1, 2, 3, 4, 5]
+PLOT_INDICIES = [0, 1, 2, 3, 4]
+PCT_CENSORING = 0.25
+N_POST_SAMPLES = 100
 
 if __name__ == "__main__":
-    data_util = DataETL(dataset, n_boot)
-    event_manager = EventManager(dataset)
     fig, axes = plt.subplots(5, 3, figsize=(12, 16), sharey=True, layout='constrained')
-    
-    if new_dataset == True:
-        Builder(dataset, n_boot).build_new_dataset(bootstrap=n_boot)
-    
-    for test_condition in [0, 1, 2]:
-        timeseries_data, frequency_data = FileReader(dataset, dataset_path).read_data(test_condition, axis=axis)
-        event_times = EventManager(dataset).get_event_times(frequency_data, test_condition, lmd=get_lmd(test_condition))
-        
-        for test_bearing_id, plot_idx in zip(bearing_ids, plot_indicies):
-            train_ids = [x for x in bearing_ids if x != test_bearing_id]
+    for condition in [0, 1, 2]:
+        dl = DataLoader(DATASET_NAME, AXIS, condition).load_data()
+        for test_bearing_id, plot_idx in zip(BEARING_IDS, PLOT_INDICIES):
+            
+            # Define train ids
+            train_ids = [x for x in BEARING_IDS if x != test_bearing_id]
             
             # Load train data
             train_data = pd.DataFrame()            
-            for train_bearing_id in train_ids:
-                event_time = event_times[train_bearing_id-1]
-                transformed_data = data_util.make_moving_average(timeseries_data, event_time, train_bearing_id,
-                                                                get_window_size(test_condition),
-                                                                get_lag(test_condition))
-                train_data = pd.concat([train_data, transformed_data], axis=0)
+            for bearing_id in train_ids:
+                df = dl.make_moving_average(bearing_id)
+                df = Formatter.add_random_censoring(df, PCT_CENSORING)
+                df = df.sample(frac=1, random_state=0)
+                train_data = pd.concat([train_data, df], axis=0)
             
             # Load test data
-            test_event_time = event_times[test_bearing_id-1]
-            test_data = data_util.make_moving_average(timeseries_data, test_event_time, test_bearing_id,
-                                                    get_window_size(test_condition),
-                                                    get_lag(test_condition))
+            test_data = dl.make_moving_average(test_bearing_id)
+            test_data = Formatter.add_random_censoring(df, PCT_CENSORING)
+            test_data = df.sample(frac=1, random_state=0)
             
-            train_data = train_data.reset_index(drop=True)
-            test_data = test_data.reset_index(drop=True)
-            unused_features = cfg.FREQUENCY_FTS + cfg.NOISE_FT
-            train_data = train_data.drop(unused_features, axis=1)
-            test_data = test_data.drop(unused_features, axis=1)
-            train_data = Formatter.add_random_censoring(train_data, pct=pct_censoring)
-            train_data = train_data.sample(frac=1, random_state=0)
-            test_data = test_data.sample(frac=1, random_state=0)
-            
-            # Select only first observation
+            # Select first observation
             test_sample = test_data[test_data['Survival_time'] == test_data['Survival_time'].max()] \
-                        .drop_duplicates(subset="Survival_time")
+                          .drop_duplicates(subset="Survival_time")
             print(test_sample)
 
             X_train = train_data.drop(['Event', 'Survival_time'], axis=1)
@@ -99,8 +87,8 @@ if __name__ == "__main__":
             y_test = Surv.from_dataframe("Event", "Survival_time", test_sample)
             
             # Set event times for models
-            event_horizon = make_event_times(np.array(y_train['Survival_time']), np.array(y_train['Event'])).astype(int)
-            event_horizon = np.unique(event_horizon)
+            continuous_times = make_event_times(np.array(y_train['Survival_time']), np.array(y_train['Event'])).astype(int)
+            continuous_times = np.unique(continuous_times)
             
             # Scale data
             scaler = StandardScaler()
@@ -108,21 +96,24 @@ if __name__ == "__main__":
             X_train_scaled = scaler.transform(X_train)
             X_test_scaled = scaler.transform(X_test)
 
-            #Format data
+            # Format data
             t_train = y_train['Survival_time']
             e_train = y_train['Event']
             t_test = y_test['Survival_time']
             e_test = y_test['Event']
             
+            # Define test event time
+            test_event_time = int(t_test[0])
+            
             #Set up the models on test
-            model = BNNSurv().make_model(BNNSurv().get_best_hyperparams(test_condition))
+            model = BNNSurv().make_model(BNNSurv().get_best_hyperparams(condition))
 
             # Train the model
             model.fit(X_train_scaled, t_train, e_train)
             
             # Predict
-            surv_probs = model.predict_survival(X_test_scaled, event_horizon, n_post_samples)
-            median_outputs = pd.DataFrame(np.mean(surv_probs, axis=0), columns=event_horizon)
+            surv_probs = model.predict_survival(X_test_scaled, continuous_times, N_POST_SAMPLES)
+            median_outputs = pd.DataFrame(np.mean(surv_probs, axis=0), columns=continuous_times)
             
             # Calculate TTE
             lifelines_eval = LifelinesEvaluator(median_outputs.T, t_test, e_test, t_train, e_train)
@@ -130,21 +121,21 @@ if __name__ == "__main__":
             print(pred_survival_time)
             
             # Plot
-            p1 = axes[plot_idx, test_condition].plot(np.mean(median_outputs, axis=0).T, linewidth=2, label=r"$\mathbb{E}[S(t|\bm{X})]$", color="black")
-            drop_num = math.floor(0.5 * n_post_samples * (1 - 0.9))
+            p1 = axes[plot_idx, condition].plot(np.mean(median_outputs, axis=0).T, linewidth=2, label=r"$\mathbb{E}[S(t|\bm{X})]$", color="black")
+            drop_num = math.floor(0.5 * N_POST_SAMPLES * (1 - 0.9))
             lower_outputs = torch.kthvalue(torch.from_numpy(surv_probs), k=1+drop_num, dim=0)[0]
-            upper_outputs = torch.kthvalue(torch.from_numpy(surv_probs), k=n_post_samples-drop_num, dim=0)[0]
-            axes[plot_idx, test_condition].fill_between(event_horizon, upper_outputs[0,:], lower_outputs[0,:], color="gray", alpha=0.25)
-            p2 = axes[plot_idx, test_condition].axhline(y=0.5, linestyle= "dashed", color='blue', linewidth=1, label='$\hat{y}_{i}$ = ' + f'{pred_survival_time}')        
-            p3 = axes[plot_idx, test_condition].axvline(x=test_event_time, linestyle= "dashed",
+            upper_outputs = torch.kthvalue(torch.from_numpy(surv_probs), k=N_POST_SAMPLES-drop_num, dim=0)[0]
+            axes[plot_idx, condition].fill_between(continuous_times, upper_outputs[0,:], lower_outputs[0,:], color="gray", alpha=0.25)
+            p2 = axes[plot_idx, condition].axhline(y=0.5, linestyle= "dashed", color='blue', linewidth=1, label='$\hat{y}_{i}$ = ' + f'{pred_survival_time}')        
+            p3 = axes[plot_idx, condition].axvline(x=test_event_time, linestyle= "dashed",
                                                         color='green', linewidth=2.0, label=f'$y_i$ = {int(test_event_time)}')
-            axes[plot_idx, test_condition].axvline(x=int(pred_survival_time), linestyle= "dashed", color='blue', linewidth=2.0)
-            axes[plot_idx, test_condition].set_title(f'Bearing {test_condition+1}_{plot_idx+1}')
-            axes[plot_idx, test_condition].set_xlabel("Time (min)")
+            axes[plot_idx, condition].axvline(x=int(pred_survival_time), linestyle= "dashed", color='blue', linewidth=2.0)
+            axes[plot_idx, condition].set_title(f'Bearing {condition+1}_{plot_idx+1}')
+            axes[plot_idx, condition].set_xlabel("Time (min)")
             text = f'Error = {int(pred_survival_time-test_event_time)}'
             extra = Rectangle((0, 0), 1, 1, fc="w", fill=False, edgecolor='none', linewidth=0)
-            axes[plot_idx, test_condition].legend([p1[0], p2, p3, extra], [p1[0].get_label(), p2.get_label(), p3.get_label(), text], loc='upper right')
-            if test_condition == 0:
-                axes[plot_idx, test_condition].set_ylabel("Survival probability S(t)")
-            axes[plot_idx, test_condition].grid(True)
+            axes[plot_idx, condition].legend([p1[0], p2, p3, extra], [p1[0].get_label(), p2.get_label(), p3.get_label(), text], loc='upper right')
+            if condition == 0:
+                axes[plot_idx, condition].set_ylabel("Survival probability S(t)")
+            axes[plot_idx, condition].grid(True)
     plt.savefig(f'{cfg.PLOTS_PATH}/isd.pdf', format='pdf', bbox_inches="tight")
