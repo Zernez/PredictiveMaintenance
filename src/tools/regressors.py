@@ -81,7 +81,7 @@ class CoxPHLasso(BaseRegressor):
         return {
             'n_alphas': [50, 100, 200],
             'normalize': [False],
-            'tol': [1e-5, 1e-7, 1e-9],
+            'tol': [1e-5, 1e-6, 1e-7, 1e-8, 1e-9],
             'max_iter': [100000]
         }
     def get_best_hyperparams(self, condition):
