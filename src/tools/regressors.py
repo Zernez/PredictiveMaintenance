@@ -79,9 +79,9 @@ class CoxPHLasso(BaseRegressor):
         return CoxnetSurvivalAnalysis(**model_params)
     def get_hyperparams(self):
         return {
-            'n_alphas': [50, 100, 200],
+            'n_alphas': [25, 50, 100, 150, 200],
             'normalize': [False],
-            'tol': [1e-5, 1e-6, 1e-7, 1e-8, 1e-9],
+            'tol': [1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9],
             'max_iter': [100000]
         }
     def get_best_hyperparams(self, condition):
