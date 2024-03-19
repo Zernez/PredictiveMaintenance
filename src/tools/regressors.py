@@ -58,19 +58,36 @@ class CoxPH(BaseRegressor):
         return CoxPHSurvivalAnalysis(**model_params)
     
     def get_hyperparams (self):
-        return {'n_iter': [10, 20, 30, 40, 50, 100, 200, 500, 1000],
-                'tol': [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9]}
+        return {'n_iter': [5000, 10000, 100000],
+                'tol': [1e-5, 1e-6, 1e-7, 1e-8, 1e-9]}
     
     def get_best_hyperparams (self, condition):
         if condition == 0:
-            return {'tol': 0.01, 'n_iter': 200}
+            return {'tol': 0.01, 'n_iter': 100000}
         elif condition == 1:
-            return {'tol': 1e-09, 'n_iter': 500}
+            return {'tol': 1e-09, 'n_iter': 100000}
         elif condition == 2:
-            return {'tol': 1e-08, 'n_iter': 200}
+            return {'tol': 1e-08, 'n_iter': 100000}
         else:
             raise ValueError("Invalid condition for XJTU-SY dataset, choose {0, 1, 2}")
-        
+
+class CoxPHLasso(BaseRegressor):
+    def make_model(self, params=None):
+        model_params = cfg.PARAMS_CPH_LASSO
+        if params:
+            model_params.update(params)
+        return CoxnetSurvivalAnalysis(**model_params)
+    def get_hyperparams(self):
+        return {
+            'n_alphas': [50, 100, 200],
+            'normalize': [False],
+            'tol': [1e-5, 1e-7, 1e-9],
+            'max_iter': [100000]
+        }
+    def get_best_hyperparams(self):
+        return {'tol': 1e-05, 'normalize': False,
+                'n_alphas': 50, 'max_iter': 100000}
+
 class CoxBoost (BaseRegressor):
     def make_model(self, params=None):
         model_params = cfg.PARAMS_COXBOOST

@@ -91,3 +91,12 @@ PARAMS_COXBOOST = {
     'max_features': None,
     'dropout_rate': 0.0,
     'subsample': 1.0}
+
+PARAMS_CPH_LASSO = {
+    'l1_ratio': 1.0,
+    'alpha_min_ratio': 0.5,
+    'fit_baseline_model': True,
+    'normalize': False,
+    'tol': 1e-7,
+    'max_iter': 100000
+}

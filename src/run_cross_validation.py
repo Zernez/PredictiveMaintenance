@@ -7,7 +7,7 @@ import config as cfg
 from sksurv.util import Surv
 from sklearn.model_selection import ParameterSampler
 from sklearn.model_selection import KFold
-from tools.regressors import CoxPH, RSF, DeepSurv, MTLR, BNNSurv, CoxBoost
+from tools.regressors import CoxPHLasso, CoxBoost, RSF, DeepSurv, MTLR, BNNSurv, CoxBoost
 from tools.file_reader import FileReader
 from tools.data_ETL import DataETL
 from utility.builder import Builder
@@ -59,7 +59,7 @@ BEARING_IDS = [1, 2, 3, 4, 5]
 N_CONDITION = len(cfg.RAW_DATA_PATH_XJTU)
 
 def main():
-    models = [CoxPH, CoxBoost, RSF, MTLR, BNNSurv]
+    models = [CoxPHLasso, CoxBoost, RSF, MTLR, BNNSurv]
     model_results = pd.DataFrame()
     
     # Run cross-validation per condition and censoring level
