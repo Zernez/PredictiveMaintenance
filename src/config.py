@@ -95,8 +95,7 @@ PARAMS_COXBOOST = {
 
 PARAMS_CPH_LASSO = {
     'l1_ratio': 1.0,
-    'n_alphas': 100,
-    'alpha_min_ratio': "auto",
+    'alpha_min_ratio': 0.5,
     'fit_baseline_model': True,
     'normalize': False,
     'tol': 1e-7,
