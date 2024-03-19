@@ -212,7 +212,7 @@ class BNNSurv(BaseRegressor):
     def get_hyperparams(self):
         return {'batch_size' : [32, 64, 128],
                 'learning_rate' : [1e-2, 5e-3, 1e-3],
-                'num_epochs': [5, 10, 15],
+                'num_epochs': [5, 10, 15, 20],
                 'layers': [[16], [32], [64], [128]]}
 
     def get_best_hyperparams(self, condition):

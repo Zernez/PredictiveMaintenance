@@ -62,7 +62,8 @@ PARAMS_DSM = {'batch_size' : 16,
               'iters': 50,
               'layers': [32]}
 
-PARAMS_BNN = {'layers' : [32]}
+PARAMS_BNN = {'layers' : [32],
+              'regularization_pen': 0.001}
 
 PARAMS_MTLR = {
     'hidden_size': 64,
