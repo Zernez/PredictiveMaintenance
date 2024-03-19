@@ -8,8 +8,8 @@ if __name__ == "__main__":
     path = cfg.RESULTS_PATH
     results = pd.read_csv(f'{path}/model_results.csv', index_col=0)
     conditions = ["C1", "C2", "C3"]
-    censoring = [0.25, 0.5, 0.75]
-    model_names = ["CoxPHLasso", "CoxBoost", "RSF", "MTLR", "BNNSurv"]
+    censoring = cfg.CENSORING_LEVELS
+    model_names = ["CoxPH", "CoxBoost", "RSF", "MTLR", "BNNSurv"]
     for cond in conditions:
         for index, model_name in enumerate(model_names):
             text = ""            
@@ -19,7 +19,7 @@ if __name__ == "__main__":
                 c_cal = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['CCalib']
                 sum_d_cal = sum(1 for value in d_cal if value > ALPHA)
                 sum_c_cal = sum(1 for value in c_cal if value > ALPHA)
-                if model_name in ["CoxPHLasso", "CoxBoost", "RSF", "MTLR"]:
+                if model_name in ["CoxPH", "CoxBoost", "RSF", "MTLR"]:
                     text += f"{sum_d_cal}/5 & - "
                 else:
                     text += f"{sum_d_cal}/5 & {sum_c_cal}/5 "

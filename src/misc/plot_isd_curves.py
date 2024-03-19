@@ -56,7 +56,7 @@ N_POST_SAMPLES = 100
 
 if __name__ == "__main__":
     fig, axes = plt.subplots(5, 3, figsize=(12, 16), sharey=True, layout='constrained')
-    for condition in [0, 1, 2]:
+    for condition in cfg.CONDITIONS:
         dl = DataLoader(DATASET_NAME, AXIS, condition).load_data()
         for test_bearing_id, plot_idx in zip(BEARING_IDS, PLOT_INDICIES):
             

@@ -14,7 +14,7 @@ AXIS = "X"
 BEARING_IDS = [1, 2, 3, 4, 5]
 
 if __name__ == "__main__":
-    for condition in [0, 1, 2]:
+    for condition in cfg.CONDITIONS:
         for pct in cfg.CENSORING_LEVELS:
             dl = DataLoader(DATASET_NAME, AXIS, condition).load_data()
             data = pd.DataFrame()

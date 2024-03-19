@@ -49,7 +49,7 @@ PCT_CENSORING = 0.25
 N_POST_SAMPLES = 100
 
 if __name__ == "__main__":
-    for condition in [0, 1, 2]:
+    for condition in cfg.CONDITIONS:
         dl = DataLoader(DATASET_NAME, AXIS, condition).load_data()
         train_data, test_data = pd.DataFrame(), pd.DataFrame()
         train_ids = [1, 2, 3] # Bearings 1-3

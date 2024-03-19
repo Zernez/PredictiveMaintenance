@@ -14,12 +14,12 @@ if __name__ == "__main__":
     n_boot = 0
     dataset_path = cfg.DATASET_PATH_XJTU
     n_condition = len(cfg.RAW_DATA_PATH_XJTU)
-    bearing_ids = [1, 2, 3, 4, 5]
+    bearing_ids = cfg.BEARING_IDS
     
     if NEW_DATASET == True:
         Builder(dataset, n_boot).build_new_dataset(bootstrap=n_boot)
     
-    for test_condition in [0, 1, 2]:
+    for test_condition in cfg.CONDITIONS:
         pct_error_list = list()
         _, analytic = FileReader(dataset, dataset_path).read_data(test_condition, axis=axis)
         event_manager = EventManager(dataset)
