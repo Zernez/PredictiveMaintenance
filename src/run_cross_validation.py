@@ -192,11 +192,11 @@ def main():
                         mae_pseudo = np.nan
                         d_calib = np.nan
 
-                    if mae_hinge > 500:
+                    if mae_hinge > 1000:
                         mae_hinge = np.nan
-                    if mae_margin > 500:
+                    if mae_margin > 1000:
                         mae_margin = np.nan
-                    if mae_pseudo > 500:
+                    if mae_pseudo > 1000:
                         mae_pseudo = np.nan
                     
                     if condition == 0:
