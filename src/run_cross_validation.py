@@ -166,10 +166,16 @@ def main():
                         surv_preds = pd.DataFrame(surv_preds, columns=discrete_times.numpy())
                     else:
                         surv_preds = Survival.predict_survival_function(model, cvi[0], continuous_times)
-                        
+                    
+                    # Sanitize
+                    surv_preds = surv_preds.fillna(0).replace([np.inf, -np.inf], 0).clip(lower=0.001)
+                    bad_idx = surv_preds[surv_preds.iloc[:,0] < 0.5].index # check we have a median
+                    sanitized_surv_preds = surv_preds.drop(bad_idx).reset_index(drop=True)
+                    sanitized_cvi = np.delete(cvi[1], bad_idx)
+                    
                     # Calculate scores
                     try:
-                        lifelines_eval = LifelinesEvaluator(surv_preds.T, cvi['Survival_time'], cvi['Event'],
+                        lifelines_eval = LifelinesEvaluator(sanitized_surv_preds.T, sanitized_cvi['Survival_time'], sanitized_cvi['Event'],
                                                             ti[1]['Survival_time'], ti[1]['Event'])
                         mae_hinge = lifelines_eval.mae(method="Hinge")
                         mae_margin = lifelines_eval.mae(method="Margin")
@@ -181,6 +187,13 @@ def main():
                         mae_pseudo = np.nan
                         d_calib = np.nan
 
+                    if mae_hinge > 1000:
+                        mae_hinge = np.nan
+                    if mae_margin > 1000:
+                        mae_margin = np.nan
+                    if mae_pseudo > 1000:
+                        mae_pseudo = np.nan
+                    
                     if condition == 0:
                         cond_name = "C1"
                     elif condition == 1:
@@ -200,7 +213,7 @@ def main():
                             lower_outputs = torch.kthvalue(surv_times, k=1 + drop_num, dim=0)[0]
                             upper_outputs = torch.kthvalue(surv_times, k=N_POST_SAMPLES - drop_num, dim=0)[0]
                             coverage_stats[percentage] = coverage(continuous_times, upper_outputs, lower_outputs,
-                                                                    cvi[1]["Survival_time"], cvi[1]["Event"])
+                                                                  cvi[1]["Survival_time"], cvi[1]["Event"])
                         coverage_data = [list(coverage_stats.keys()), list(coverage_stats.values())]
                         _, pvalue = chisquare(coverage_data)
                         c_calib = pvalue[0]
