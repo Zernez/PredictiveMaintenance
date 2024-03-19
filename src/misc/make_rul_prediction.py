@@ -75,7 +75,7 @@ if __name__ == "__main__":
             X_test_scaled = scaler.transform(X_test)
 
             #Set up the models
-            model = BNNSurv().make_model(BNNSurv().get_best_hyperparams(condition))
+            model = BNNSurv().make_model(BNNSurv().get_hyperparams(condition))
             #model = CoxBoost().make_model(CoxBoost().get_best_hyperparams(condition))
             
             # Train the model

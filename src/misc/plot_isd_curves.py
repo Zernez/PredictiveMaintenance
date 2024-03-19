@@ -106,7 +106,7 @@ if __name__ == "__main__":
             test_event_time = int(t_test[0])
             
             #Set up the models on test
-            model = BNNSurv().make_model(BNNSurv().get_best_hyperparams(condition))
+            model = BNNSurv().make_model(BNNSurv().get_hyperparams(condition))
 
             # Train the model
             model.fit(X_train_scaled, t_train, e_train)

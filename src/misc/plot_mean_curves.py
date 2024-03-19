@@ -103,12 +103,12 @@ if __name__ == "__main__":
         data_valid["Event"] = pd.Series(y_valid['Event']).astype(int)
         
         # Make models
-        cph_model = CoxPHLasso().make_model(CoxPHLasso().get_best_hyperparams(condition))
-        coxboost_model = CoxBoost().make_model(CoxBoost().get_best_hyperparams(condition))
-        rsf_model = RSF().make_model(RSF().get_best_hyperparams(condition))
-        bnn_model = BNNSurv().make_model(BNNSurv().get_best_hyperparams(condition))
+        cph_model = CoxPHLasso().make_model(CoxPHLasso().get_hyperparams(condition))
+        coxboost_model = CoxBoost().make_model(CoxBoost().get_hyperparams(condition))
+        rsf_model = RSF().make_model(RSF().get_hyperparams(condition))
+        bnn_model = BNNSurv().make_model(BNNSurv().get_hyperparams(condition))
         config = dotdict(cfg.PARAMS_MTLR)
-        best_params = MTLR().get_best_hyperparams(condition)
+        best_params = MTLR().get_hyperparams(condition)
         config['batch_size'] = best_params['batch_size']
         config['dropout'] = best_params['dropout']
         config['lr'] = best_params['lr']

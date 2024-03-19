@@ -5,6 +5,7 @@ import torch
 from typing import List, Tuple, Optional, Union
 import rpy2.robjects as robjects
 import scipy.integrate as integrate
+from sklearn.utils import shuffle
 from dataclasses import InitVar, dataclass, field
 
 class dotdict(dict):
@@ -15,6 +16,14 @@ class dotdict(dict):
 
 Numeric = Union[float, int, bool]
 NumericArrayLike = Union[List[Numeric], Tuple[Numeric], np.ndarray, pd.Series, pd.DataFrame, torch.Tensor]
+
+def make_stratification_label(df):
+    t = df["Survival_time"]
+    bins = np.linspace(start=t.min(), stop=t.max(), num=20)
+    t = np.digitize(t, bins, right=True)
+    e = df["Event"]
+    stra_lab = np.stack([t, e], axis=1)
+    return stra_lab
 
 def encode_survival(
         time: Union[float, int, NumericArrayLike],

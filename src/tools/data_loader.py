@@ -62,4 +62,3 @@ class DataLoader:
             non_ph_fts = cfg.NON_PH_FTS[f'{self.dataset_name}_c{self.condition+1}']
             transformed_data.drop(non_ph_fts, axis=1, inplace=True)
         return transformed_data
-        

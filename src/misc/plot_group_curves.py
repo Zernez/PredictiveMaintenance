@@ -95,7 +95,7 @@ if __name__ == "__main__":
             scaler.fit(X_train_feature)
             X_train_scaled = scaler.transform(X_train_feature)
             
-            model = BNNSurv().make_model(BNNSurv().get_best_hyperparams(condition))
+            model = BNNSurv().make_model(BNNSurv().get_hyperparams(condition))
             model.fit(X_train_scaled, t_train, e_train)
             
             # Split data
