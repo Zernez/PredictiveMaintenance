@@ -84,10 +84,19 @@ class CoxPHLasso(BaseRegressor):
             'tol': [1e-5, 1e-7, 1e-9],
             'max_iter': [100000]
         }
-    def get_best_hyperparams(self):
-        return {'tol': 1e-05, 'normalize': False,
-                'n_alphas': 50, 'max_iter': 100000}
-
+    def get_best_hyperparams(self, condition):
+        if condition == 0:
+            return {'tol': 1e-05, 'normalize': False,
+                    'n_alphas': 50, 'max_iter': 100000}
+        elif condition == 1:
+            return {'tol': 1e-05, 'normalize': False,
+            'n_alphas': 50, 'max_iter': 100000}
+        elif condition == 2:
+            return {'tol': 1e-05, 'normalize': False,
+            'n_alphas': 50, 'max_iter': 100000}
+        else:
+            raise ValueError("Invalid condition for XJTU-SY dataset, choose {0, 1, 2}")
+                
 class CoxBoost (BaseRegressor):
     def make_model(self, params=None):
         model_params = cfg.PARAMS_COXBOOST
