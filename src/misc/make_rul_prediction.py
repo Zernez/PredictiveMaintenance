@@ -34,7 +34,7 @@ DATASET_NAME = "xjtu"
 AXIS = "X"
 N_POST_SAMPLES = 100
 BEARING_IDS = [1, 2, 3, 4, 5]
-K = 1
+K = 2
 
 def find_nearest(array, value):
     array = np.asarray(array)
@@ -51,11 +51,11 @@ if __name__ == "__main__":
             # Load train data
             train_data = pd.DataFrame()
             for train_bearing_id in train_ids:
-                df = dl.make_moving_average(train_bearing_id, drop_non_ph_fts=False)
+                df = dl.make_moving_average(train_bearing_id)
                 train_data = pd.concat([train_data, df], axis=0)
             
             # Load test data
-            test_data = dl.make_moving_average(test_bearing_id, drop_non_ph_fts=False)
+            test_data = dl.make_moving_average(test_bearing_id)
             
             # Reset index
             train_data = train_data.reset_index(drop=True)
@@ -114,17 +114,22 @@ if __name__ == "__main__":
             num_time_bins = len(discrete_times)
             
             # Set up Cox
-            rsf_model = RSF().make_model(RSF().get_hyperparams(condition))
+            #rsf_model = RSF().make_model(RSF().get_hyperparams(condition))
             
             #Set up BNNSurv
-            bnnsurv_model = BNNSurv().make_model(BNNSurv().get_hyperparams(condition))
+            #bnnsurv_model = BNNSurv().make_model(BNNSurv().get_hyperparams(condition))
             
             # Train models
             mtlr_model = mtlr(in_features=num_features, num_time_bins=num_time_bins, config=config)
             mtlr_model = train_mtlr_model(mtlr_model, data_train, data_valid, discrete_times,
                                           config, random_state=0, reset_model=True, device=device)
+            """
+            mtlr_model = mtlr(in_features=num_features, num_time_bins=num_time_bins, config=config)
+            mtlr_model = train_mtlr_model(mtlr_model, data_train, data_valid, discrete_times,
+                                          config, random_state=0, reset_model=True, device=device)
             bnnsurv_model.fit(X_train_scaled.to_numpy(), y_train['Survival_time'], y_train['Event'])
             rsf_model.fit(X_train_scaled, y_train)
+            """
             
             # Predict MTLR
             data_test = X_test_scaled.copy()
@@ -138,13 +143,13 @@ if __name__ == "__main__":
             mtlr_surv_preds = pd.DataFrame(mtlr_surv_preds, columns=discrete_times.numpy())
             
             # Predict BNNsurv
-            bnnsurv_surv_preds = Survival.predict_survival_function(bnnsurv_model, X_test_scaled, continuous_times, n_post_samples=N_POST_SAMPLES)
+            #bnnsurv_surv_preds = Survival.predict_survival_function(bnnsurv_model, X_test_scaled, continuous_times, n_post_samples=N_POST_SAMPLES)
             
             # Predict Cox
-            rsf_surv_preds = Survival.predict_survival_function(rsf_model, X_test_scaled, continuous_times)
+            #rsf_surv_preds = Survival.predict_survival_function(rsf_model, X_test_scaled, continuous_times)
             
             # Calculate TTE
-            for surv_preds in [rsf_surv_preds, bnnsurv_surv_preds, mtlr_surv_preds]:
+            for surv_preds in [mtlr_surv_preds]:
                 # Sanitize
                 surv_preds = surv_preds.fillna(0).replace([np.inf, -np.inf], 0).clip(lower=0.001)
                 bad_idx = surv_preds[surv_preds.iloc[:,0] < 0.5].index # check we have a median
