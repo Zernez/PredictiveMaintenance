@@ -19,6 +19,7 @@ from sklearn.model_selection import train_test_split
 import tensorflow as tf
 import random
 from tools.data_loader import DataLoader
+from utility.survival import make_stratified_split
 
 np.random.seed(0)
 tf.random.set_seed(0)
@@ -47,32 +48,25 @@ DATASET_NAME = "xjtu"
 AXIS = "X"
 PCT_CENSORING = 0.25
 N_POST_SAMPLES = 100
+BEARING_IDS = cfg.BEARING_IDS
 
 if __name__ == "__main__":
     for condition in cfg.CONDITIONS:
         dl = DataLoader(DATASET_NAME, AXIS, condition).load_data()
-        train_data, test_data = pd.DataFrame(), pd.DataFrame()
-        train_ids = [1, 2, 3] # Bearings 1-3
-        test_ids = [4, 5] # Bearing 4-5
-        for bearing_id in train_ids:
+        data = pd.DataFrame()
+        for bearing_id in BEARING_IDS:
             df = dl.make_moving_average(bearing_id)
             df = Formatter.add_random_censoring(df, PCT_CENSORING)
             df = df.sample(frac=1, random_state=0)
-            train_data = pd.concat([train_data, df], axis=0)
-        for bearing_id in test_ids:
-           df = dl.make_moving_average(bearing_id)
-           df = Formatter.add_random_censoring(df, PCT_CENSORING)
-           df = df.sample(frac=1, random_state=0)
-           test_data = pd.concat([test_data, df], axis=0)
+            data = pd.concat([data, df], axis=0)
         
-        train_data = train_data.reset_index(drop=True)
-        test_data = test_data.reset_index(drop=True)
+        train_data, _, test_data = make_stratified_split(data, stratify_colname='both', frac_train=0.7, frac_test=0.3, random_state=0)
 
         X_train = train_data.drop(['Event', 'Survival_time'], axis=1)
         y_train = Surv.from_dataframe("Event", "Survival_time", train_data)
         X_test = test_data.drop(['Event', 'Survival_time'], axis=1)
         y_test = Surv.from_dataframe("Event", "Survival_time", test_data)
-
+        
         # Make times
         continuous_times = make_event_times(np.array(y_train['Survival_time']), np.array(y_train['Event'])).astype(int)
         continuous_times = np.unique(continuous_times)

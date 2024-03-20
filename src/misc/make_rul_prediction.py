@@ -8,15 +8,27 @@ from tools.regressors import CoxPH, RSF, DeepSurv, DSM, BNNSurv, CoxBoost, MTLR
 from tools.evaluator import LifelinesEvaluator
 from tools.Evaluations.util import predict_median_survival_time
 from sklearn.preprocessing import StandardScaler
-from utility.survival import make_event_times
+from utility.survival import make_event_times, make_time_bins
 from tools.data_loader import DataLoader
 import tensorflow as tf
 import random
+from sklearn.model_selection import KFold, train_test_split
+from utility.mtlr import mtlr, train_mtlr_model, make_mtlr_prediction
+
+class dotdict(dict):
+    """dot.notation access to dictionary attributes"""
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
 
 np.random.seed(0)
 tf.random.set_seed(0)
 torch.manual_seed(0)
 random.seed(0)
+
+# Setup device
+device = "cpu" # use CPU
+device = torch.device(device)
 
 DATASET_NAME = "xjtu"
 AXIS = "X"
@@ -30,7 +42,7 @@ def find_nearest(array, value):
     return array[idx]
 
 if __name__ == "__main__":
-    for condition in [0]: # 0, 1, 2
+    for condition in [1]: # 0, 1, 2
         dl = DataLoader(DATASET_NAME, AXIS, condition).load_data()
         
         for test_bearing_id in BEARING_IDS:
@@ -58,6 +70,10 @@ if __name__ == "__main__":
                 test_sample = test_data[test_data['Survival_time'] == tk_nearest]
                 test_samples = pd.concat([test_samples, test_sample], axis=0)
             test_samples = test_samples.loc[test_samples['Event'] == True]
+            
+            if test_samples.empty:
+                test_samples = test_data[test_data['Survival_time'] == test_data['Survival_time'].max()] \
+                               .drop_duplicates(subset="Survival_time")
                 
             X_train = train_data.drop(['Event', 'Survival_time'], axis=1)
             y_train = Surv.from_dataframe("Event", "Survival_time", train_data)
@@ -67,41 +83,85 @@ if __name__ == "__main__":
             # Set event times for models
             continuous_times = make_event_times(np.array(y_train['Survival_time']), np.array(y_train['Event'])).astype(int)
             continuous_times = np.unique(continuous_times)
-
+            discrete_times = make_time_bins(y_train['Survival_time'].copy(), event=y_train['Event'].copy())
+            
             # Scale data
+            features = list(X_train.columns)
             scaler = StandardScaler()
             scaler.fit(X_train)
-            X_train_scaled = scaler.transform(X_train)
-            X_test_scaled = scaler.transform(X_test)
-
-            #Set up the models
-            model = BNNSurv().make_model(BNNSurv().get_hyperparams(condition))
-            #model = CoxBoost().make_model(CoxBoost().get_best_hyperparams(condition))
+            X_train_scaled = pd.DataFrame(scaler.transform(X_train), columns=features)
+            X_test_scaled = pd.DataFrame(scaler.transform(X_test), columns=features)
             
-            # Train the model
-            model.fit(X_train_scaled, y_train['Survival_time'], y_train['Event'])
-            #model.fit(X_train_scaled, y_train)
+            # Set up MTLR
+            X_train_mtlr, X_valid_mtlr, y_train_mtlr, y_valid_mtlr = train_test_split(X_train_scaled, y_train, test_size=0.3, random_state=0)
+            X_train_mtlr = X_train_mtlr.reset_index(drop=True)
+            X_valid_mtlr = X_valid_mtlr.reset_index(drop=True)
+            data_train = X_train_mtlr.copy()
+            data_train["Survival_time"] = pd.Series(y_train_mtlr['Survival_time'])
+            data_train["Event"] = pd.Series(y_train_mtlr['Event']).astype(int)
+            data_valid = X_valid_mtlr.copy()
+            data_valid["Survival_time"] = pd.Series(y_valid_mtlr['Survival_time'])
+            data_valid["Event"] = pd.Series(y_valid_mtlr['Event']).astype(int)
+            config = dotdict(cfg.PARAMS_MTLR)
+            params = MTLR().get_hyperparams(condition)
+            config['batch_size'] = params['batch_size']
+            config['dropout'] = params['dropout']
+            config['lr'] = params['lr']
+            config['c1'] = params['c1']
+            config['num_epochs'] = params['num_epochs']
+            config['hidden_size'] = params['hidden_size']   
+            num_features = X_train_mtlr.shape[1]
+            num_time_bins = len(discrete_times)
             
-            # Predict
-            surv_preds = Survival.predict_survival_function(model, X_test_scaled, continuous_times, n_post_samples=N_POST_SAMPLES)
-
-            # Sanitize
-            surv_preds = surv_preds.fillna(0).replace([np.inf, -np.inf], 0).clip(lower=0.001)
-            bad_idx = surv_preds[surv_preds.iloc[:,0] < 0.5].index # check we have a median
-            sanitized_surv_preds = surv_preds.drop(bad_idx).reset_index(drop=True)
-            sanitized_y_test = np.delete(y_test, bad_idx)
+            # Set up Cox
+            rsf_model = RSF().make_model(RSF().get_hyperparams(condition))
+            
+            #Set up BNNSurv
+            bnnsurv_model = BNNSurv().make_model(BNNSurv().get_hyperparams(condition))
+            
+            # Train models
+            mtlr_model = mtlr(in_features=num_features, num_time_bins=num_time_bins, config=config)
+            mtlr_model = train_mtlr_model(mtlr_model, data_train, data_valid, discrete_times,
+                                          config, random_state=0, reset_model=True, device=device)
+            bnnsurv_model.fit(X_train_scaled.to_numpy(), y_train['Survival_time'], y_train['Event'])
+            rsf_model.fit(X_train_scaled, y_train)
+            
+            # Predict MTLR
+            data_test = X_test_scaled.copy()
+            data_test["Survival_time"] = pd.Series(y_test['Survival_time'])
+            data_test["Event"] = pd.Series(y_test['Event']).astype(int)
+            mtlr_test_data = torch.tensor(data_test.drop(["Survival_time", "Event"], axis=1).values,
+                                          dtype=torch.float, device=device)
+            survival_outputs, _, _ = make_mtlr_prediction(mtlr_model, mtlr_test_data, discrete_times, config)
+            mtlr_surv_preds = survival_outputs.numpy()
+            discrete_times = torch.cat([torch.tensor([0]).to(discrete_times.device), discrete_times], 0)
+            mtlr_surv_preds = pd.DataFrame(mtlr_surv_preds, columns=discrete_times.numpy())
+            
+            # Predict BNNsurv
+            bnnsurv_surv_preds = Survival.predict_survival_function(bnnsurv_model, X_test_scaled, continuous_times, n_post_samples=N_POST_SAMPLES)
+            
+            # Predict Cox
+            rsf_surv_preds = Survival.predict_survival_function(rsf_model, X_test_scaled, continuous_times)
             
             # Calculate TTE
-            lifelines_eval = LifelinesEvaluator(sanitized_surv_preds.T, sanitized_y_test['Survival_time'], sanitized_y_test['Event'],
-                                                y_train['Survival_time'], y_train['Event'])
-            median_survs = lifelines_eval.predict_time_from_curve(predict_median_survival_time)
+            for surv_preds in [rsf_surv_preds, bnnsurv_surv_preds, mtlr_surv_preds]:
+                # Sanitize
+                surv_preds = surv_preds.fillna(0).replace([np.inf, -np.inf], 0).clip(lower=0.001)
+                bad_idx = surv_preds[surv_preds.iloc[:,0] < 0.5].index # check we have a median
+                sanitized_surv_preds = surv_preds.drop(bad_idx).reset_index(drop=True)
+                sanitized_y_test = np.delete(y_test, bad_idx)
+                
+                lifelines_eval = LifelinesEvaluator(sanitized_surv_preds.T, sanitized_y_test['Survival_time'], sanitized_y_test['Event'],
+                                                    y_train['Survival_time'], y_train['Event'])
+                median_survs = lifelines_eval.predict_time_from_curve(predict_median_survival_time)
                     
-            # Calculate CRA
-            cra = 0
-            n_preds = len(median_survs)
-            for k in range(1, n_preds+1):
-                wk = k/sum(range(n_preds+1))
-                ra_tk = 1 - (abs(sanitized_y_test['Survival_time'][k-1]-median_survs[k-1])/
-                             sanitized_y_test['Survival_time'][k-1])
-                cra += wk*ra_tk
-            print(f'CRA for Bearing {condition+1}_{test_bearing_id}: {round(cra, 4)}')
+                # Calculate CRA
+                cra = 0
+                n_preds = len(median_survs)
+                for k in range(1, n_preds+1):
+                    wk = k/sum(range(n_preds+1))
+                    ra_tk = 1 - (abs(sanitized_y_test['Survival_time'][k-1]-median_survs[k-1])/
+                                sanitized_y_test['Survival_time'][k-1])
+                    cra += wk*ra_tk
+                print(f'CRA for Bearing {condition+1}_{test_bearing_id}: {round(cra, 4)}')
+            print()
