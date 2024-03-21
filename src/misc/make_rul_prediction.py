@@ -91,7 +91,6 @@ if __name__ == "__main__":
 
             # Set event times for models
             continuous_times = make_event_times(np.array(y_train['Survival_time']), np.array(y_train['Event'])).astype(int)
-            continuous_times = np.unique(continuous_times)
             discrete_times = make_time_bins(y_train['Survival_time'].copy(), event=y_train['Event'].copy())
             
             # Scale data

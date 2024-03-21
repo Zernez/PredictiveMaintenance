@@ -88,7 +88,6 @@ if __name__ == "__main__":
             # Select first observation
             test_sample = test_data[test_data['Survival_time'] == test_data['Survival_time'].max()] \
                           .drop_duplicates(subset="Survival_time")
-            print(test_sample)
 
             X_train = train_data.drop(['Event', 'Survival_time'], axis=1)
             y_train = Surv.from_dataframe("Event", "Survival_time", train_data)
@@ -97,7 +96,6 @@ if __name__ == "__main__":
             
             # Set event times for models
             continuous_times = make_event_times(np.array(y_train['Survival_time']), np.array(y_train['Event'])).astype(int)
-            continuous_times = np.unique(continuous_times)
             
             # Scale data
             scaler = StandardScaler()
@@ -127,7 +125,6 @@ if __name__ == "__main__":
             # Calculate TTE
             lifelines_eval = LifelinesEvaluator(median_outputs.T, t_test, e_test, t_train, e_train)
             pred_survival_time = int(lifelines_eval.predict_time_from_curve(predict_median_survival_time))
-            print(pred_survival_time)
             
             # Plot
             p1 = axes[plot_idx, condition].plot(np.mean(median_outputs, axis=0).T, linewidth=2, label=r"$\mathbb{E}[S(t|\bm{X})]$", color="black")

@@ -60,7 +60,7 @@ N_POST_SAMPLES = 100
 BEARING_IDS = cfg.BEARING_IDS
 
 if __name__ == "__main__":
-    for condition in cfg.CONDITIONS:
+    for condition in [2]:
         dl = DataLoader(DATASET_NAME, AXIS, condition).load_data()
         data = pd.DataFrame()
         for bearing_id in BEARING_IDS:
@@ -69,7 +69,7 @@ if __name__ == "__main__":
             df = df.sample(frac=1, random_state=0)
             data = pd.concat([data, df], axis=0)
         
-        train_data, _, test_data = make_stratified_split(data, stratify_colname='both', frac_train=0.8, frac_test=0.2, random_state=0)
+        train_data, _, test_data = make_stratified_split(data, stratify_colname='both', frac_train=0.7, frac_test=0.3, random_state=0)
 
         X_train = train_data.drop(['Event', 'Survival_time'], axis=1)
         y_train = Surv.from_dataframe("Event", "Survival_time", train_data)
@@ -78,7 +78,6 @@ if __name__ == "__main__":
         
         # Make times
         continuous_times = make_event_times(np.array(y_train['Survival_time']), np.array(y_train['Event'])).astype(int)
-        continuous_times = np.unique(continuous_times)
         discrete_times = make_time_bins(y_train['Survival_time'].copy(), event=y_train['Event'].copy())
         
         # Scale data
@@ -95,15 +94,15 @@ if __name__ == "__main__":
         e_train = y_train['Event']
         
         # Format data for MTLR model
-        X_train, X_valid, y_train, y_valid = train_test_split(X_train, y_train, test_size=0.3, random_state=0)
-        X_train = X_train.reset_index(drop=True)
-        X_valid = X_valid.reset_index(drop=True)
-        data_train = X_train.copy()
-        data_train["Survival_time"] = pd.Series(y_train['Survival_time'])
-        data_train["Event"] = pd.Series(y_train['Event']).astype(int)
-        data_valid = X_valid.copy()
-        data_valid["Survival_time"] = pd.Series(y_valid['Survival_time'])
-        data_valid["Event"] = pd.Series(y_valid['Event']).astype(int)
+        X_train_mtlr, X_valid_mtlr, y_train_mtlr, y_valid_mtlr = train_test_split(X_train, y_train, test_size=0.3, random_state=0)
+        X_train_mtlr = X_train_mtlr.reset_index(drop=True)
+        X_valid_mtlr = X_valid_mtlr.reset_index(drop=True)
+        data_train = X_train_mtlr.copy()
+        data_train["Survival_time"] = pd.Series(y_train_mtlr['Survival_time'])
+        data_train["Event"] = pd.Series(y_train_mtlr['Event']).astype(int)
+        data_valid = X_valid_mtlr.copy()
+        data_valid["Survival_time"] = pd.Series(y_valid_mtlr['Survival_time'])
+        data_valid["Event"] = pd.Series(y_valid_mtlr['Event']).astype(int)
         
         # Make models
         cph_model = CoxPH().make_model(CoxPH().get_hyperparams(condition))
@@ -118,7 +117,7 @@ if __name__ == "__main__":
         config['c1'] = best_params['c1']
         config['num_epochs'] = best_params['num_epochs']
         config['hidden_size'] = best_params['hidden_size']
-        num_features = X_train.shape[1]
+        num_features = X_train_mtlr.shape[1]
         num_time_bins = len(discrete_times)
         mtlr_model = MTLR().make_model(num_features=num_features,
                                        num_time_bins=num_time_bins,

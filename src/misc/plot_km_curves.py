@@ -28,7 +28,6 @@ if __name__ == "__main__":
             data = data.reset_index(drop=True)
             y = Surv.from_dataframe("Event", "Survival_time", data)
             continuous_times = make_event_times(np.array(y['Survival_time']), np.array(y['Event'])).astype(int)
-            continuous_times = np.unique(continuous_times)
             fig = plt.figure(figsize=(6, 4))
             km_mean, km_high, km_low = calculate_kaplan_vectorized(y['Survival_time'].reshape(1,-1),
                                                                    y['Event'].reshape(1,-1),

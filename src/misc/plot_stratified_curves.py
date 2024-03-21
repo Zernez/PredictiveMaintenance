@@ -69,7 +69,7 @@ if __name__ == "__main__":
             df = df.sample(frac=1, random_state=0)
             data = pd.concat([data, df], axis=0)
         
-        train_data, _, test_data = make_stratified_split(data, stratify_colname='both', frac_train=0.8, frac_test=0.2, random_state=0)
+        train_data, _, test_data = make_stratified_split(data, stratify_colname='both', frac_train=0.7, frac_test=0.3, random_state=0)
 
         X_train = train_data.drop(['Event', 'Survival_time'], axis=1)
         y_train = Surv.from_dataframe("Event", "Survival_time", train_data)
@@ -78,8 +78,7 @@ if __name__ == "__main__":
         
         # Make unique times
         continuous_times = make_event_times(y_train['Survival_time'].copy(), y_train['Event'].copy()).astype(int)
-        continuous_times = np.unique(continuous_times)
-    
+        
         #Format the data
         t_train = y_train['Survival_time']
         e_train = y_train['Event']

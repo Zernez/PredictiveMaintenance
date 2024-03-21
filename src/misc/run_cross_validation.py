@@ -101,7 +101,6 @@ def main():
                     
                     # Make event times
                     continuous_times = make_event_times(ti[1]['Survival_time'].copy(), ti[1]['Event'].copy()).astype(int)
-                    continuous_times = np.unique(continuous_times)
                     discrete_times = make_time_bins(ti[1]['Survival_time'].copy(), event=ti[1]['Event'].copy())
 
                     # Get hyperparams
