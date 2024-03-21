@@ -82,8 +82,8 @@ if __name__ == "__main__":
             
             # Load test data
             test_data = dl.make_moving_average(test_bearing_id)
-            test_data = Formatter.add_random_censoring(df, PCT_CENSORING)
-            test_data = df.sample(frac=1, random_state=0)
+            test_data = Formatter.add_random_censoring(test_data, PCT_CENSORING)
+            test_data = test_data.sample(frac=1, random_state=0)
             
             # Select first observation
             test_sample = test_data[test_data['Survival_time'] == test_data['Survival_time'].max()] \
@@ -134,7 +134,7 @@ if __name__ == "__main__":
             axes[plot_idx, condition].fill_between(continuous_times, upper_outputs[0,:], lower_outputs[0,:], color="gray", alpha=0.25)
             p2 = axes[plot_idx, condition].axhline(y=0.5, linestyle= "dashed", color='blue', linewidth=1, label='$\hat{t}_{i}$ = ' + f'{pred_survival_time}')        
             p3 = axes[plot_idx, condition].axvline(x=test_event_time, linestyle= "dashed",
-                                                        color='green', linewidth=2.0, label=f'$t_i$ = {int(test_event_time)}')
+                                                   color='green', linewidth=2.0, label=f'$t_i$ = {int(test_event_time)}')
             axes[plot_idx, condition].axvline(x=int(pred_survival_time), linestyle= "dashed", color='blue', linewidth=2.0)
             axes[plot_idx, condition].set_title(f'Bearing {condition+1}_{plot_idx+1}')
             axes[plot_idx, condition].set_xlabel("Time (min)")
