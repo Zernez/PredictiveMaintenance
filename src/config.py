@@ -1,19 +1,19 @@
+from pathlib import Path
+ROOT_DIR = Path(__file__).absolute().parent.parent
+
 N_SIGNALS_XJTU = 3
-DATASET_PATH_XJTU = "./data/XJTU-SY/csv/"
-RAW_DATA_PATH_XJTU = ["./data/XJTU-SY/35Hz12kN/", "./data/XJTU-SY/37.5Hz11kN/", "./data/XJTU-SY/40Hz10kN/"]
 N_REAL_BEARING_XJTU = 5
 BASE_DYNAMIC_LOAD_XJTU = 12.82
 BEARING_IDS = [1, 2, 3, 4, 5]
 CONDITIONS = [0, 1, 2]
 CENSORING_LEVELS = [0.25, 0.5, 0.75]
-RESULTS_PATH = "./results"
-PLOTS_PATH = "./plots"
-RESULT_PATH_XJTU= "./data/XJTU-SY/results/"
-SAMPLE_PATH_XJTU= "./data/XJTU-SY/csv/"
-RESULT_PATH_PRONOSTIA= "./data/PRONOSTIA/results/"
-SAMPLE_PATH_PRONOSTIA= "./data/PRONOSTIA/csv/"
-HYPER_RESULTS= "./data/logs/"
-
+MODELS_DIR = Path.joinpath(ROOT_DIR, 'results')
+PLOTS_DIR = Path.joinpath(ROOT_DIR, 'plots')
+DATASET_PATH_XJTU = Path.joinpath(ROOT_DIR, 'data/XJTU-SY/csv')
+RAW_DATA_PATH_XJTU = [Path.joinpath(ROOT_DIR, 'data/XJTU-SY/35Hz12kN'),
+                      Path.joinpath(ROOT_DIR, 'data/XJTU-SY/37.5Hz11kN'),
+                      Path.joinpath(ROOT_DIR, 'data/XJTU-SY/40Hz10kN')]
+                      
 FREQUENCY_BANDS1 = {'xjtu_start': [12, 34, 71, 107, 171],
                     'xjtu_stop': [14, 36, 73, 109, 173]}
 FREQUENCY_BANDS2 = {'xjtu_start': [13, 36, 76, 114, 183],

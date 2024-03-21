@@ -35,6 +35,6 @@ if __name__ == "__main__":
             plt.tight_layout()
             ax.grid(which='minor', alpha=0.2)
             ax.grid(which='major', alpha=0.5)
-            plt.savefig(f'{cfg.PLOTS_PATH}/event_times_C{condition+1}_cens_{int(pct*100)}.pdf',
+            plt.savefig(f'{cfg.PLOTS_DIR}/event_times_C{condition+1}_cens_{int(pct*100)}.pdf',
                         format='pdf', bbox_inches="tight")
         

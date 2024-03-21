@@ -49,8 +49,9 @@ class FileReader:
             axis: str, 
             from_pickle: bool = False
         ) -> (pd.DataFrame, pd.DataFrame, dict):
-        covariates = pd.read_csv(self.dataset_path + 'covariates_' + str(test_condition) + '.csv')
-        analytic = pd.read_csv(self.dataset_path + 'analytic_' + str(test_condition) + '.csv')
+        dp = str(Path(self.dataset_path))
+        covariates = pd.read_csv(dp + '\\' + 'covariates_' + str(test_condition) + '.csv')
+        analytic = pd.read_csv(dp + '\\' + 'analytic_' + str(test_condition) + '.csv')
         if axis == "X":
             covariates_cols = [col for col in covariates.columns if int(col.split('_')[0][1:]) % 2 != 0]
             analytic_cols = [col for col in analytic.columns if int(col.split('_')[0][1:]) % 2 != 0]
