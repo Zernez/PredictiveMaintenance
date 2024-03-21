@@ -86,8 +86,8 @@ if __name__ == "__main__":
             test_data = test_data.sample(frac=1, random_state=0)
             
             # Select first observation
-            test_sample = test_data[test_data['Survival_time'] == test_data['Survival_time'].max()] \
-                          .drop_duplicates(subset="Survival_time")
+            test_sample = test_data[test_data['Survival_time'] == test_data['Survival_time'].max()-5] \
+                                                                  .drop_duplicates(subset="Survival_time") # skip first 5
 
             X_train = train_data.drop(['Event', 'Survival_time'], axis=1)
             y_train = Surv.from_dataframe("Event", "Survival_time", train_data)
