@@ -2,7 +2,7 @@ import pandas as pd
 import config as cfg
 import numpy as np
 
-N_DECIMALS = 1
+N_DECIMALS = 2
 
 if __name__ == "__main__":
     path = cfg.RESULTS_PATH
@@ -18,12 +18,12 @@ if __name__ == "__main__":
                 mae_hinge = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['MAEHinge']
                 mae_margin = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['MAEMargin']
                 mae_pseudo = results.loc[(results['Condition'] == cond) & (results['CensoringLevel'] == cens) & (results['ModelName'] == model_name)]['MAEPseudo']
-                mean_mae_hinge = round(np.mean(mae_hinge.dropna()), N_DECIMALS)
-                mean_mae_margin = round(np.mean(mae_margin.dropna()), N_DECIMALS)
-                mean_mae_pseudo = round(np.mean(mae_pseudo.dropna()), N_DECIMALS)
-                std_mae_hinge = round(np.std(mae_hinge.dropna()), N_DECIMALS)
-                std_mae_margin = round(np.std(mae_margin.dropna()), N_DECIMALS)
-                std_mae_pseudo = round(np.std(mae_pseudo.dropna()), N_DECIMALS)
+                mean_mae_hinge = "%.2f" % round(np.mean(mae_hinge.dropna()), N_DECIMALS)
+                mean_mae_margin = "%.2f" % round(np.mean(mae_margin.dropna()), N_DECIMALS)
+                mean_mae_pseudo = "%.2f" % round(np.mean(mae_pseudo.dropna()), N_DECIMALS)
+                std_mae_hinge = "%.2f" % round(np.std(mae_hinge.dropna()), N_DECIMALS)
+                std_mae_margin = "%.2f" %round(np.std(mae_margin.dropna()), N_DECIMALS)
+                std_mae_pseudo = "%.2f" %round(np.std(mae_pseudo.dropna()), N_DECIMALS)
                 text += f"{mean_mae_hinge}$\pm${std_mae_hinge} & {mean_mae_margin}$\pm${std_mae_margin} & {mean_mae_pseudo}$\pm${std_mae_pseudo}"
                 if cens == 0.75:
                    text += "\\\\"

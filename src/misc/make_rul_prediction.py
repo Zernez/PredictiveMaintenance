@@ -113,8 +113,8 @@ if __name__ == "__main__":
             num_features = X_train_mtlr.shape[1]
             num_time_bins = len(discrete_times)
             
-            # Set up Cox
-            #rsf_model = RSF().make_model(RSF().get_hyperparams(condition))
+            # Set up RSF
+            rsf_model = RSF().make_model(RSF().get_hyperparams(condition))
             
             #Set up BNNSurv
             #bnnsurv_model = BNNSurv().make_model(BNNSurv().get_hyperparams(condition))
@@ -128,8 +128,8 @@ if __name__ == "__main__":
             mtlr_model = train_mtlr_model(mtlr_model, data_train, data_valid, discrete_times,
                                           config, random_state=0, reset_model=True, device=device)
             bnnsurv_model.fit(X_train_scaled.to_numpy(), y_train['Survival_time'], y_train['Event'])
-            rsf_model.fit(X_train_scaled, y_train)
             """
+            rsf_model.fit(X_train_scaled, y_train)
             
             # Predict MTLR
             data_test = X_test_scaled.copy()
@@ -146,10 +146,10 @@ if __name__ == "__main__":
             #bnnsurv_surv_preds = Survival.predict_survival_function(bnnsurv_model, X_test_scaled, continuous_times, n_post_samples=N_POST_SAMPLES)
             
             # Predict Cox
-            #rsf_surv_preds = Survival.predict_survival_function(rsf_model, X_test_scaled, continuous_times)
+            rsf_surv_preds = Survival.predict_survival_function(rsf_model, X_test_scaled, continuous_times)
             
             # Calculate TTE
-            for surv_preds in [mtlr_surv_preds]:
+            for surv_preds in [mtlr_surv_preds, rsf_surv_preds]:
                 # Sanitize
                 surv_preds = surv_preds.fillna(0).replace([np.inf, -np.inf], 0).clip(lower=0.001)
                 bad_idx = surv_preds[surv_preds.iloc[:,0] < 0.5].index # check we have a median
