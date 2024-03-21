@@ -105,6 +105,7 @@ if __name__ == "__main__":
             X_test_scaled = pd.DataFrame(scaler.transform(X_test), columns=features)
             
             # Set up MTLR
+            """
             X_train_mtlr, X_valid_mtlr, y_train_mtlr, y_valid_mtlr = train_test_split(X_train_scaled, y_train, test_size=0.3, random_state=0)
             X_train_mtlr = X_train_mtlr.reset_index(drop=True)
             X_valid_mtlr = X_valid_mtlr.reset_index(drop=True)
@@ -124,6 +125,7 @@ if __name__ == "__main__":
             config['hidden_size'] = params['hidden_size']   
             num_features = X_train_mtlr.shape[1]
             num_time_bins = len(discrete_times)
+            """
             
             # Set up RSF
             rsf_model = RSF().make_model(RSF().get_hyperparams(condition))
@@ -132,12 +134,13 @@ if __name__ == "__main__":
             #bnnsurv_model = BNNSurv().make_model(BNNSurv().get_hyperparams(condition))
             
             # Train models
-            mtlr_model = mtlr(in_features=num_features, num_time_bins=num_time_bins, config=config)
-            mtlr_model = train_mtlr_model(mtlr_model, data_train, data_valid, discrete_times,
-                                          config, random_state=0, reset_model=True, device=device)
+            #mtlr_model = mtlr(in_features=num_features, num_time_bins=num_time_bins, config=config)
+            #mtlr_model = train_mtlr_model(mtlr_model, data_train, data_valid, discrete_times,
+            #                              config, random_state=0, reset_model=True, device=device)
             rsf_model.fit(X_train_scaled, y_train)
             
             # Predict MTLR
+            """
             data_test = X_test_scaled.copy()
             data_test["Survival_time"] = pd.Series(y_test['Survival_time'])
             data_test["Event"] = pd.Series(y_test['Event']).astype(int)
@@ -147,6 +150,7 @@ if __name__ == "__main__":
             mtlr_surv_preds = survival_outputs.numpy()
             discrete_times = torch.cat([torch.tensor([0]).to(discrete_times.device), discrete_times], 0)
             mtlr_surv_preds = pd.DataFrame(mtlr_surv_preds, columns=discrete_times.numpy())
+            """
             
             # Predict BNNsurv
             #bnnsurv_surv_preds = Survival.predict_survival_function(bnnsurv_model, X_test_scaled, continuous_times, n_post_samples=N_POST_SAMPLES)
@@ -155,7 +159,7 @@ if __name__ == "__main__":
             rsf_surv_preds = Survival.predict_survival_function(rsf_model, X_test_scaled, continuous_times)
             
             # Calculate TTE
-            for surv_preds in [mtlr_surv_preds, rsf_surv_preds]:
+            for surv_preds in [rsf_surv_preds]:
                 # Sanitize
                 surv_preds = surv_preds.fillna(0).replace([np.inf, -np.inf], 0).clip(lower=0.001)
                 bad_idx = surv_preds[surv_preds.iloc[:,0] < 0.5].index # check we have a median
