@@ -43,7 +43,7 @@ DATASET_NAME = "xjtu"
 AXIS = "X"
 N_POST_SAMPLES = 100
 BEARING_IDS = [1, 2, 3, 4, 5]
-K = 2
+K = 1
 
 def find_nearest(array, value):
     array = np.asarray(array)
@@ -51,7 +51,7 @@ def find_nearest(array, value):
     return array[idx]
 
 if __name__ == "__main__":
-    for condition in [1]: # 0, 1, 2
+    for condition in cfg.CONDITIONS:
         dl = DataLoader(DATASET_NAME, AXIS, condition).load_data()
         
         for test_bearing_id in BEARING_IDS:
@@ -153,7 +153,7 @@ if __name__ == "__main__":
             # Predict BNNsurv
             #bnnsurv_surv_preds = Survival.predict_survival_function(bnnsurv_model, X_test_scaled, continuous_times, n_post_samples=N_POST_SAMPLES)
             
-            # Predict Cox
+            # Predict RSF
             rsf_surv_preds = Survival.predict_survival_function(rsf_model, X_test_scaled, continuous_times)
             
             # Calculate TTE
