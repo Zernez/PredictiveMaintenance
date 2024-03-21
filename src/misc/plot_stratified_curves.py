@@ -11,7 +11,7 @@ from utility.survival import make_event_times, make_time_bins
 from utility.data import get_window_size, get_lag, get_lmd
 from utility.event import EventManager
 from sklearn.preprocessing import StandardScaler
-from tools.regressors import BNNSurv
+from tools.regressors import BNNSurv, RSF
 from utility.survival import Survival
 from utility.mtlr import mtlr, train_mtlr_model, make_mtlr_prediction
 import torch
@@ -77,8 +77,8 @@ if __name__ == "__main__":
         y_test = Surv.from_dataframe("Event", "Survival_time", test_data)
         
         # Make unique times
-        unique_times = make_event_times(y_train['Survival_time'].copy(), y_train['Event'].copy()).astype(int)
-        unique_times = np.unique(unique_times)
+        continuous_times = make_event_times(y_train['Survival_time'].copy(), y_train['Event'].copy()).astype(int)
+        continuous_times = np.unique(continuous_times)
     
         #Format the data
         t_train = y_train['Survival_time']
@@ -96,8 +96,8 @@ if __name__ == "__main__":
             scaler.fit(X_train_feature)
             X_train_scaled = scaler.transform(X_train_feature)
             
-            model = BNNSurv().make_model(BNNSurv().get_hyperparams(condition))
-            model.fit(X_train_scaled, t_train, e_train)
+            model = RSF().make_model(RSF().get_hyperparams(condition))
+            model.fit(X_train_scaled, y_train)
             
             # Split data
             split_thresholds = []
@@ -118,18 +118,15 @@ if __name__ == "__main__":
                 X_test_g2_scaled = scaler.transform(X_test_g2)
         
                 # Predict for mean and two groups
-                surv_probs = Survival().predict_survival_function(model, X_test_scaled, unique_times,
-                                                                  n_post_samples=N_POST_SAMPLES)
+                surv_probs = Survival().predict_survival_function(model, X_test_scaled, continuous_times)
                 km_mean, km_high, km_low = calculate_kaplan_vectorized(y_test['Survival_time'].reshape(1,-1),
-                                                                    y_test['Event'].reshape(1,-1),
-                                                                    unique_times)
-                surv_probs_g1 = Survival().predict_survival_function(model, X_test_g1_scaled, unique_times,
-                                                                     n_post_samples=N_POST_SAMPLES)
+                                                                       y_test['Event'].reshape(1,-1),
+                                                                       continuous_times)
+                surv_probs_g1 = Survival().predict_survival_function(model, X_test_g1_scaled, continuous_times)
                 km_mean_g1, km_high_g1, km_low_g1 = calculate_kaplan_vectorized(y_test_g1['Survival_time'].reshape(1,-1),
                                                                                 y_test_g1['Event'].reshape(1,-1),
-                                                                                unique_times)
-                surv_probs_g2 = Survival().predict_survival_function(model, X_test_g2_scaled, unique_times,
-                                                                     n_post_samples=N_POST_SAMPLES)
+                                                                                continuous_times)
+                surv_probs_g2 = Survival().predict_survival_function(model, X_test_g2_scaled, continuous_times)
                 
                 surv_probs_mean = np.mean(surv_probs, axis=0)
                 surv_probs_g1_mean = np.mean(surv_probs_g1, axis=0)
