@@ -154,5 +154,5 @@ if __name__ == "__main__":
         plt.tight_layout()
         plt.grid()
         plt.legend()
-        plt.savefig(f'{cfg.PLOTS_PATH}/mean_survival_C{condition+1}.pdf', format='pdf', bbox_inches="tight")
+        plt.savefig(f'{cfg.PLOTS_DIR}/mean_survival_C{condition+1}.pdf', format='pdf', bbox_inches="tight")
         

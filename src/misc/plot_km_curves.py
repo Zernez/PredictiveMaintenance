@@ -40,5 +40,5 @@ if __name__ == "__main__":
             plt.tight_layout()
             plt.grid()
             plt.legend()
-            plt.savefig(f'{cfg.PLOTS_PATH}/kaplan_meier_C{condition+1}_cens_{int(pct*100)}.pdf', format='pdf', bbox_inches="tight")
+            plt.savefig(f'{cfg.PLOTS_DIR}/kaplan_meier_C{condition+1}_cens_{int(pct*100)}.pdf', format='pdf', bbox_inches="tight")
         

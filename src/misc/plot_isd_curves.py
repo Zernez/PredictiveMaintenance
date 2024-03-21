@@ -138,4 +138,4 @@ if __name__ == "__main__":
             if condition == 0:
                 axes[plot_idx, condition].set_ylabel("Survival probability S(t)")
             axes[plot_idx, condition].grid(True)
-    plt.savefig(f'{cfg.PLOTS_PATH}/isd.pdf', format='pdf', bbox_inches="tight")
+    plt.savefig(f'{cfg.PLOTS_DIR}/isd.pdf', format='pdf', bbox_inches="tight")

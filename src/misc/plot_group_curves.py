@@ -134,6 +134,6 @@ if __name__ == "__main__":
                 axes[i].set_ylabel("Survival probability S(t)")
                 axes[i].legend(loc='upper right')
                 axes[i].grid(True)
-            plt.savefig(f'{cfg.PLOTS_PATH}/group_survival_{feature}_C{condition+1}.pdf',
+            plt.savefig(f'{cfg.PLOTS_DIR}/group_survival_{feature}_C{condition+1}.pdf',
                         format='pdf', bbox_inches="tight")
         
