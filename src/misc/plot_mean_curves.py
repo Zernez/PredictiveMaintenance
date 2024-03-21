@@ -11,7 +11,7 @@ from utility.survival import make_event_times, make_time_bins
 from utility.data import get_window_size, get_lag, get_lmd
 from utility.event import EventManager
 from sklearn.preprocessing import StandardScaler
-from tools.regressors import CoxPHLasso, CoxBoost, RSF, MTLR, BNNSurv
+from tools.regressors import CoxPH, CoxBoost, RSF, MTLR, BNNSurv
 from utility.survival import Survival
 from utility.mtlr import mtlr, train_mtlr_model, make_mtlr_prediction
 import torch
@@ -106,7 +106,7 @@ if __name__ == "__main__":
         data_valid["Event"] = pd.Series(y_valid['Event']).astype(int)
         
         # Make models
-        cph_model = CoxPHLasso().make_model(CoxPHLasso().get_hyperparams(condition))
+        cph_model = CoxPH().make_model(CoxPH().get_hyperparams(condition))
         coxboost_model = CoxBoost().make_model(CoxBoost().get_hyperparams(condition))
         rsf_model = RSF().make_model(RSF().get_hyperparams(condition))
         bnn_model = BNNSurv().make_model(BNNSurv().get_hyperparams(condition))
