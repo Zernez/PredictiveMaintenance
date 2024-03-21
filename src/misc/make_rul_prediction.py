@@ -71,14 +71,18 @@ if __name__ == "__main__":
             test_data = test_data.reset_index(drop=True)
 
             # Select Tk observations
-            surv_times = range(1, int(test_data['Survival_time'].max()+1))
-            test_samples = pd.DataFrame()
-            for k in range(1, K+1):
-                tk = int(np.quantile(surv_times, 1 / k))
-                tk_nearest = find_nearest(surv_times, tk)
-                test_sample = test_data[test_data['Survival_time'] == tk_nearest]
-                test_samples = pd.concat([test_samples, test_sample], axis=0)
-            test_samples = test_samples.loc[test_samples['Event'] == True]
+            if K == 1:
+                test_samples = test_data[test_data['Survival_time'] == test_data['Survival_time'].max()-5] \
+                               .drop_duplicates(subset="Survival_time") # skip first 5
+            else:
+                surv_times = range(1, int(test_data['Survival_time'].max()+1))
+                test_samples = pd.DataFrame()
+                for k in range(1, K+1):
+                    tk = int(np.quantile(surv_times, 1 / k))
+                    tk_nearest = find_nearest(surv_times, tk)
+                    test_sample = test_data[test_data['Survival_time'] == tk_nearest]
+                    test_samples = pd.concat([test_samples, test_sample], axis=0)
+                test_samples = test_samples.loc[test_samples['Event'] == True]
             
             if test_samples.empty:
                 test_samples = test_data[test_data['Survival_time'] == test_data['Survival_time'].max()] \
@@ -131,12 +135,6 @@ if __name__ == "__main__":
             mtlr_model = mtlr(in_features=num_features, num_time_bins=num_time_bins, config=config)
             mtlr_model = train_mtlr_model(mtlr_model, data_train, data_valid, discrete_times,
                                           config, random_state=0, reset_model=True, device=device)
-            """
-            mtlr_model = mtlr(in_features=num_features, num_time_bins=num_time_bins, config=config)
-            mtlr_model = train_mtlr_model(mtlr_model, data_train, data_valid, discrete_times,
-                                          config, random_state=0, reset_model=True, device=device)
-            bnnsurv_model.fit(X_train_scaled.to_numpy(), y_train['Survival_time'], y_train['Event'])
-            """
             rsf_model.fit(X_train_scaled, y_train)
             
             # Predict MTLR
