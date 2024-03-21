@@ -132,9 +132,9 @@ if __name__ == "__main__":
             lower_outputs = torch.kthvalue(torch.from_numpy(surv_probs), k=1+drop_num, dim=0)[0]
             upper_outputs = torch.kthvalue(torch.from_numpy(surv_probs), k=N_POST_SAMPLES-drop_num, dim=0)[0]
             axes[plot_idx, condition].fill_between(continuous_times, upper_outputs[0,:], lower_outputs[0,:], color="gray", alpha=0.25)
-            p2 = axes[plot_idx, condition].axhline(y=0.5, linestyle= "dashed", color='blue', linewidth=1, label='$\hat{y}_{i}$ = ' + f'{pred_survival_time}')        
+            p2 = axes[plot_idx, condition].axhline(y=0.5, linestyle= "dashed", color='blue', linewidth=1, label='$\hat{t}_{i}$ = ' + f'{pred_survival_time}')        
             p3 = axes[plot_idx, condition].axvline(x=test_event_time, linestyle= "dashed",
-                                                        color='green', linewidth=2.0, label=f'$y_i$ = {int(test_event_time)}')
+                                                        color='green', linewidth=2.0, label=f'$t_i$ = {int(test_event_time)}')
             axes[plot_idx, condition].axvline(x=int(pred_survival_time), linestyle= "dashed", color='blue', linewidth=2.0)
             axes[plot_idx, condition].set_title(f'Bearing {condition+1}_{plot_idx+1}')
             axes[plot_idx, condition].set_xlabel("Time (min)")
