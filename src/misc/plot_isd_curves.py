@@ -82,8 +82,6 @@ if __name__ == "__main__":
             
             # Load test data
             test_data = dl.make_moving_average(test_bearing_id)
-            test_data = Formatter.add_random_censoring(test_data, PCT_CENSORING)
-            test_data = test_data.sample(frac=1, random_state=0)
             
             # Select first observation
             test_sample = test_data[test_data['Survival_time'] == test_data['Survival_time'].max()-5] \
