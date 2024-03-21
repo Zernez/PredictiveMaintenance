@@ -60,7 +60,7 @@ N_POST_SAMPLES = 100
 BEARING_IDS = cfg.BEARING_IDS
 
 if __name__ == "__main__":
-    for condition in cfg.CONDITIONS:
+    for condition in [1]: # Use C1
         dl = DataLoader(DATASET_NAME, AXIS, condition).load_data()
         data = pd.DataFrame()
         for bearing_id in BEARING_IDS:
