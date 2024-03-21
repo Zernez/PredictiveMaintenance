@@ -20,11 +20,7 @@ import tensorflow as tf
 import random
 from tools.data_loader import DataLoader
 from utility.survival import make_stratified_split
-
-np.random.seed(0)
-tf.random.set_seed(0)
-torch.manual_seed(0)
-random.seed(0)
+import warnings
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -40,9 +36,22 @@ plt.rcParams.update({'axes.labelsize': 'medium',
                      'text.usetex': True,
                      'text.latex.preamble': r'\usepackage{amsfonts} \usepackage{bm}'})
 
+warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
+
+np.random.seed(0)
+tf.random.set_seed(0)
+torch.manual_seed(0)
+random.seed(0)
+
+tf.config.set_visible_devices([], 'GPU') # use CPU
+
 # Setup device
 device = "cpu" # use CPU
 device = torch.device(device)
+
+# Setup TF logging
+import logging
+tf.get_logger().setLevel(logging.ERROR)
 
 DATASET_NAME = "xjtu"
 AXIS = "X"

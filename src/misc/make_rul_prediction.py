@@ -14,6 +14,7 @@ import tensorflow as tf
 import random
 from sklearn.model_selection import KFold, train_test_split
 from utility.mtlr import mtlr, train_mtlr_model, make_mtlr_prediction
+import warnings
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -21,14 +22,22 @@ class dotdict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
+warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
+
 np.random.seed(0)
 tf.random.set_seed(0)
 torch.manual_seed(0)
 random.seed(0)
 
+tf.config.set_visible_devices([], 'GPU') # use CPU
+
 # Setup device
 device = "cpu" # use CPU
 device = torch.device(device)
+
+# Setup TF logging
+import logging
+tf.get_logger().setLevel(logging.ERROR)
 
 DATASET_NAME = "xjtu"
 AXIS = "X"
