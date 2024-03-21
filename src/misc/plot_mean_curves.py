@@ -164,4 +164,5 @@ if __name__ == "__main__":
         plt.grid()
         plt.legend()
         plt.savefig(f'{cfg.PLOTS_DIR}/mean_survival_C{condition+1}.pdf', format='pdf', bbox_inches="tight")
+        plt.close()
         

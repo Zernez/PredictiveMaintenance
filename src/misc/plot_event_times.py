@@ -37,4 +37,5 @@ if __name__ == "__main__":
             ax.grid(which='major', alpha=0.5)
             plt.savefig(f'{cfg.PLOTS_DIR}/event_times_C{condition+1}_cens_{int(pct*100)}.pdf',
                         format='pdf', bbox_inches="tight")
+            plt.close()
         

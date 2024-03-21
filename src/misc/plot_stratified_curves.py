@@ -142,4 +142,5 @@ if __name__ == "__main__":
                 axes[i].grid(True)
             plt.savefig(f'{cfg.PLOTS_DIR}/group_survival_{feature}_C{condition+1}.pdf',
                         format='pdf', bbox_inches="tight")
+            plt.close()
         
