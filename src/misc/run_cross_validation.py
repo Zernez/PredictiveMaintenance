@@ -28,6 +28,8 @@ from tools.data_loader import DataLoader
 from sklearn.utils import shuffle
 from dataclasses import InitVar, dataclass, field
 from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
+from tools.Evaluations.MeanError import mean_error
+from tools.Evaluations.util import predict_median_survival_time
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -71,6 +73,7 @@ def main():
             data = pd.DataFrame()
             for bearing_id in BEARING_IDS:
                 df = dl.make_moving_average(bearing_id)
+                df['TrueTime'] = df['Survival_time']
                 df = Formatter.add_random_censoring(df, pct)
                 df = df.sample(frac=1, random_state=0)
                 data = pd.concat([data, df], axis=0)
@@ -87,9 +90,9 @@ def main():
                     model_name = model_builder.__name__
                     
                     # Format data
-                    train_x = train_data.drop(['Event', 'Survival_time'], axis=1)
+                    train_x = train_data.drop(['Event', 'Survival_time', 'TrueTime'], axis=1)
                     train_y = Surv.from_dataframe("Event", "Survival_time", train_data)
-                    test_x = test_data.drop(['Event', 'Survival_time'], axis=1)
+                    test_x = test_data.drop(['Event', 'Survival_time', 'TrueTime'], axis=1)
                     test_y = Surv.from_dataframe("Event", "Survival_time", test_data)
                     
                     # Scale data
@@ -171,6 +174,8 @@ def main():
                     bad_idx = surv_preds[surv_preds.iloc[:,0] < 0.5].index # check we have a median
                     sanitized_surv_preds = surv_preds.drop(bad_idx).reset_index(drop=True)
                     sanitized_cvi = np.delete(cvi[1], bad_idx)
+                    true_times = np.array(test_data['TrueTime'])
+                    sanitized_true_times = np.delete(true_times, bad_idx)
                     
                     # Calculate scores
                     try:
@@ -179,6 +184,7 @@ def main():
                         mae_hinge = lifelines_eval.mae(method="Hinge")
                         mae_margin = lifelines_eval.mae(method="Margin")
                         mae_pseudo = lifelines_eval.mae(method="Pseudo_obs")
+                        median_survs = lifelines_eval.predict_time_from_curve(predict_median_survival_time)
                         d_calib = lifelines_eval.d_calibration()[0]
                     except:
                         mae_hinge = np.nan
@@ -199,6 +205,10 @@ def main():
                         cond_name = "C2"
                     else:
                         cond_name = "C3"
+                        
+                    # Calculate true MAE
+                    event_indicators = np.array([1] * len(sanitized_true_times))
+                    true_mae = mean_error(median_survs, sanitized_true_times, event_indicators, method='Uncensored')
                     
                     # Calucate C-cal for BNN model
                     if model_name == "BNNSurv":
@@ -220,16 +230,14 @@ def main():
                         c_calib = 0
                     
                     try:
-                        print(f"Evaluated {cond_name} - {model_name} - {pct} - {round(mae_hinge)} - {round(mae_margin)} - {round(mae_pseudo)}")
+                        print(f"Evaluated {cond_name} - {model_name} - {pct} - {round(mae_hinge)} - {round(mae_margin)} - {round(mae_pseudo)} - {round(true_mae)}")
                     except:
                         print("Print failed, probably has NaN in results...")
                         
-                    res_sr = pd.Series([cond_name, model_name, pct, params,
-                                        mae_hinge, mae_margin, mae_pseudo, d_calib, c_calib],
-                                        index=["Condition", "ModelName", "CensoringLevel", "BestParams",
-                                               "MAEHinge", "MAEMargin", "MAEPseudo", "DCalib", "CCalib"])
+                    res_sr = pd.Series([cond_name, model_name, pct, mae_hinge, mae_margin, mae_pseudo, true_mae, d_calib, c_calib],
+                                        index=["Condition", "ModelName", "CensoringLevel", "MAEHinge", "MAEMargin", "MAEPseudo", "MAETrue", "DCalib", "CCalib"])
                     model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
-                    model_results.to_csv(f"{cfg.RESULTS_PATH}/model_results.csv")
+                    model_results.to_csv(f"{cfg.RESULTS_DIR}/model_results.csv")
 
 if __name__ == "__main__":
     main()
