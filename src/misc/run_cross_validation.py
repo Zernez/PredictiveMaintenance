@@ -30,6 +30,8 @@ from dataclasses import InitVar, dataclass, field
 from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
 from tools.Evaluations.MeanError import mean_error
 from tools.Evaluations.util import predict_median_survival_time
+from sklearn.linear_model import Lasso
+from sklearn.metrics import mean_absolute_error
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -151,7 +153,7 @@ def main():
                     else:
                         model = model_builder().make_model(params)
                         model.fit(ti[0], ti[1])
-                    
+              
                     # Get survival predictions for CVI
                     if model_name == "DeepSurv" or model_name == "DSM" or model_name == "BNNSurv":
                         xte = cvi[0].to_numpy()
@@ -168,6 +170,14 @@ def main():
                         surv_preds = pd.DataFrame(surv_preds, columns=discrete_times.numpy())
                     else:
                         surv_preds = Survival.predict_survival_function(model, cvi[0], continuous_times)
+                        
+                    # Fit LASSO for comparasion
+                    ls = Lasso(alpha=1.0, random_state=0)
+                    x_ls = train_data.loc[train_data['Event'] == True].drop(['Event', 'Survival_time', 'TrueTime'], axis=1)
+                    y_ls = train_data.loc[train_data['Event'] == True]['Survival_time']
+                    ls.fit(x_ls, y_ls)
+                    y_pred_ls = ls.predict(cvi[0])
+                    ls_mae = mean_absolute_error(cvi[1]['Survival_time'], y_pred_ls)
                     
                     # Sanitize
                     surv_preds = surv_preds.fillna(0).replace([np.inf, -np.inf], 0).clip(lower=0.001)
@@ -230,12 +240,12 @@ def main():
                         c_calib = 0
                     
                     try:
-                        print(f"Evaluated {cond_name} - {model_name} - {pct} - {round(mae_hinge)} - {round(mae_margin)} - {round(mae_pseudo)} - {round(true_mae)}")
+                        print(f"Evaluated {cond_name} - {model_name} - {pct} - {round(mae_hinge)} - {round(mae_margin)} - {round(mae_pseudo)} - {round(true_mae)} - {round(ls_mae)}")
                     except:
                         print("Print failed, probably has NaN in results...")
                         
-                    res_sr = pd.Series([cond_name, model_name, pct, mae_hinge, mae_margin, mae_pseudo, true_mae, d_calib, c_calib],
-                                        index=["Condition", "ModelName", "CensoringLevel", "MAEHinge", "MAEMargin", "MAEPseudo", "MAETrue", "DCalib", "CCalib"])
+                    res_sr = pd.Series([cond_name, model_name, pct, mae_hinge, mae_margin, mae_pseudo, true_mae, ls_mae, d_calib, c_calib],
+                                        index=["Condition", "ModelName", "CensoringLevel", "MAEHinge", "MAEMargin", "MAEPseudo", "MAETrue", "LSMAE", "DCalib", "CCalib"])
                     model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
                     model_results.to_csv(f"{cfg.RESULTS_DIR}/model_results.csv")
 

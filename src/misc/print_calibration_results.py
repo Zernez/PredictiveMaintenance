@@ -5,7 +5,7 @@ import numpy as np
 ALPHA = 0.05
 
 if __name__ == "__main__":
-    path = cfg.RESULTS_PATH
+    path = cfg.RESULTS_DIR
     results = pd.read_csv(f'{path}/model_results.csv', index_col=0)
     conditions = ["C1", "C2", "C3"]
     censoring = cfg.CENSORING_LEVELS
