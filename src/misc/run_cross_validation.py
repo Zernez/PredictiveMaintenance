@@ -173,11 +173,13 @@ def main():
                         
                     # Fit LASSO for comparasion
                     ls = Lasso(alpha=1.0, random_state=0)
-                    x_ls = train_data.loc[train_data['Event'] == True].drop(['Event', 'Survival_time', 'TrueTime'], axis=1)
-                    y_ls = train_data.loc[train_data['Event'] == True]['Survival_time']
-                    ls.fit(x_ls, y_ls)
-                    y_pred_ls = ls.predict(cvi[0])
-                    ls_mae = mean_absolute_error(cvi[1]['Survival_time'], y_pred_ls)
+                    x_train_ls = train_data.loc[train_data['Event'] == True].drop(['Event', 'Survival_time', 'TrueTime'], axis=1)
+                    x_test_ls = test_data.drop(['Event', 'Survival_time', 'TrueTime'], axis=1)
+                    y_train_ls = train_data.loc[train_data['Event'] == True]['Survival_time']
+                    y_test_ls = test_data['Survival_time']
+                    ls.fit(x_train_ls, y_train_ls)
+                    y_pred_ls = ls.predict(x_test_ls)
+                    ls_mae = mean_absolute_error(y_test_ls, y_pred_ls)
                     
                     # Sanitize
                     surv_preds = surv_preds.fillna(0).replace([np.inf, -np.inf], 0).clip(lower=0.001)
