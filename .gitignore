@@ -19,6 +19,7 @@ src/HP_crest_kurtosis.ipynb
 
 *.pt
 data.zip
+.pylintrc
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

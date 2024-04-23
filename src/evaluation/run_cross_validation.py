@@ -4,29 +4,19 @@ import warnings
 import torch
 import math
 import config as cfg
+import tensorflow as tf
+import random
 from sksurv.util import Surv
-from sklearn.model_selection import ParameterSampler
-from sklearn.model_selection import KFold
-from tools.regressors import CoxPH, CoxPHLasso, CoxBoost, RSF, DeepSurv, MTLR, BNNSurv, CoxBoost
-from tools.file_reader import FileReader
-from tools.data_ETL import DataETL
-from utility.builder import Builder
+from tools.regressors import CoxPH, CoxBoost, RSF, MTLR, BNNSurv
 from auton_survival import DeepCoxPH, DeepSurvivalMachines
 from tools.formatter import Formatter
 from tools.evaluator import LifelinesEvaluator
 from utility.survival import Survival, make_event_times, coverage, make_time_bins, make_stratification_label
-from tools.cross_validator import run_cross_validation
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import KFold, train_test_split
-from utility.data import get_window_size, get_lag, get_lmd
+from sklearn.model_selection import train_test_split
 from scipy.stats._stats_py import chisquare
-from utility.event import EventManager
-import tensorflow as tf
-import random
 from utility.mtlr import mtlr, train_mtlr_model, make_mtlr_prediction
 from tools.data_loader import DataLoader
-from sklearn.utils import shuffle
-from dataclasses import InitVar, dataclass, field
 from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
 from tools.Evaluations.MeanError import mean_error
 from tools.Evaluations.util import predict_median_survival_time
@@ -163,7 +153,7 @@ def main():
                         data_test["Survival_time"] = pd.Series(cvi[1]['Survival_time'])
                         data_test["Event"] = pd.Series(cvi[1]['Event']).astype(int)
                         mtlr_test_data = torch.tensor(data_test.drop(["Survival_time", "Event"], axis=1).values,
-                                                        dtype=torch.float, device=device)
+                                                      dtype=torch.float, device=device)
                         survival_outputs, _, _ = make_mtlr_prediction(model, mtlr_test_data, discrete_times, config)
                         surv_preds = survival_outputs.numpy()
                         discrete_times = torch.cat([torch.tensor([0]).to(discrete_times.device), discrete_times], 0)

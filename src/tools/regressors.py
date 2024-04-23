@@ -3,13 +3,9 @@ from sksurv.ensemble import RandomSurvivalForest
 from sksurv.linear_model import CoxPHSurvivalAnalysis, CoxnetSurvivalAnalysis
 from sksurv.ensemble import GradientBoostingSurvivalAnalysis
 import config as cfg
-from lifelines import WeibullAFTFitter, LogNormalAFTFitter, LogLogisticAFTFitter
-from lifelines.utils.sklearn_adapter import sklearn_adapter
-from sksurv.svm import FastSurvivalSVM
 from auton_survival import DeepCoxPH
 from auton_survival import DeepSurvivalMachines
 from bnnsurv import models
-import numpy as np
 from utility.mtlr import mtlr
 
 class dotdict(dict):

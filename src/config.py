@@ -22,7 +22,7 @@ FREQUENCY_BANDS3 = {'xjtu_start': [14, 39, 82, 122, 195],
                     'xjtu_stop': [15, 41, 84, 124, 197]}
 
 DATASHEET_LIFETIMES = {'xjtu_c1_b1': 123,
-                       'xjtu_c1_b2': 161,
+                       'xjtu_ _b2': 161,
                        'xjtu_c1_b3': 158,
                        'xjtu_c1_b4': 122,
                        'xjtu_c1_b5': 52,

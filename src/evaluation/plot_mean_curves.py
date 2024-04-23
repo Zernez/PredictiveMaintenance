@@ -2,18 +2,13 @@ import numpy as np
 import pandas as pd
 import config as cfg
 from sksurv.util import Surv
-from utility.builder import Builder
-from tools.file_reader import FileReader
-from tools.data_ETL import DataETL
 from tools.formatter import Formatter
 from xgbse.non_parametric import calculate_kaplan_vectorized
 from utility.survival import make_event_times, make_time_bins
-from utility.data import get_window_size, get_lag, get_lmd
-from utility.event import EventManager
 from sklearn.preprocessing import StandardScaler
 from tools.regressors import CoxPH, CoxBoost, RSF, MTLR, BNNSurv
 from utility.survival import Survival
-from utility.mtlr import mtlr, train_mtlr_model, make_mtlr_prediction
+from utility.mtlr import train_mtlr_model, make_mtlr_prediction
 import torch
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
@@ -60,7 +55,7 @@ N_POST_SAMPLES = 100
 BEARING_IDS = cfg.BEARING_IDS
 
 if __name__ == "__main__":
-    for condition in [2]:
+    for condition in [0, 1, 2]:
         dl = DataLoader(DATASET_NAME, AXIS, condition).load_data()
         data = pd.DataFrame()
         for bearing_id in BEARING_IDS:

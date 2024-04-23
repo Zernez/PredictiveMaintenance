@@ -4,7 +4,7 @@ import torch
 import config as cfg
 from sksurv.util import Surv
 from utility.survival import Survival
-from tools.regressors import CoxPH, RSF, DeepSurv, DSM, BNNSurv, CoxBoost, MTLR
+from tools.regressors import RSF
 from tools.evaluator import LifelinesEvaluator
 from tools.Evaluations.util import predict_median_survival_time
 from sklearn.preprocessing import StandardScaler
@@ -12,8 +12,6 @@ from utility.survival import make_event_times, make_time_bins
 from tools.data_loader import DataLoader
 import tensorflow as tf
 import random
-from sklearn.model_selection import KFold, train_test_split
-from utility.mtlr import mtlr, train_mtlr_model, make_mtlr_prediction
 import warnings
 
 class dotdict(dict):

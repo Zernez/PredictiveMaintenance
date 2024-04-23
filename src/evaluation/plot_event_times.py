@@ -1,13 +1,15 @@
-import numpy as np
 import pandas as pd
 import config as cfg
-from sksurv.util import Surv
-from utility.builder import Builder
-from tools.file_reader import FileReader
-from tools.data_ETL import DataETL
-import matplotlib.pyplot as plt
 from tools.formatter import Formatter
 from tools.data_loader import DataLoader
+
+matplotlib_style = 'default'
+import matplotlib.pyplot as plt; plt.style.use(matplotlib_style)
+plt.rcParams.update({'axes.labelsize': 'x-large',
+                     'axes.titlesize': 'x-large',
+                     'font.size': 14.0,
+                     'text.usetex': True,
+                     'text.latex.preamble': r'\usepackage{amsfonts} \usepackage{bm}'})
 
 DATASET_NAME = "xjtu"
 AXIS = "X"

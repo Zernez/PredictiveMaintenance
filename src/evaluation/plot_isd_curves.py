@@ -2,20 +2,10 @@ import numpy as np
 import pandas as pd
 import config as cfg
 from sksurv.util import Surv
-from utility.builder import Builder
-from tools.file_reader import FileReader
-from tools.data_ETL import DataETL
 from tools.formatter import Formatter
-from xgbse.non_parametric import calculate_kaplan_vectorized
-from utility.survival import make_event_times, make_time_bins
-from utility.data import get_window_size, get_lag, get_lmd
-from utility.event import EventManager
 from sklearn.preprocessing import StandardScaler
 from tools.regressors import BNNSurv
-from utility.survival import Survival
-from utility.mtlr import mtlr, train_mtlr_model, make_mtlr_prediction
 import torch
-from sklearn.model_selection import train_test_split
 from tools.evaluator import LifelinesEvaluator
 from tools.Evaluations.util import predict_median_survival_time
 from matplotlib.patches import Rectangle
@@ -24,6 +14,7 @@ import tensorflow as tf
 import random
 from tools.data_loader import DataLoader
 import warnings
+from utility.survival import make_event_times
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -68,7 +59,6 @@ if __name__ == "__main__":
     for condition in cfg.CONDITIONS:
         dl = DataLoader(DATASET_NAME, AXIS, condition).load_data()
         for test_bearing_id, plot_idx in zip(BEARING_IDS, PLOT_INDICIES):
-            
             # Define train ids
             train_ids = [x for x in BEARING_IDS if x != test_bearing_id]
             
